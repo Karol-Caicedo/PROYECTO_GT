@@ -34,7 +34,7 @@ export class UsersController {
       nombre: dto.nombre,
       passwordHash: await bcrypt.hash(dto.password, 10),
       proveedorAuth: 'local',
-      semestre: dto.semestre,
+      semestre: dto.rol === 'ADMIN' ? (dto.semestre ?? 1) : (dto.semestre ?? 1),
       rol: dto.rol,
       aceptoDatosAt: null,
     });

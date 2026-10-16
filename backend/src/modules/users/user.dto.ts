@@ -11,10 +11,11 @@ export class CrearUsuarioDto {
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   password: string;
 
+  @IsOptional()
   @IsInt({ message: 'Semestre debe ser un número entre 1 y 9' })
   @Min(1)
   @Max(9)
-  semestre: number;
+  semestre?: number;
 
   @IsIn(['ESTUDIANTE', 'ADMIN'], { message: 'Rol inválido' })
   rol: 'ESTUDIANTE' | 'ADMIN' = 'ESTUDIANTE';

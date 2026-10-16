@@ -97,21 +97,23 @@ interface Usuario {
         </mat-form-field>
 
         <mat-form-field class="full-width">
-          <mat-label>Semestre</mat-label>
-          <mat-select formControlName="semestre">
-            @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-              <mat-option [value]="s">Semestre {{ s }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field class="full-width">
           <mat-label>Rol</mat-label>
           <mat-select formControlName="rol">
             <mat-option value="ESTUDIANTE">Estudiante</mat-option>
             <mat-option value="ADMIN">Administrador</mat-option>
           </mat-select>
         </mat-form-field>
+
+        @if (form.get('rol')?.value !== 'ADMIN') {
+          <mat-form-field class="full-width">
+            <mat-label>Semestre</mat-label>
+            <mat-select formControlName="semestre">
+              @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+                <mat-option [value]="s">Semestre {{ s }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
 
         <mat-form-field class="full-width">
           <mat-label>Nueva contraseña (opcional)</mat-label>
@@ -146,20 +148,38 @@ export class EditarUsuarioDialogComponent {
   form = this.fb.group({
     nombre: [this.datos.usuario.nombre, Validators.required],
     correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
-    semestre: [this.datos.usuario.semestre, [Validators.required, Validators.min(1), Validators.max(9)]],
+    semestre: [this.datos.usuario.semestre || 1],
     rol: [this.datos.usuario.rol, Validators.required],
     password: ['', [Validators.minLength(8)]],
   });
+
+  constructor() {
+    this.actualizarValidadoresSemestre(this.form.get('rol')?.value);
+    this.form.get('rol')?.valueChanges.subscribe((r) => {
+      this.actualizarValidadoresSemestre(r);
+    });
+  }
+
+  private actualizarValidadoresSemestre(rol: string | null | undefined) {
+    const semControl = this.form.controls.semestre;
+    if (rol === 'ADMIN') {
+      semControl.clearValidators();
+    } else {
+      semControl.setValidators([Validators.required, Validators.min(1), Validators.max(9)]);
+    }
+    semControl.updateValueAndValidity();
+  }
 
   async guardar() {
     this.error.set('');
     this.cargando.set(true);
     try {
       const val = this.form.value;
+      const esAdmin = val.rol === 'ADMIN';
       const body: Record<string, unknown> = {
         nombre: val.nombre,
         correo: val.correo,
-        semestre: Number(val.semestre),
+        semestre: esAdmin ? 1 : Number(val.semestre || 1),
         rol: val.rol,
       };
       if (val.password && val.password.trim().length > 0) {
@@ -184,6 +204,10 @@ export class EditarUsuarioDialogComponent {
   styles: [`
     .dos-columnas { display: grid; grid-template-columns: 340px 1fr; gap: var(--esp-4); align-items: start; }
     @media (max-width: 900px) { .dos-columnas { grid-template-columns: 1fr; } }
+    .dos-columnas mat-form-field { width: 100% !important; display: block !important; }
+    .dos-columnas ::ng-deep .mat-mdc-form-field { width: 100% !important; display: block !important; }
+    .dos-columnas ::ng-deep .mat-mdc-text-field-wrapper { width: 100% !important; }
+    .dos-columnas ::ng-deep .mat-mdc-form-field-infix { width: 100% !important; min-width: 0 !important; }
     .acciones { display: flex; gap: var(--esp-1); justify-content: flex-end; align-items: center; }
     .btn-accion-editar {
       color: var(--azul-500);
@@ -220,15 +244,19 @@ export class EditarUsuarioDialogComponent {
             <mat-form-field class="full-width"><mat-label>Contraseña inicial (mínimo 8)</mat-label>
               <input matInput formControlName="password" type="password" autocomplete="new-password" />
             </mat-form-field>
-            <mat-form-field class="full-width"><mat-label>Semestre</mat-label>
-              <mat-select formControlName="semestre">
-                @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">Semestre {{ s }}</mat-option> }
-              </mat-select></mat-form-field>
             <mat-form-field class="full-width"><mat-label>Rol</mat-label>
               <mat-select formControlName="rol">
                 <mat-option value="ESTUDIANTE">Estudiante</mat-option>
                 <mat-option value="ADMIN">Administrador</mat-option>
-              </mat-select></mat-form-field>
+              </mat-select>
+            </mat-form-field>
+            @if (form.get('rol')?.value !== 'ADMIN') {
+              <mat-form-field class="full-width"><mat-label>Semestre</mat-label>
+                <mat-select formControlName="semestre">
+                  @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">Semestre {{ s }}</mat-option> }
+                </mat-select>
+              </mat-form-field>
+            }
             @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
             <button mat-raised-button color="primary" class="full-width" [disabled]="form.invalid || guardando()">
               {{ guardando() ? 'Creando…' : 'Crear usuario' }}
@@ -246,7 +274,7 @@ export class EditarUsuarioDialogComponent {
               <ng-container matColumnDef="rol"><th mat-header-cell *matHeaderCellDef>Rol</th>
                 <td mat-cell *matCellDef="let u"><app-status-chip [texto]="u.rol === 'ADMIN' ? 'Admin' : 'Estudiante'" [tono]="u.rol === 'ADMIN' ? 'ambar' : 'azul'" /></td></ng-container>
               <ng-container matColumnDef="semestre"><th mat-header-cell *matHeaderCellDef>Sem.</th>
-                <td mat-cell *matCellDef="let u">S{{ u.semestre }}</td></ng-container>
+                <td mat-cell *matCellDef="let u">{{ u.rol === 'ADMIN' ? '—' : 'S' + u.semestre }}</td></ng-container>
               <ng-container matColumnDef="acc"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let u">
                 <div class="acciones">
                   <button mat-icon-button class="btn-accion-editar" (click)="editar(u)" aria-label="Editar usuario" title="Editar">
@@ -280,9 +308,26 @@ export class UsuariosAdminComponent implements OnInit {
     nombre: ['', Validators.required],
     correo: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
-    semestre: [1, [Validators.required, Validators.min(1), Validators.max(9)]],
+    semestre: [1],
     rol: ['ESTUDIANTE' as 'ESTUDIANTE' | 'ADMIN', Validators.required],
   });
+
+  constructor() {
+    this.actualizarValidadoresSemestre(this.form.get('rol')?.value);
+    this.form.get('rol')?.valueChanges.subscribe((r) => {
+      this.actualizarValidadoresSemestre(r);
+    });
+  }
+
+  private actualizarValidadoresSemestre(rol: string | null | undefined) {
+    const semControl = this.form.controls.semestre;
+    if (rol === 'ADMIN') {
+      semControl.clearValidators();
+    } else {
+      semControl.setValidators([Validators.required, Validators.min(1), Validators.max(9)]);
+    }
+    semControl.updateValueAndValidity();
+  }
 
   async ngOnInit() { await this.cargar(); }
   async cargar() {
@@ -293,7 +338,12 @@ export class UsuariosAdminComponent implements OnInit {
     this.error.set('');
     this.guardando.set(true);
     try {
-      await this.http.post(`${this.api}/usuarios`, { ...this.form.value, semestre: Number(this.form.value.semestre) }).toPromise();
+      const val = this.form.value;
+      const esAdmin = val.rol === 'ADMIN';
+      await this.http.post(`${this.api}/usuarios`, {
+        ...val,
+        semestre: esAdmin ? 1 : Number(val.semestre || 1),
+      }).toPromise();
       this.form.reset({ semestre: 1, rol: 'ESTUDIANTE' });
       await this.cargar();
       this.ui.exito('Usuario creado. Compártele su clave inicial por un canal seguro.');
