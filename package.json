@@ -14,6 +14,7 @@
     "build:frontend": "npm --prefix frontend run build",
     "migrate": "npm --prefix backend run migration:run",
     "seed": "npm --prefix backend run seed",
+    "seed:prod": "npm --prefix backend run seed:prod",
     "test": "npm --prefix backend test",
     "docker:up": "docker compose up -d postgres adminer",
     "docker:full": "docker compose --profile full up --build",
