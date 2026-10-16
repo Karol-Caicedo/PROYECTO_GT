@@ -13,6 +13,7 @@ import { environment } from '../../../environments/environment';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
 import { UiService } from '../../shared/ui/ui.service';
+import { AuthService } from '../../core/auth.service';
 
 interface Usuario {
   id: string;
@@ -24,45 +25,104 @@ interface Usuario {
 }
 
 @Component({
-  selector: 'app-clave-dialog',
+  selector: 'app-editar-usuario-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDialogModule],
+  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatDialogModule],
   template: `
     <div style="padding: var(--esp-6)">
-      <h2 class="titulo-seccion">Nueva clave para {{ nombre }}</h2>
+      <h2 class="titulo-seccion">Editar usuario</h2>
       <form [formGroup]="form" (ngSubmit)="guardar()">
-        <mat-form-field class="full-width"><mat-label>Contraseña (mínimo 8 caracteres)</mat-label>
-          <input matInput formControlName="password" type="password" autocomplete="new-password" />
-          @if (form.controls.password.invalid && form.controls.password.touched) { <mat-error>Mínimo 8 caracteres</mat-error> }
+        <mat-form-field class="full-width">
+          <mat-label>Nombre completo</mat-label>
+          <input matInput formControlName="nombre" />
+          @if (form.controls.nombre.invalid && form.controls.nombre.touched) {
+            <mat-error>El nombre es obligatorio</mat-error>
+          }
         </mat-form-field>
+
+        <mat-form-field class="full-width">
+          <mat-label>Correo institucional</mat-label>
+          <input matInput formControlName="correo" type="email" />
+          @if (form.controls.correo.invalid && form.controls.correo.touched) {
+            <mat-error>Escribe un correo válido</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field class="full-width">
+          <mat-label>Semestre</mat-label>
+          <mat-select formControlName="semestre">
+            @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+              <mat-option [value]="s">Semestre {{ s }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="full-width">
+          <mat-label>Rol</mat-label>
+          <mat-select formControlName="rol">
+            <mat-option value="ESTUDIANTE">Estudiante</mat-option>
+            <mat-option value="ADMIN">Administrador</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="full-width">
+          <mat-label>Nueva contraseña (opcional)</mat-label>
+          <input matInput formControlName="password" type="password" autocomplete="new-password" placeholder="Dejar en blanco para no cambiarla" />
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <mat-error>Mínimo 8 caracteres</mat-error>
+          }
+        </mat-form-field>
+
         @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-        <div style="display:flex;justify-content:flex-end;gap:var(--esp-2)">
+
+        <div style="display:flex;justify-content:flex-end;gap:var(--esp-2);margin-top:var(--esp-4)">
           <button mat-button type="button" (click)="ref.close()">Cancelar</button>
-          <button mat-raised-button color="primary" [disabled]="form.invalid || cargando()">Guardar</button>
+          <button mat-raised-button color="primary" [disabled]="form.invalid || cargando()">
+            {{ cargando() ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
         </div>
       </form>
     </div>
   `,
 })
-export class ClaveDialogComponent {
-  ref = inject<MatDialogRef<ClaveDialogComponent>>(MatDialogRef);
-  datos = inject(MAT_DIALOG_DATA) as { id: string; nombre: string };
+export class EditarUsuarioDialogComponent {
+  ref = inject<MatDialogRef<EditarUsuarioDialogComponent>>(MatDialogRef);
+  datos = inject(MAT_DIALOG_DATA) as { usuario: Usuario };
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private api = environment.apiUrl;
+
   error = signal('');
   cargando = signal(false);
-  form = this.fb.group({ password: ['', [Validators.required, Validators.minLength(8)]] });
-  nombre = this.datos.nombre;
+
+  form = this.fb.group({
+    nombre: [this.datos.usuario.nombre, Validators.required],
+    correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
+    semestre: [this.datos.usuario.semestre, [Validators.required, Validators.min(1), Validators.max(9)]],
+    rol: [this.datos.usuario.rol, Validators.required],
+    password: ['', [Validators.minLength(8)]],
+  });
 
   async guardar() {
     this.error.set('');
     this.cargando.set(true);
     try {
-      await this.http.patch(`${this.api}/usuarios/${this.datos.id}/clave`, { password: this.form.value.password }).toPromise();
+      const val = this.form.value;
+      const body: Record<string, unknown> = {
+        nombre: val.nombre,
+        correo: val.correo,
+        semestre: Number(val.semestre),
+        rol: val.rol,
+      };
+      if (val.password && val.password.trim().length > 0) {
+        body['password'] = val.password.trim();
+      }
+
+      await this.http.patch(`${this.api}/usuarios/${this.datos.usuario.id}`, body).toPromise();
       this.ref.close(true);
-    } catch {
-      this.error.set('No se pudo actualizar la clave.');
+    } catch (e: unknown) {
+      const msg = (e as { error?: { message?: string | string[] } })?.error?.message;
+      this.error.set(Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo actualizar el usuario.');
     } finally {
       this.cargando.set(false);
     }
@@ -76,7 +136,26 @@ export class ClaveDialogComponent {
   styles: [`
     .dos-columnas { display: grid; grid-template-columns: 340px 1fr; gap: var(--esp-4); align-items: start; }
     @media (max-width: 900px) { .dos-columnas { grid-template-columns: 1fr; } }
-    .acciones { display: flex; gap: var(--esp-1); justify-content: flex-end; }
+    .acciones { display: flex; gap: var(--esp-1); justify-content: flex-end; align-items: center; }
+    .btn-accion-editar {
+      color: var(--azul-500);
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .btn-accion-editar:hover {
+      background-color: var(--azul-50);
+      color: var(--azul-700);
+    }
+    .btn-accion-borrar {
+      color: var(--error);
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .btn-accion-borrar:hover {
+      background-color: var(--error-fondo);
+    }
+    .mat-column-acc {
+      width: 100px;
+      text-align: right;
+    }
   `],
   template: `
     <div class="pagina">
@@ -122,8 +201,11 @@ export class ClaveDialogComponent {
                 <td mat-cell *matCellDef="let u">S{{ u.semestre }}</td></ng-container>
               <ng-container matColumnDef="acc"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let u">
                 <div class="acciones">
-                  <button mat-icon-button (click)="restablecer(u)" aria-label="Restablecer clave" title="Restablecer clave">
-                    <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                  <button mat-icon-button class="btn-accion-editar" (click)="editar(u)" aria-label="Editar usuario" title="Editar">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                  </button>
+                  <button mat-icon-button class="btn-accion-borrar" (click)="eliminar(u)" aria-label="Eliminar usuario" title="Eliminar">
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                   </button>
                 </div>
               </td></ng-container>
@@ -140,6 +222,7 @@ export class UsuariosAdminComponent implements OnInit {
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
   private ui = inject(UiService);
+  private auth = inject(AuthService);
   private dialog = inject(MatDialog);
   private api = environment.apiUrl;
   usuarios = signal<Usuario[]>([]);
@@ -173,10 +256,35 @@ export class UsuariosAdminComponent implements OnInit {
       this.guardando.set(false);
     }
   }
-  restablecer(u: Usuario) {
-    this.dialog.open(ClaveDialogComponent, { data: { id: u.id, nombre: u.nombre }, width: '440px' })
+  editar(u: Usuario) {
+    this.dialog.open(EditarUsuarioDialogComponent, { data: { usuario: u }, width: '460px' })
       .afterClosed().toPromise().then((ok) => {
-        if (ok) this.ui.exito('Clave actualizada.');
+        if (ok) {
+          this.ui.exito('Usuario actualizado.');
+          this.cargar();
+        }
       });
+  }
+  async eliminar(u: Usuario) {
+    if (this.auth.usuario()?.id === u.id) {
+      this.ui.error('No puedes eliminar tu propia cuenta de administrador.');
+      return;
+    }
+    const ok = await this.ui.confirmar({
+      titulo: 'Eliminar usuario',
+      mensaje: `¿Estás seguro de que deseas eliminar al usuario "${u.nombre}" (${u.correo})?`,
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    });
+    if (!ok) return;
+
+    try {
+      await this.http.delete(`${this.api}/usuarios/${u.id}`).toPromise();
+      this.ui.exito('Usuario eliminado correctamente.');
+      await this.cargar();
+    } catch (e: unknown) {
+      const msg = (e as { error?: { message?: string | string[] } })?.error?.message;
+      this.ui.error(Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo eliminar el usuario.');
+    }
   }
 }

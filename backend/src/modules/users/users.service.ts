@@ -28,4 +28,10 @@ export class UsersService {
     if (semestre) qb.andWhere('u.semestre = :s', { s: semestre });
     return qb.getCount();
   }
+  async remove(id: string) {
+    const u = await this.findById(id);
+    if (!u) return false;
+    await this.repo.remove(u);
+    return true;
+  }
 }
