@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -26,6 +27,22 @@ async function bootstrap() {
   const abs = uploadsDir.startsWith('/') ? uploadsDir : join(process.cwd(), uploadsDir);
   if (!existsSync(abs)) mkdirSync(abs, { recursive: true });
   app.useStaticAssets(abs, { prefix: '/uploads/' });
+
+  // Despliegue de un solo servicio: servir el frontend Angular compilado.
+  // En desarrollo local la carpeta no existe y se ignora sin errores.
+  const webDir = [
+    join(process.cwd(), 'frontend', 'dist', 'app', 'browser'),
+    join(process.cwd(), '..', 'frontend', 'dist', 'app', 'browser'),
+  ].find((d) => existsSync(join(d, 'index.html')));
+  if (webDir) {
+    app.useStaticAssets(webDir, { index: false });
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
+      res.sendFile(join(webDir, 'index.html'));
+    });
+    // eslint-disable-next-line no-console
+    console.log(`Sirviendo frontend desde ${webDir}`);
+  }
 
   const docConfig = new DocumentBuilder()
     .setTitle('SIGICE API')

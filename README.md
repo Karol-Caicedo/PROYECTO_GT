@@ -106,6 +106,25 @@ docker compose --profile full up --build
 
 ---
 
+## 5b. Despliegue en Railway (un solo servicio)
+
+El backend compila y sirve también el frontend (`railway.json` ya trae la
+configuración; `Root Directory` en la raíz del repo):
+
+- **Build Command:** `npm run install:all && npm run build`
+- **Start Command:** `npm --prefix backend run migration:run && npm --prefix backend run start:prod`
+- Agrega un plugin **Postgres** y define estas variables (usa los valores de
+  referencia del plugin, ej. `DB_HOST=${{Postgres.PGHOST}}`):
+  `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,
+  más `JWT_SECRET` (secreto largo propio), `ALLOWED_EMAIL_DOMAIN`,
+  `FRONTEND_URL` (la URL pública del servicio), `RESEND_API_KEY` y
+  `RESEND_FROM`. `PORT` lo inyecta Railway solo.
+- Para que los logos/imágenes de capacitaciones sobrevivan a despliegues,
+  agrega un **Volume** montado en `/app/uploads` y define
+  `UPLOADS_DIR=/app/uploads`.
+
+---
+
 ## 6. Configuración (`.env`)
 
 Copia y ajusta desde `.env.example` (el `setup` lo crea solo):
