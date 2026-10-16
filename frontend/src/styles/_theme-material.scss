@@ -184,3 +184,98 @@ app-confirm-dialog .dialogo {
   color: var(--azul-700) !important;
   font-weight: 700 !important;
 }
+
+/* ============================================================
+   CALENDARIO / DATEPICKER: Fondo blanco sólido y estilo nítido
+   ============================================================ */
+.mat-datepicker-content,
+.mat-datepicker-content-container,
+.mat-datepicker-content .mat-calendar,
+.mat-calendar,
+.mat-calendar-content {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.mat-datepicker-content {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 0 1px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid var(--borde) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+
+.mat-datepicker-content .mat-calendar-header {
+  background-color: #ffffff !important;
+  padding: 10px 8px 4px !important;
+}
+
+.mat-calendar-period-button {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: #0f172a !important;
+  text-transform: capitalize !important;
+}
+
+.mat-calendar-arrow {
+  border-top-color: #0f172a !important;
+}
+
+.mat-calendar-previous-button,
+.mat-calendar-next-button {
+  color: #0f172a !important;
+}
+
+.mat-calendar-table-header {
+  background-color: #ffffff !important;
+}
+
+.mat-calendar-table-header th {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding-bottom: 8px !important;
+}
+
+.mat-calendar-body-cell-content {
+  color: #0f172a !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+
+.mat-calendar-body-cell:hover .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+
+/* Celda seleccionada: azul sólido (#007bff) con texto blanco y relieve */
+.mat-calendar-body-selected,
+.mat-calendar-body-cell-content.mat-calendar-body-selected {
+  background-color: #007bff !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4) !important;
+}
+
+/* Celda de hoy cuando no está seleccionada */
+.mat-calendar-body-today:not(.mat-calendar-body-selected) {
+  border: 2px solid #007bff !important;
+  font-weight: 700 !important;
+  color: #007bff !important;
+}
+
+/* Indicadores de selector nativo del navegador */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.2);
+  opacity: 0.85;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
