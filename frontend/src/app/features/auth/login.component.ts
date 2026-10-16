@@ -29,10 +29,52 @@ import { environment } from '../../../environments/environment';
     .sso a { flex: 1 1 140px; }
     .pie { text-align: center; margin-top: var(--esp-4); font-size: var(--t-secundario); }
     .pie a { color: var(--azul-700); font-weight: 700; }
-    form { display: flex; flex-direction: column; align-items: center; width: 100%; }
-    mat-form-field { width: 100%; display: block; margin: 0 auto; }
-    .full-width { width: 100%; }
-    button.full-width { margin-top: var(--esp-2); width: 100%; }
+    .formulario-login { display: flex; flex-direction: column; align-items: center; width: 100%; gap: var(--esp-3); }
+    .campo-grupo { width: 100%; display: flex; flex-direction: column; }
+    .etiqueta-campo { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--azul-900); margin-bottom: 6px; }
+    .campo-contenedor {
+      display: flex; align-items: center; gap: var(--esp-2); width: 100%;
+      background: var(--superficie); border: 1.5px solid var(--borde); border-radius: 14px;
+      padding: 0 var(--esp-3); height: 48px; box-sizing: border-box;
+      transition: border-color var(--transicion-rapida), box-shadow var(--transicion-rapida);
+    }
+    .campo-contenedor:focus-within {
+      border-color: var(--azul-500);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--azul-500) 25%, transparent), 0 0 10px color-mix(in srgb, var(--azul-500) 20%, transparent);
+    }
+    .campo-contenedor.con-error { border-color: var(--error); }
+    .icono-campo { color: var(--texto-secundario); font-size: 20px; flex-shrink: 0; user-select: none; }
+    .campo-contenedor:focus-within .icono-campo { color: var(--azul-500); }
+    .input-campo {
+      flex: 1; width: 100%; height: 100%; border: none; outline: none; background: transparent;
+      color: var(--texto); font-family: inherit; font-size: 14px;
+    }
+    .input-campo::placeholder { color: var(--texto-secundario); opacity: 0.65; }
+    .error-texto { color: var(--error); font-size: 12px; margin-top: 4px; font-weight: 500; }
+    .olvido-enlace {
+      align-self: flex-end;
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--azul-700);
+      text-decoration: none;
+      transition: color var(--transicion-rapida);
+    }
+    .olvido-enlace:hover {
+      color: var(--azul-500);
+      text-decoration: underline;
+    }
+    .btn-ingresar {
+      background: #f59e0b; color: var(--azul-900); font-family: inherit; font-weight: 700;
+      font-size: 15px; letter-spacing: 0.02em; border: none; border-radius: 14px;
+      padding: 10px 32px; min-width: 150px; max-width: 190px; cursor: pointer;
+      margin-top: var(--esp-2); box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+      transition: background var(--transicion-rapida), transform var(--transicion-rapida), box-shadow var(--transicion-rapida);
+    }
+    .btn-ingresar:hover:not(:disabled) {
+      background: #d97706; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
+    }
+    .btn-ingresar:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
   `],
   template: `
     <div class="fondo">
@@ -41,17 +83,47 @@ import { environment } from '../../../environments/environment';
           <img class="logo" src="assets/logo.jpg" alt="Escudo de la Universidad del Pacífico" />
           <h1>SIGICE</h1>
           <p class="sub">Ingeniería de Sistemas · Proyección Social</p>
-          <form [formGroup]="form" (ngSubmit)="entrar()">
-            <mat-form-field class="full-width"><mat-label>Correo institucional</mat-label>
-              <input matInput formControlName="correo" type="email" autocomplete="username" placeholder="usuario@gmail.com" />
-              @if (form.controls.correo.invalid && form.controls.correo.touched) { <mat-error>Escribe un correo válido</mat-error> }
-            </mat-form-field>
-            <mat-form-field class="full-width"><mat-label>Contraseña</mat-label>
-              <input matInput formControlName="password" type="password" autocomplete="current-password" />
-              @if (form.controls.password.invalid && form.controls.password.touched) { <mat-error>Escribe tu contraseña</mat-error> }
-            </mat-form-field>
+          <form [formGroup]="form" (ngSubmit)="entrar()" class="formulario-login">
+            <div class="campo-grupo">
+              <label for="campo-correo" class="etiqueta-campo">Correo institucional</label>
+              <div class="campo-contenedor" [class.con-error]="form.controls.correo.invalid && form.controls.correo.touched">
+                <span class="material-symbols-outlined icono-campo" aria-hidden="true">person</span>
+                <input
+                  id="campo-correo"
+                  formControlName="correo"
+                  type="email"
+                  autocomplete="username"
+                  placeholder="ej. usuario@unipacifico.edu.co"
+                  class="input-campo"
+                />
+              </div>
+              @if (form.controls.correo.invalid && form.controls.correo.touched) {
+                <span class="error-texto">Escribe un correo válido</span>
+              }
+            </div>
+
+            <div class="campo-grupo">
+              <label for="campo-password" class="etiqueta-campo">Contraseña</label>
+              <div class="campo-contenedor" [class.con-error]="form.controls.password.invalid && form.controls.password.touched">
+                <span class="material-symbols-outlined icono-campo" aria-hidden="true">lock</span>
+                <input
+                  id="campo-password"
+                  formControlName="password"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="••••••••"
+                  class="input-campo"
+                />
+              </div>
+              @if (form.controls.password.invalid && form.controls.password.touched) {
+                <span class="error-texto">Escribe tu contraseña</span>
+              }
+              <a routerLink="/auth/recuperar" class="olvido-enlace">¿Olvidaste tu contraseña?</a>
+            </div>
+
             @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-            <button mat-raised-button color="primary" class="full-width" [disabled]="form.invalid || cargando()">
+
+            <button type="submit" class="btn-ingresar" [disabled]="form.invalid || cargando()">
               {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
             </button>
           </form>
@@ -62,7 +134,6 @@ import { environment } from '../../../environments/environment';
               <a mat-stroked-button color="primary" [href]="api + '/auth/microsoft'">Microsoft</a>
             </div>
           }
-          <p class="pie"><a routerLink="/auth/recuperar">¿Olvidaste tu contraseña?</a></p>
         </mat-card-content>
       </mat-card>
     </div>
