@@ -29,6 +29,10 @@ import { environment } from '../../../environments/environment';
     .sso a { flex: 1 1 140px; }
     .pie { text-align: center; margin-top: var(--esp-4); font-size: var(--t-secundario); }
     .pie a { color: var(--azul-700); font-weight: 700; }
+    form { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    mat-form-field { width: 100%; display: block; margin: 0 auto; }
+    .full-width { width: 100%; }
+    button.full-width { margin-top: var(--esp-2); width: 100%; }
   `],
   template: `
     <div class="fondo">
@@ -59,7 +63,6 @@ import { environment } from '../../../environments/environment';
             </div>
           }
           <p class="pie"><a routerLink="/auth/recuperar">¿Olvidaste tu contraseña?</a></p>
-          <p class="pie texto-secundario">Las cuentas las crea Proyección Social.</p>
         </mat-card-content>
       </mat-card>
     </div>

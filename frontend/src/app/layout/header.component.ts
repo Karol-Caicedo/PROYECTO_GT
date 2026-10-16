@@ -72,8 +72,6 @@ import { LayoutService } from './layout.service';
           <p style="padding:0 16px;font-size:14px;color:var(--texto-secundario)">{{ auth.usuario()?.correo }}</p>
           <button mat-menu-item (click)="salir()"><span class="material-symbols-outlined" aria-hidden="true">logout</span>&nbsp;Cerrar sesión</button>
         </mat-menu>
-      } @else {
-        <a mat-raised-button color="primary" routerLink="/auth/login">Ingresar</a>
       }
     </mat-toolbar>
   `,
