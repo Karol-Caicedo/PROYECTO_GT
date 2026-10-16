@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { environment } from '../../../environments/environment';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
@@ -18,7 +19,7 @@ interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: s
 @Component({
   selector: 'app-periodos-admin',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, PageHeaderComponent, StatusChipComponent],
+  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, MatDatepickerModule, PageHeaderComponent, StatusChipComponent],
   styles: [`
     .form-crear { display: flex; gap: var(--esp-3); flex-wrap: wrap; align-items: flex-start; }
     .form-crear mat-form-field { flex: 1 1 180px; }
@@ -32,10 +33,20 @@ interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: s
         <h2 class="titulo-seccion">Crear periodo</h2>
         <form [formGroup]="form" (ngSubmit)="crear()" class="form-crear">
           <mat-form-field><mat-label>Nombre (ej. 2026-2)</mat-label><input matInput formControlName="nombre" /></mat-form-field>
-          <mat-form-field><mat-label>Inicio</mat-label><input matInput type="date" formControlName="fechaInicio" /></mat-form-field>
-          <mat-form-field><mat-label>Fin</mat-label><input matInput type="date" formControlName="fechaFin" /></mat-form-field>
+          <mat-form-field>
+            <mat-label>Inicio</mat-label>
+            <input matInput [matDatepicker]="pickerInicio" formControlName="fechaInicio" placeholder="dd/mm/aaaa" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerInicio"></mat-datepicker-toggle>
+            <mat-datepicker #pickerInicio></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Fin</mat-label>
+            <input matInput [matDatepicker]="pickerFin" formControlName="fechaFin" placeholder="dd/mm/aaaa" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerFin"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFin></mat-datepicker>
+          </mat-form-field>
           <mat-form-field><mat-label>Modo de encuesta</mat-label><mat-select formControlName="modoEncuesta">
-            <mat-option value="seleccion">Selección (hasta 5 temas)</mat-option><mat-option value="calificacion">Calificación (1 a 5)</mat-option>
+            <mat-option value="seleccion">Selección (hasta 5 temas)</mat-option>
           </mat-select>
             <mat-hint>Define cómo responden los estudiantes</mat-hint></mat-form-field>
           <button mat-raised-button color="primary" [disabled]="form.invalid">Crear</button>
@@ -83,7 +94,23 @@ export class PeriodosAdminComponent implements OnInit {
     this.periodos.set(r || []);
   }
   async crear() {
-    await this.http.post(`${this.api}/periodos`, { ...this.form.value, activo: false }).toPromise();
+    const val = this.form.value;
+    const toYmd = (d: any) => {
+      if (!d) return '';
+      if (d instanceof Date) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+      return String(d).split('T')[0];
+    };
+    await this.http.post(`${this.api}/periodos`, {
+      ...val,
+      fechaInicio: toYmd(val.fechaInicio),
+      fechaFin: toYmd(val.fechaFin),
+      activo: false,
+    }).toPromise();
     this.form.reset({ modoEncuesta: 'seleccion' });
     await this.cargar();
     this.ui.exito('Periodo creado.');

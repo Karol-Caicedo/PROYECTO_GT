@@ -17,7 +17,7 @@ export interface DatosConfirmacion {
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatDialogModule],
   styles: [`
-    .dialogo { padding: var(--esp-6); max-width: 440px; }
+    .dialogo { padding: var(--esp-6); max-width: 440px; background: #ffffff; border-radius: var(--radio-l); }
     h2 { color: var(--azul-900); font-size: var(--t-titulo-sm); margin: 0 0 var(--esp-2); display: flex; gap: var(--esp-2); align-items: center; }
     h2 .material-symbols-outlined { color: var(--azul-500); }
     h2.peligro .material-symbols-outlined { color: var(--error); }

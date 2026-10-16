@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { environment } from '../../../environments/environment';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
@@ -18,7 +19,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
 @Component({
   selector: 'app-caps-admin',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, PageHeaderComponent, StatusChipComponent],
+  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatDatepickerModule, PageHeaderComponent, StatusChipComponent],
   styles: [`
     .dos-columnas { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--esp-4); align-items: start; }
     @media (max-width: 1000px) { .dos-columnas { grid-template-columns: 1fr; } }
@@ -82,7 +83,12 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
             </fieldset>
             <fieldset><legend>Fecha y modalidad</legend>
               <div class="fila">
-                <mat-form-field><mat-label>Fecha del evento (opcional)</mat-label><input matInput type="datetime-local" formControlName="fechaEvento" /></mat-form-field>
+                <mat-form-field>
+                  <mat-label>Fecha del evento (opcional)</mat-label>
+                  <input matInput [matDatepicker]="pickerEvento" formControlName="fechaEvento" placeholder="dd/mm/aaaa" />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerEvento"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerEvento></mat-datepicker>
+                </mat-form-field>
                 <mat-form-field><mat-label>Modalidad</mat-label><mat-select formControlName="modalidad">
                   <mat-option value="virtual">Virtual</mat-option><mat-option value="presencial">Presencial</mat-option>
                 </mat-select></mat-form-field>
@@ -103,8 +109,18 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
             </fieldset>
             <fieldset><legend>Visibilidad</legend>
               <div class="fila">
-                <mat-form-field><mat-label>Visible desde (opcional)</mat-label><input matInput type="datetime-local" formControlName="visibleDesde" /></mat-form-field>
-                <mat-form-field><mat-label>Visible hasta (opcional)</mat-label><input matInput type="datetime-local" formControlName="visibleHasta" /></mat-form-field>
+                <mat-form-field>
+                  <mat-label>Visible desde (opcional)</mat-label>
+                  <input matInput [matDatepicker]="pickerDesde" formControlName="visibleDesde" placeholder="dd/mm/aaaa" />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerDesde"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerDesde></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Visible hasta (opcional)</mat-label>
+                  <input matInput [matDatepicker]="pickerHasta" formControlName="visibleHasta" placeholder="dd/mm/aaaa" />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerHasta"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerHasta></mat-datepicker>
+                </mat-form-field>
               </div>
               <p class="texto-secundario">Si se vence la fecha, la tarjeta se oculta sola al estudiante.</p>
             </fieldset>
@@ -229,7 +245,15 @@ export class CapacitacionesAdminComponent implements OnInit {
     this.guardando.set(true);
     try {
       const fd = new FormData();
-      for (const [k, v] of Object.entries(this.form.value)) if (v) fd.append(k, String(v));
+      for (const [k, v] of Object.entries(this.form.value)) {
+        if (v) {
+          if ((v as unknown) instanceof Date) {
+            fd.append(k, (v as unknown as Date).toISOString());
+          } else {
+            fd.append(k, String(v));
+          }
+        }
+      }
       fd.append('semestres', JSON.stringify(this.todos() ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : this.semSel()));
       if (this.archivo) fd.append('imagen', this.archivo);
       await this.http.post(`${this.api}/capacitaciones`, fd).toPromise();

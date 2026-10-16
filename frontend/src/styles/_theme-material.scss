@@ -146,22 +146,41 @@ html {
 /* Barra de progreso: verde institucional */
 .mat-mdc-progress-bar { --mdc-linear-progress-active-indicator-color: var(--verde-500); }
 
-/* Diálogos */
-.mat-mdc-dialog-surface { border-radius: var(--radio-l); }
+/* Diálogos: fondo blanco sólido, sombra y bordes redondeados */
+.mat-mdc-dialog-container .mdc-dialog__surface,
+.mat-mdc-dialog-surface {
+  background-color: #ffffff !important;
+  color: var(--texto) !important;
+  border-radius: var(--radio-l) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+}
 
-/* Snackbars de confirmación / error */
-.snack-exito {
-  --mdc-snackbar-container-color: var(--verde-900);
-  --mdc-snackbar-supporting-text-color: var(--superficie);
-  --mat-snack-bar-button-color: var(--superficie);
+app-confirm-dialog .dialogo {
+  background-color: #ffffff !important;
+  border-radius: var(--radio-l);
 }
-.snack-error {
-  --mdc-snackbar-container-color: var(--error);
-  --mdc-snackbar-supporting-text-color: var(--superficie);
-  --mat-snack-bar-button-color: var(--superficie);
+
+/* Snackbars (notificaciones): fondo blanco sólido, texto nítido y botón destacado */
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  background-color: #ffffff !important;
+  color: var(--azul-900) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  border: 1px solid var(--borde) !important;
+  border-radius: var(--radio-m) !important;
 }
-.snack-info {
-  --mdc-snackbar-container-color: var(--azul-900);
-  --mdc-snackbar-supporting-text-color: var(--superficie);
-  --mat-snack-bar-button-color: var(--superficie);
+.mat-mdc-snack-bar-container .mdc-snackbar__label {
+  color: var(--azul-900) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+.mat-mdc-snack-bar-container.snack-exito .mdc-snackbar__label {
+  color: var(--verde-900) !important;
+}
+.mat-mdc-snack-bar-container.snack-error .mdc-snackbar__label {
+  color: var(--error) !important;
+}
+.mat-mdc-snack-bar-container .mat-mdc-button,
+.mat-mdc-snack-bar-container .mdc-snackbar__action button {
+  color: var(--azul-700) !important;
+  font-weight: 700 !important;
 }
