@@ -2,3 +2,27 @@
 @use './styles/tokens';
 @use './styles/theme-material';
 @use './styles/base';
+
+/* Forzar fondo blanco 100% sólido en calendarios de Angular Material y diálogos */
+.cdk-overlay-container,
+.cdk-global-overlay-wrapper,
+.cdk-overlay-pane {
+  --mat-datepicker-calendar-container-background-color: #ffffff;
+  --mat-sys-surface: #ffffff;
+  --mat-sys-surface-container: #ffffff;
+  --mat-sys-surface-container-high: #ffffff;
+}
+
+.cdk-overlay-pane .mat-datepicker-content,
+.cdk-overlay-pane mat-datepicker-content,
+.mat-datepicker-content,
+.mat-datepicker-content-container,
+.mat-calendar,
+.mat-calendar-content,
+.mat-calendar-table,
+.mat-calendar-header {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+

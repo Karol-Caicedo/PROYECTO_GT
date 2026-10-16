@@ -38,6 +38,9 @@ async function bootstrap() {
     app.useStaticAssets(webDir, { index: false });
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(join(webDir, 'index.html'));
     });
     // eslint-disable-next-line no-console

@@ -186,28 +186,76 @@ app-confirm-dialog .dialogo {
 }
 
 /* ============================================================
-   CALENDARIO / DATEPICKER: Fondo blanco sólido y estilo nítido
+   CALENDARIO / DATEPICKER: Fondo blanco 100% sólido, opaco y nítido
    ============================================================ */
+
+/* Tokens de Material 3 para superficies y Datepicker */
+:root,
+html,
+body,
+.cdk-overlay-container {
+  --mat-sys-surface: #ffffff !important;
+  --mat-sys-surface-container: #ffffff !important;
+  --mat-sys-surface-container-high: #ffffff !important;
+  --mat-sys-surface-container-highest: #ffffff !important;
+  --mat-sys-surface-container-low: #ffffff !important;
+  --mat-sys-surface-container-lowest: #ffffff !important;
+  --mat-sys-surface-bright: #ffffff !important;
+  --mat-sys-on-surface: #0f172a !important;
+  --mat-sys-on-surface-variant: #334155 !important;
+  --mat-sys-outline: #cbd5e1 !important;
+  --mat-sys-outline-variant: #e2e8f0 !important;
+  --mat-datepicker-calendar-container-background-color: #ffffff !important;
+  --mat-datepicker-calendar-container-text-color: #0f172a !important;
+  --mat-datepicker-calendar-date-text-color: #0f172a !important;
+  --mat-datepicker-calendar-header-text-color: #334155 !important;
+  --mat-datepicker-calendar-period-button-text-color: #0f172a !important;
+  --mat-datepicker-calendar-period-button-icon-color: #0f172a !important;
+  --mat-datepicker-calendar-navigation-button-icon-color: #0f172a !important;
+  --mat-datepicker-calendar-date-selected-state-background-color: #007bff !important;
+  --mat-datepicker-calendar-date-selected-state-text-color: #ffffff !important;
+  --mat-datepicker-calendar-date-today-outline-color: #007bff !important;
+}
+
+/* Overlay Pane y contenedores de Material Datepicker */
+.cdk-overlay-pane:has(mat-datepicker-content),
+.cdk-overlay-pane:has(.mat-datepicker-content),
+.cdk-overlay-container .mat-datepicker-popup,
+.mat-datepicker-popup {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+mat-datepicker-content,
 .mat-datepicker-content,
 .mat-datepicker-content-container,
-.mat-datepicker-content .mat-calendar,
+mat-calendar,
 .mat-calendar,
-.mat-calendar-content {
+.mat-calendar-content,
+.mat-calendar-table,
+.mat-calendar-table-header,
+.mat-calendar-body,
+.mat-calendar-header {
   background-color: #ffffff !important;
   background: #ffffff !important;
   color: #0f172a !important;
+  opacity: 1 !important;
 }
 
+mat-datepicker-content,
 .mat-datepicker-content {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 0 1px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
   border: 1px solid var(--borde) !important;
   border-radius: 14px !important;
   overflow: hidden !important;
 }
 
-.mat-datepicker-content .mat-calendar-header {
-  background-color: #ffffff !important;
-  padding: 10px 8px 4px !important;
+.mat-calendar-header {
+  padding: 12px 12px 6px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
 }
 
 .mat-calendar-period-button {
@@ -219,6 +267,7 @@ app-confirm-dialog .dialogo {
 
 .mat-calendar-arrow {
   border-top-color: #0f172a !important;
+  fill: #0f172a !important;
 }
 
 .mat-calendar-previous-button,
@@ -226,16 +275,12 @@ app-confirm-dialog .dialogo {
   color: #0f172a !important;
 }
 
-.mat-calendar-table-header {
-  background-color: #ffffff !important;
-}
-
 .mat-calendar-table-header th {
   color: #64748b !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  padding-bottom: 8px !important;
+  padding: 8px 0 !important;
 }
 
 .mat-calendar-body-cell-content {
@@ -250,14 +295,14 @@ app-confirm-dialog .dialogo {
   color: #0284c7 !important;
 }
 
-/* Celda seleccionada: azul sólido (#007bff) con texto blanco y relieve */
+/* Celda seleccionada: azul sólido (#007bff) con texto blanco */
 .mat-calendar-body-selected,
 .mat-calendar-body-cell-content.mat-calendar-body-selected {
   background-color: #007bff !important;
   color: #ffffff !important;
   font-weight: 800 !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.45) !important;
 }
 
 /* Celda de hoy cuando no está seleccionada */
@@ -265,6 +310,11 @@ app-confirm-dialog .dialogo {
   border: 2px solid #007bff !important;
   font-weight: 700 !important;
   color: #007bff !important;
+}
+
+/* Inputs de fecha con cursor pointer */
+input[matDatepicker] {
+  cursor: pointer;
 }
 
 /* Indicadores de selector nativo del navegador */

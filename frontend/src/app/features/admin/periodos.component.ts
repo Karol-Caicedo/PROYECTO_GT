@@ -35,13 +35,13 @@ interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: s
           <mat-form-field><mat-label>Nombre (ej. 2026-2)</mat-label><input matInput formControlName="nombre" /></mat-form-field>
           <mat-form-field>
             <mat-label>Inicio</mat-label>
-            <input matInput [matDatepicker]="pickerInicio" formControlName="fechaInicio" placeholder="dd/mm/aaaa" />
+            <input matInput [matDatepicker]="pickerInicio" (click)="pickerInicio.open()" formControlName="fechaInicio" placeholder="dd/mm/aaaa" />
             <mat-datepicker-toggle matIconSuffix [for]="pickerInicio"></mat-datepicker-toggle>
             <mat-datepicker #pickerInicio></mat-datepicker>
           </mat-form-field>
           <mat-form-field>
             <mat-label>Fin</mat-label>
-            <input matInput [matDatepicker]="pickerFin" formControlName="fechaFin" placeholder="dd/mm/aaaa" />
+            <input matInput [matDatepicker]="pickerFin" (click)="pickerFin.open()" formControlName="fechaFin" placeholder="dd/mm/aaaa" />
             <mat-datepicker-toggle matIconSuffix [for]="pickerFin"></mat-datepicker-toggle>
             <mat-datepicker #pickerFin></mat-datepicker>
           </mat-form-field>

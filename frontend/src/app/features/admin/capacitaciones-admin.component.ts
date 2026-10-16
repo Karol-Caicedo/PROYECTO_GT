@@ -85,7 +85,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
               <div class="fila">
                 <mat-form-field>
                   <mat-label>Fecha del evento (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerEvento" formControlName="fechaEvento" placeholder="dd/mm/aaaa" />
+                  <input matInput [matDatepicker]="pickerEvento" (click)="pickerEvento.open()" formControlName="fechaEvento" placeholder="dd/mm/aaaa" />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerEvento"></mat-datepicker-toggle>
                   <mat-datepicker #pickerEvento></mat-datepicker>
                 </mat-form-field>
@@ -111,13 +111,13 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
               <div class="fila">
                 <mat-form-field>
                   <mat-label>Visible desde (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerDesde" formControlName="visibleDesde" placeholder="dd/mm/aaaa" />
+                  <input matInput [matDatepicker]="pickerDesde" (click)="pickerDesde.open()" formControlName="visibleDesde" placeholder="dd/mm/aaaa" />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerDesde"></mat-datepicker-toggle>
                   <mat-datepicker #pickerDesde></mat-datepicker>
                 </mat-form-field>
                 <mat-form-field>
                   <mat-label>Visible hasta (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerHasta" formControlName="visibleHasta" placeholder="dd/mm/aaaa" />
+                  <input matInput [matDatepicker]="pickerHasta" (click)="pickerHasta.open()" formControlName="visibleHasta" placeholder="dd/mm/aaaa" />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerHasta"></mat-datepicker-toggle>
                   <mat-datepicker #pickerHasta></mat-datepicker>
                 </mat-form-field>
