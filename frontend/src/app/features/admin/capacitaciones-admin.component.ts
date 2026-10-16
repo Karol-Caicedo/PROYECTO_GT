@@ -1,0 +1,260 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { environment } from '../../../environments/environment';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatusChipComponent } from '../../shared/ui/status-chip.component';
+import { UiService } from '../../shared/ui/ui.service';
+
+interface Cap { id: string; titulo: string; descripcion: string; enlace: string; imagenUrl?: string; estado: string; clics?: number; semestres?: { semestre: number }[]; modalidad: string; fechaEvento?: string }
+
+@Component({
+  selector: 'app-caps-admin',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, PageHeaderComponent, StatusChipComponent],
+  styles: [`
+    .dos-columnas { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--esp-4); align-items: start; }
+    @media (max-width: 1000px) { .dos-columnas { grid-template-columns: 1fr; } }
+    fieldset { border: 1px solid var(--borde); border-radius: var(--radio-m); padding: var(--esp-4); margin: 0 0 var(--esp-4); }
+    legend { font-weight: 700; color: var(--azul-900); padding: 0 var(--esp-2); font-size: var(--t-cuerpo); }
+    .fila { display: flex; gap: var(--esp-3); flex-wrap: wrap; }
+    .fila > * { flex: 1 1 200px; }
+    .chips-sem { display: flex; gap: var(--esp-2); flex-wrap: wrap; margin-top: var(--esp-2); }
+    .chip-sem {
+      min-width: 48px; min-height: 44px; border-radius: var(--radio-chip);
+      border: 2px solid var(--borde); background: var(--superficie);
+      font: 700 var(--t-cuerpo) var(--fuente); color: var(--texto); cursor: pointer;
+      transition: all var(--transicion-rapida);
+    }
+    .chip-sem:hover:not(:disabled) { border-color: var(--azul-500); }
+    .chip-sem.elegido { background: var(--azul-500); border-color: var(--azul-500); color: var(--superficie); }
+    .chip-sem:disabled { opacity: 0.45; cursor: not-allowed; }
+    .chip-sem.todos { min-width: auto; padding: 0 var(--esp-4); }
+    .vista-previa { position: sticky; top: var(--esp-4); }
+    @media (max-width: 1000px) {
+      .vista-previa { position: static; }
+      fieldset { padding: var(--esp-3) var(--esp-2); }
+    }
+    .portada { aspect-ratio: 16 / 9; width: 100%; object-fit: cover; display: block; }
+    .portada-placeholder { aspect-ratio: 16 / 9; display: grid; place-items: center; background: linear-gradient(135deg, var(--azul-500), var(--verde-500)); }
+    .portada-placeholder .material-symbols-outlined { font-size: 56px; color: var(--superficie); }
+    .item-cap { display: flex; gap: var(--esp-3); align-items: flex-start; padding: var(--esp-3) 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+    .item-cap:last-child { border-bottom: none; }
+    .item-info { flex: 1 1 220px; }
+    .item-info b { color: var(--azul-900); display: block; }
+    .item-info small { color: var(--texto-secundario); font-size: var(--t-secundario); }
+    .item-acciones { display: flex; gap: var(--esp-1); }
+    .subir { display: flex; gap: var(--esp-3); align-items: center; flex-wrap: wrap; font-size: var(--t-secundario); }
+    .miniatura { width: 96px; height: 54px; object-fit: cover; border-radius: var(--radio-s); border: 1px solid var(--borde); }
+  `],
+  template: `
+    <div class="pagina">
+      <app-page-header titulo="Capacitaciones" subtitulo="Publica oportunidades por semestre y mide su interés real"
+        [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Capacitaciones' }]" />
+
+      <div class="dos-columnas">
+        <mat-card><mat-card-content>
+          <h2 class="titulo-seccion">Nueva capacitación</h2>
+          <form [formGroup]="form" (ngSubmit)="crear()">
+            <fieldset><legend>Información</legend>
+              <mat-form-field class="full-width"><mat-label>Título</mat-label><input matInput formControlName="titulo" maxlength="120" /></mat-form-field>
+              <mat-form-field class="full-width"><mat-label>Descripción</mat-label><textarea matInput formControlName="descripcion" rows="3"></textarea></mat-form-field>
+              <mat-form-field class="full-width"><mat-label>Tema relacionado (opcional)</mat-label><mat-select formControlName="temaId">
+                <mat-option value="">Ninguno</mat-option>
+                @for (t of temas(); track t.id) { <mat-option [value]="t.id">{{ t.nombre }}</mat-option> }
+              </mat-select></mat-form-field>
+            </fieldset>
+            <fieldset><legend>Enlace e imagen</legend>
+              <mat-form-field class="full-width"><mat-label>Enlace (URL de inscripción)</mat-label><input matInput formControlName="enlace" type="url" placeholder="https://" /></mat-form-field>
+              <div class="subir">
+                <label for="imagen">Imagen (jpg, png o webp, máx. 2 MB):</label>
+                <input id="imagen" type="file" accept="image/jpeg,image/png,image/webp" (change)="onFile($event)" />
+                @if (vistaPreviaImg()) { <img class="miniatura" [src]="vistaPreviaImg()" alt="Vista previa de la imagen elegida" /> }
+              </div>
+              @if (errorArchivo()) { <p class="error" role="alert">{{ errorArchivo() }}</p> }
+            </fieldset>
+            <fieldset><legend>Fecha y modalidad</legend>
+              <div class="fila">
+                <mat-form-field><mat-label>Fecha del evento (opcional)</mat-label><input matInput type="datetime-local" formControlName="fechaEvento" /></mat-form-field>
+                <mat-form-field><mat-label>Modalidad</mat-label><mat-select formControlName="modalidad">
+                  <mat-option value="virtual">Virtual</mat-option><mat-option value="presencial">Presencial</mat-option>
+                </mat-select></mat-form-field>
+                <mat-form-field><mat-label>Estado</mat-label><mat-select formControlName="estado">
+                  <mat-option value="borrador">Borrador</mat-option><mat-option value="publicado">Publicado</mat-option>
+                </mat-select></mat-form-field>
+              </div>
+            </fieldset>
+            <fieldset><legend>Semestres destino</legend>
+              <div class="chips-sem" role="group" aria-label="Semestres destino">
+                <button type="button" class="chip-sem todos" [class.elegido]="todos()" [attr.aria-pressed]="todos()" (click)="todos.set(!todos())">Todos</button>
+                @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+                  <button type="button" class="chip-sem" [class.elegido]="todos() || semSel().includes(s)"
+                    [disabled]="todos()" [attr.aria-pressed]="todos() || semSel().includes(s)"
+                    [attr.aria-label]="'Semestre ' + s" (click)="toggleSem(s)">{{ s }}</button>
+                }
+              </div>
+            </fieldset>
+            <fieldset><legend>Visibilidad</legend>
+              <div class="fila">
+                <mat-form-field><mat-label>Visible desde (opcional)</mat-label><input matInput type="datetime-local" formControlName="visibleDesde" /></mat-form-field>
+                <mat-form-field><mat-label>Visible hasta (opcional)</mat-label><input matInput type="datetime-local" formControlName="visibleHasta" /></mat-form-field>
+              </div>
+              <p class="texto-secundario">Si se vence la fecha, la tarjeta se oculta sola al estudiante.</p>
+            </fieldset>
+            @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+            <button mat-raised-button color="primary" [disabled]="form.invalid || guardando()">{{ guardando() ? 'Guardando…' : 'Publicar capacitación' }}</button>
+          </form>
+        </mat-card-content></mat-card>
+
+        <mat-card class="vista-previa"><mat-card-content>
+          <h2 class="titulo-seccion">Vista previa (así la verá el estudiante)</h2>
+          @if (vistaPreviaImg()) { <img class="portada" [src]="vistaPreviaImg()" alt="" /> }
+          @else { <div class="portada-placeholder" aria-hidden="true"><span class="material-symbols-outlined">school</span></div> }
+          <div style="padding:var(--esp-4) 0 0">
+            <app-status-chip [estado]="form.value.modalidad || 'virtual'" />
+            <h3 style="color:var(--azul-900);margin:8px 0">{{ form.value.titulo || 'Título de ejemplo' }}</h3>
+            <p class="texto-secundario">{{ form.value.descripcion || 'La descripción aparecerá aquí…' }}</p>
+            <button mat-raised-button color="primary" class="full-width" disabled>Ver más / Inscribirme</button>
+          </div>
+        </mat-card-content></mat-card>
+      </div>
+
+      <mat-card class="mt"><mat-card-content>
+        <h2 class="titulo-seccion">Publicadas ({{ filtradas().length }})</h2>
+        <div class="barra-filtros" style="position:static;margin-bottom:var(--esp-3)">
+          <mat-form-field subscriptSizing="dynamic"><mat-label>Estado</mat-label><mat-select [value]="filtroEstado()" (selectionChange)="filtroEstado.set($event.value)">
+            <mat-option value="">Todos</mat-option><mat-option value="publicado">Publicado</mat-option><mat-option value="borrador">Borrador</mat-option>
+          </mat-select></mat-form-field>
+          <mat-form-field subscriptSizing="dynamic"><mat-label>Semestre</mat-label><mat-select [value]="filtroSem()" (selectionChange)="filtroSem.set($event.value)">
+            <mat-option value="">Todos</mat-option>
+            @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">S{{ s }}</mat-option> }
+          </mat-select></mat-form-field>
+        </div>
+        @if (!filtradas().length) {
+          <p class="texto-secundario">No hay capacitaciones con esos filtros.</p>
+        }
+        @for (c of filtradas(); track c.id) {
+          <div class="item-cap">
+            <div class="item-info">
+              <b>{{ c.titulo }}</b>
+              <small>{{ c.modalidad }} · {{ c.clics ?? 0 }} clics · Sem: {{ semStr(c) }}</small>
+            </div>
+            <app-status-chip [estado]="c.estado" />
+            <div class="item-acciones">
+              @if (c.estado === 'publicado') {
+                <button mat-icon-button (click)="notificar(c)" aria-label="Notificar por correo" title="Notificar por correo">
+                  <span class="material-symbols-outlined" aria-hidden="true">send</span>
+                </button>
+              }
+              <button mat-icon-button color="warn" (click)="eliminar(c)" aria-label="Eliminar capacitación" title="Eliminar">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+              </button>
+            </div>
+          </div>
+        }
+      </mat-card-content></mat-card>
+    </div>
+  `,
+})
+export class CapacitacionesAdminComponent implements OnInit {
+  private http = inject(HttpClient);
+  private fb = inject(FormBuilder);
+  private ui = inject(UiService);
+  private api = environment.apiUrl;
+  caps = signal<Cap[]>([]);
+  temas = signal<{ id: string; nombre: string }[]>([]);
+  semSel = signal<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  todos = signal(true);
+  filtroEstado = signal('');
+  filtroSem = signal<string | number>('');
+  archivo: File | null = null;
+  vistaPreviaImg = signal<string | null>(null);
+  errorArchivo = signal('');
+  error = signal('');
+  guardando = signal(false);
+  private urlTemporal: string | null = null;
+
+  form = this.fb.group({
+    titulo: ['', Validators.required],
+    descripcion: ['', Validators.required],
+    enlace: ['', Validators.required],
+    temaId: [''],
+    modalidad: ['virtual'],
+    estado: ['borrador'],
+    fechaEvento: [''],
+    visibleDesde: [''],
+    visibleHasta: [''],
+  });
+
+  async ngOnInit() {
+    await this.cargar();
+    const t = await this.http.get<{ id: string; nombre: string }[]>(`${this.api}/temas/admin/todos`).toPromise().catch(() => []);
+    this.temas.set(t || []);
+  }
+  async cargar() {
+    const r = await this.http.get<Cap[]>(`${this.api}/capacitaciones`).toPromise().catch(() => []);
+    this.caps.set(r || []);
+  }
+  filtradas() {
+    return this.caps().filter((c) =>
+      (!this.filtroEstado() || c.estado === this.filtroEstado()) &&
+      (this.filtroSem() === '' || (c.semestres || []).some((s) => s.semestre === Number(this.filtroSem()))),
+    );
+  }
+  semStr(c: Cap) {
+    return (c.semestres || []).map((s) => s.semestre).join(', ');
+  }
+  toggleSem(s: number) {
+    const c = this.semSel();
+    this.semSel.set(c.includes(s) ? c.filter((x) => x !== s) : [...c, s]);
+  }
+  onFile(e: Event) {
+    this.errorArchivo.set('');
+    const f = (e.target as HTMLInputElement).files?.[0] || null;
+    if (f && f.size > 2 * 1024 * 1024) { this.errorArchivo.set('La imagen no puede superar 2 MB.'); return; }
+    this.archivo = f;
+    if (this.urlTemporal) URL.revokeObjectURL(this.urlTemporal);
+    this.urlTemporal = f ? URL.createObjectURL(f) : null;
+    this.vistaPreviaImg.set(this.urlTemporal);
+  }
+  async crear() {
+    this.error.set('');
+    this.guardando.set(true);
+    try {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(this.form.value)) if (v) fd.append(k, String(v));
+      fd.append('semestres', JSON.stringify(this.todos() ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : this.semSel()));
+      if (this.archivo) fd.append('imagen', this.archivo);
+      await this.http.post(`${this.api}/capacitaciones`, fd).toPromise();
+      this.form.reset({ modalidad: 'virtual', estado: 'borrador' });
+      this.archivo = null;
+      this.vistaPreviaImg.set(null);
+      await this.cargar();
+      this.ui.exito('Capacitación guardada.');
+    } catch {
+      this.error.set('No se pudo guardar. Revisa los datos e inténtalo de nuevo.');
+    } finally {
+      this.guardando.set(false);
+    }
+  }
+  async eliminar(c: Cap) {
+    const ok = await this.ui.confirmar({ titulo: 'Eliminar capacitación', mensaje: `¿Eliminar "${c.titulo}"? Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar', peligro: true });
+    if (!ok) return;
+    await this.http.delete(`${this.api}/capacitaciones/${c.id}`).toPromise();
+    await this.cargar();
+    this.ui.exito('Capacitación eliminada.');
+  }
+  async notificar(c: Cap) {
+    const ok = await this.ui.confirmar({ titulo: 'Notificar por correo', mensaje: `Enviar "${c.titulo}" a los estudiantes de los semestres destino (${this.semStr(c)})?`, textoConfirmar: 'Enviar' });
+    if (!ok) return;
+    const r = await this.http.post<{ enviados: number }>(`${this.api}/capacitaciones/${c.id}/notificar`, {}).toPromise();
+    this.ui.exito(`Notificación enviada a ${r?.enviados ?? 0} estudiantes.`);
+  }
+}

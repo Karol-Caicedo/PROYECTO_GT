@@ -1,0 +1,109 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
+import { environment } from '../../../environments/environment';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { StatusChipComponent } from '../../shared/ui/status-chip.component';
+import { UiService } from '../../shared/ui/ui.service';
+
+interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: string; activo: boolean; modoEncuesta: string }
+
+@Component({
+  selector: 'app-periodos-admin',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, PageHeaderComponent, StatusChipComponent],
+  styles: [`
+    .form-crear { display: flex; gap: var(--esp-3); flex-wrap: wrap; align-items: flex-start; }
+    .form-crear mat-form-field { flex: 1 1 180px; }
+    .acciones { display: flex; gap: var(--esp-1); justify-content: flex-end; align-items: center; }
+  `],
+  template: `
+    <div class="pagina">
+      <app-page-header titulo="Periodos académicos" subtitulo="Solo puede haber un periodo activo a la vez"
+        [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Periodos' }]" />
+      <mat-card><mat-card-content>
+        <h2 class="titulo-seccion">Crear periodo</h2>
+        <form [formGroup]="form" (ngSubmit)="crear()" class="form-crear">
+          <mat-form-field><mat-label>Nombre (ej. 2026-2)</mat-label><input matInput formControlName="nombre" /></mat-form-field>
+          <mat-form-field><mat-label>Inicio</mat-label><input matInput type="date" formControlName="fechaInicio" /></mat-form-field>
+          <mat-form-field><mat-label>Fin</mat-label><input matInput type="date" formControlName="fechaFin" /></mat-form-field>
+          <mat-form-field><mat-label>Modo de encuesta</mat-label><mat-select formControlName="modoEncuesta">
+            <mat-option value="seleccion">Selección (hasta 5 temas)</mat-option><mat-option value="calificacion">Calificación (1 a 5)</mat-option>
+          </mat-select>
+            <mat-hint>Define cómo responden los estudiantes</mat-hint></mat-form-field>
+          <button mat-raised-button color="primary" [disabled]="form.invalid">Crear</button>
+        </form>
+      </mat-card-content></mat-card>
+      <mat-card class="mt"><mat-card-content>
+        <h2 class="titulo-seccion">Historial de periodos</h2>
+        <div class="tabla-responsive"><table mat-table [dataSource]="periodos()">
+          <ng-container matColumnDef="nombre"><th mat-header-cell *matHeaderCellDef>Periodo</th>
+            <td mat-cell *matCellDef="let p"><b>{{ p.nombre }}</b><br /><small style="color:var(--texto-secundario)">{{ p.fechaInicio | date:'mediumDate' }} – {{ p.fechaFin | date:'mediumDate' }}</small></td></ng-container>
+          <ng-container matColumnDef="modo"><th mat-header-cell *matHeaderCellDef>Modo</th>
+            <td mat-cell *matCellDef="let p"><app-status-chip [estado]="p.modoEncuesta" /></td></ng-container>
+          <ng-container matColumnDef="estado"><th mat-header-cell *matHeaderCellDef>Estado</th>
+            <td mat-cell *matCellDef="let p"><app-status-chip [estado]="p.activo ? 'activo' : 'inactivo'" /></td></ng-container>
+          <ng-container matColumnDef="acc"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let p">
+            <div class="acciones">
+              @if (!p.activo) {
+                <button mat-stroked-button color="primary" (click)="activar(p)">
+                  <span class="material-symbols-outlined" aria-hidden="true" style="vertical-align:-4px">play_arrow</span>&nbsp;Activar
+                </button>
+              }
+              <button mat-icon-button color="warn" (click)="eliminar(p)" aria-label="Eliminar periodo" title="Eliminar">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+              </button>
+            </div>
+          </td></ng-container>
+          <tr mat-header-row *matHeaderRowDef="['nombre','modo','estado','acc']"></tr>
+          <tr mat-row *matRowDef="let r; columns: ['nombre','modo','estado','acc']"></tr>
+        </table></div>
+      </mat-card-content></mat-card>
+    </div>
+  `,
+})
+export class PeriodosAdminComponent implements OnInit {
+  private http = inject(HttpClient);
+  private fb = inject(FormBuilder);
+  private ui = inject(UiService);
+  private api = environment.apiUrl;
+  periodos = signal<Periodo[]>([]);
+  form = this.fb.group({ nombre: ['', Validators.required], fechaInicio: ['', Validators.required], fechaFin: ['', Validators.required], modoEncuesta: ['seleccion', Validators.required] });
+
+  async ngOnInit() { await this.cargar(); }
+  async cargar() {
+    const r = await this.http.get<Periodo[]>(`${this.api}/periodos`).toPromise().catch(() => []);
+    this.periodos.set(r || []);
+  }
+  async crear() {
+    await this.http.post(`${this.api}/periodos`, { ...this.form.value, activo: false }).toPromise();
+    this.form.reset({ modoEncuesta: 'seleccion' });
+    await this.cargar();
+    this.ui.exito('Periodo creado.');
+  }
+  async activar(p: Periodo) {
+    const ok = await this.ui.confirmar({ titulo: 'Activar periodo', mensaje: `Activar ${p.nombre}? El periodo activo actual se cerrará.`, textoConfirmar: 'Activar' });
+    if (!ok) return;
+    await this.http.post(`${this.api}/periodos/${p.id}/activar`, {}).toPromise();
+    await this.cargar();
+    this.ui.exito(`Periodo ${p.nombre} activado.`);
+  }
+  async eliminar(p: Periodo) {
+    const ok = await this.ui.confirmar({ titulo: 'Eliminar periodo', mensaje: `¿Eliminar ${p.nombre}?`, textoConfirmar: 'Eliminar', peligro: true });
+    if (!ok) return;
+    try {
+      await this.http.delete(`${this.api}/periodos/${p.id}`).toPromise();
+      this.ui.exito('Periodo eliminado.');
+    } catch {
+      this.ui.error('No se puede eliminar el periodo activo.');
+    }
+    await this.cargar();
+  }
+}
