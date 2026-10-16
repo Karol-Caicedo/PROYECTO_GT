@@ -26,3 +26,23 @@
   opacity: 1 !important;
 }
 
+/* Expansión al 100% del ancho para campos de formulario en diálogos y clases .full-width */
+.mat-mdc-dialog-content mat-form-field,
+.mat-mdc-dialog-container mat-form-field,
+mat-dialog-content mat-form-field,
+mat-form-field.full-width,
+.full-width.mat-mdc-form-field {
+  width: 100% !important;
+  display: block !important;
+}
+
+.mat-mdc-dialog-content .mat-mdc-form-field-infix,
+.mat-mdc-dialog-container .mat-mdc-form-field-infix,
+mat-dialog-content .mat-mdc-form-field-infix,
+mat-form-field.full-width .mat-mdc-form-field-infix,
+.full-width.mat-mdc-form-field .mat-mdc-form-field-infix {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+

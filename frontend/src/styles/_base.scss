@@ -51,9 +51,22 @@ mat-sidenav-content .pagina { padding: 0; max-width: 100%; }
 .franja-marca { height: 4px; background: var(--franja-marca); }
 
 /* Utilidades heredadas (compatibilidad) */
-.container { max-width: 1160px; margin: 0 auto; padding: var(--esp-4); }
-.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--esp-4); }
-.full-width { width: 100%; }
+.full-width {
+  width: 100% !important;
+}
+
+mat-form-field.full-width,
+.mat-mdc-form-field.full-width {
+  width: 100% !important;
+  display: block;
+
+  .mat-mdc-text-field-wrapper,
+  .mat-mdc-form-field-flex,
+  .mat-mdc-form-field-infix {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
 .mt { margin-top: var(--esp-4); }
 .error { color: var(--error); font-size: var(--t-secundario); }
 .ok { color: var(--verde-700); }

@@ -28,8 +28,56 @@ interface Usuario {
   selector: 'app-editar-usuario-dialog',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatDialogModule],
+  styles: [`
+    .dialogo-editar {
+      padding: var(--esp-6);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .titulo-seccion {
+      margin: 0 0 var(--esp-4);
+      color: var(--azul-900);
+      font-size: var(--t-titulo-md, 22px);
+      font-weight: 700;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    mat-form-field {
+      width: 100% !important;
+      display: block !important;
+      margin-bottom: var(--esp-2);
+    }
+    :host ::ng-deep .mat-mdc-form-field {
+      width: 100% !important;
+      display: block !important;
+    }
+    :host ::ng-deep .mat-mdc-text-field-wrapper {
+      width: 100% !important;
+    }
+    :host ::ng-deep .mat-mdc-form-field-flex {
+      width: 100% !important;
+    }
+    :host ::ng-deep .mat-mdc-form-field-infix {
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
+    :host ::ng-deep .mat-mdc-input-element {
+      width: 100% !important;
+    }
+    .acciones-dialogo {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: var(--esp-3);
+      margin-top: var(--esp-4);
+    }
+  `],
   template: `
-    <div style="padding: var(--esp-6)">
+    <div class="dialogo-editar">
       <h2 class="titulo-seccion">Editar usuario</h2>
       <form [formGroup]="form" (ngSubmit)="guardar()">
         <mat-form-field class="full-width">
@@ -75,7 +123,7 @@ interface Usuario {
 
         @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
 
-        <div style="display:flex;justify-content:flex-end;gap:var(--esp-2);margin-top:var(--esp-4)">
+        <div class="acciones-dialogo">
           <button mat-button type="button" (click)="ref.close()">Cancelar</button>
           <button mat-raised-button color="primary" [disabled]="form.invalid || cargando()">
             {{ cargando() ? 'Guardando…' : 'Guardar cambios' }}
@@ -257,7 +305,11 @@ export class UsuariosAdminComponent implements OnInit {
     }
   }
   editar(u: Usuario) {
-    this.dialog.open(EditarUsuarioDialogComponent, { data: { usuario: u }, width: '460px' })
+    this.dialog.open(EditarUsuarioDialogComponent, {
+      data: { usuario: u },
+      width: '540px',
+      maxWidth: '95vw',
+    })
       .afterClosed().toPromise().then((ok) => {
         if (ok) {
           this.ui.exito('Usuario actualizado.');
