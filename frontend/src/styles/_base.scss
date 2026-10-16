@@ -35,6 +35,7 @@ body {
 
 /* Layout de página */
 .pagina { max-width: 1160px; margin: 0 auto; padding: var(--esp-6) var(--esp-4) var(--esp-10); }
+mat-sidenav-content .pagina { padding: 0; max-width: 100%; }
 .cabecera-pagina {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
   gap: var(--esp-3); margin-bottom: var(--esp-5);

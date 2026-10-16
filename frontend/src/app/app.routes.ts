@@ -25,14 +25,19 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/sso-callback.component').then((m) => m.SsoCallbackComponent),
   },
   {
-    path: 'encuesta',
-    loadComponent: () => import('./features/encuesta/encuesta.component').then((m) => m.EncuestaComponent),
+    path: '',
     canActivate: [authGuard],
-  },
-  {
-    path: 'capacitaciones',
-    loadComponent: () => import('./features/capacitaciones/mis-capacitaciones.component').then((m) => m.MisCapacitacionesComponent),
-    canActivate: [authGuard],
+    loadComponent: () => import('./features/estudiante/estudiante-layout.component').then((m) => m.EstudianteLayoutComponent),
+    children: [
+      {
+        path: 'encuesta',
+        loadComponent: () => import('./features/encuesta/encuesta.component').then((m) => m.EncuestaComponent),
+      },
+      {
+        path: 'capacitaciones',
+        loadComponent: () => import('./features/capacitaciones/mis-capacitaciones.component').then((m) => m.MisCapacitacionesComponent),
+      },
+    ],
   },
   {
     path: 'admin',
