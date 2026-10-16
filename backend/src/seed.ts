@@ -29,6 +29,7 @@ export const TEMAS_INICIALES = [
 
 async function main() {
   await AppDataSource.initialize();
+  await AppDataSource.runMigrations();
   const users = AppDataSource.getRepository(User);
   const temas = AppDataSource.getRepository(Tema);
 
@@ -84,6 +85,7 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`Temas verificados: ${TEMAS_INICIALES.length}`);
   await AppDataSource.destroy();
+  process.exit(0);
 }
 
 main().catch((e) => {

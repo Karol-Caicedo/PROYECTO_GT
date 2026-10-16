@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RecuperacionClaves1700000000001 implements MigrationInterface {
   name = 'RecuperacionClaves1700000000001';
