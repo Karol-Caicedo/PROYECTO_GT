@@ -36,6 +36,7 @@ async function main() {
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@unipacifico.edu.co').toLowerCase();
   const adminPass = process.env.ADMIN_PASSWORD || 'Admin123*';
   let admin = await users.findOne({ where: { correo: adminEmail } });
+  const baseYaInicializada = !!admin;
   if (!admin) {
     admin = await users.save(
       users.create({
@@ -78,12 +79,17 @@ async function main() {
     console.log(`Estudiante demo ya existe: ${estEmail}`);
   }
 
-  for (const [nombre, descripcion] of TEMAS_INICIALES) {
-    const existe = await temas.findOne({ where: { nombre } });
-    if (!existe) await temas.save(temas.create({ nombre, descripcion, activo: true }));
+  if (!baseYaInicializada) {
+    for (const [nombre, descripcion] of TEMAS_INICIALES) {
+      const existe = await temas.findOne({ where: { nombre } });
+      if (!existe) await temas.save(temas.create({ nombre, descripcion, activo: true }));
+    }
+    // eslint-disable-next-line no-console
+    console.log(`Temas iniciales creados: ${TEMAS_INICIALES.length}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('Base de datos ya inicializada: respetando temas eliminados por el administrador.');
   }
-  // eslint-disable-next-line no-console
-  console.log(`Temas verificados: ${TEMAS_INICIALES.length}`);
   await AppDataSource.destroy();
   process.exit(0);
 }

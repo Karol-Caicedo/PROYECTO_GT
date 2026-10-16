@@ -80,7 +80,7 @@ export class ClaveDialogComponent {
   `],
   template: `
     <div class="pagina">
-      <app-page-header titulo="Usuarios" subtitulo="Las cuentas las crea Proyección Social; no hay registro público"
+      <app-page-header titulo="Usuarios"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Usuarios' }]" />
       <div class="dos-columnas">
         <mat-card><mat-card-content>
