@@ -98,7 +98,7 @@ nunca solo color). Llamar `aplicarTemaGraficos()` una vez al arrancar.
   `assets/logo.jpg` (escudo real; `height` fija, `width: auto`).
 - **Login**: tarjeta centrada sobre formas suaves Azul 50/Verde 50, logo,
   primario azul, SSO en contorno.
-- **Encuesta**: stepper vertical (semestre → temas → sugerencia → revisar);
+- **Encuesta**: stepper vertical (semestre → temas → revisar);
   tarjetas seleccionables (borde azul + fondo Azul 100 + check verde + texto
   “Listo”); contador “N de 5” + progreso verde; escala 1–5 con botones 48 px.
 - **Admin**: sidenav Azul 900 (activo claro + indicador verde); en móvil,

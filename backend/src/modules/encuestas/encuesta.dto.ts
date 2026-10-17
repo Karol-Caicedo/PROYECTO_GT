@@ -1,5 +1,5 @@
 import { Type, Transform, plainToInstance } from 'class-transformer';
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsUUID, Max, Min, ValidateNested, ArrayMinSize } from 'class-validator';
 
 export class ItemRespuestaDto {
   @IsUUID('4', { message: 'temaId inválido' })
@@ -27,9 +27,4 @@ export class CrearEncuestaDto {
     { toClassOnly: true },
   )
   items: ItemRespuestaDto[];
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500, { message: 'La sugerencia no puede superar 500 caracteres' })
-  sugerencia?: string;
 }

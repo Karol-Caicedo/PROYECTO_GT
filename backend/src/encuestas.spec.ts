@@ -1,7 +1,7 @@
 import { EncuestasService } from './modules/encuestas/encuestas.service';
 
 describe('EncuestasService.validar (reglas críticas)', () => {
-  const svc = new EncuestasService(null as never, null as never, null as never, null as never, null as never, null as never);
+  const svc = new EncuestasService(null as never, null as never, null as never, null as never, null as never);
 
   test('modo selección: máximo 5 temas', () => {
     const items = Array.from({ length: 6 }, (_, i) => ({ temaId: `t${i}` }));
@@ -28,7 +28,7 @@ describe('EncuestasService.validar (reglas críticas)', () => {
 
   test('orden aleatorio difiere por usuario pero contiene los mismos temas', async () => {
     const fakeTemas = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }, { id: '6' }] as never[];
-    const s = new EncuestasService(null as never, null as never, null as never, { find: async () => fakeTemas } as never, null as never, null as never);
+    const s = new EncuestasService(null as never, null as never, { find: async () => fakeTemas } as never, null as never, null as never);
     const a = await s.temasAleatorios('usuario-A', 'periodo-1');
     const b = await s.temasAleatorios('usuario-B', 'periodo-1');
     expect(a.map((t: { id: string }) => t.id).sort()).toEqual(['1', '2', '3', '4', '5', '6']);

@@ -12,7 +12,6 @@ import { User } from '../modules/users/user.entity';
 import { Periodo } from '../modules/periodos/periodo.entity';
 import { Tema } from '../modules/temas/tema.entity';
 import { Respuesta, RespuestaTema } from '../modules/encuestas/respuesta.entity';
-import { Sugerencia } from '../modules/encuestas/sugerencia.entity';
 import { Capacitacion, CapacitacionSemestre } from '../modules/capacitaciones/capacitacion.entity';
 import { ClicCapacitacion } from '../modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entity';
@@ -37,7 +36,6 @@ let R: {
   tema: Repository<Tema>;
   resp: Repository<Respuesta>;
   rt: Repository<RespuestaTema>;
-  sug: Repository<Sugerencia>;
   cap: Repository<Capacitacion>;
   sem: Repository<CapacitacionSemestre>;
   clic: Repository<ClicCapacitacion>;
@@ -65,7 +63,6 @@ beforeAll(async () => {
     tema: ds.getRepository(Tema),
     resp: ds.getRepository(Respuesta),
     rt: ds.getRepository(RespuestaTema),
-    sug: ds.getRepository(Sugerencia),
     cap: ds.getRepository(Capacitacion),
     sem: ds.getRepository(CapacitacionSemestre),
     clic: ds.getRepository(ClicCapacitacion),
@@ -77,7 +74,7 @@ beforeAll(async () => {
   const usersSvc = new UsersService(R.user);
   const resetsRepo = ds.getRepository(PasswordReset);
   auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, new ResendService(new ConfigService({})));
-  enc = new EncuestasService(R.resp as never, R.rt as never, R.sug as never, R.tema as never, R.periodo as never, R.user as never);
+  enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never);
   caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
@@ -147,9 +144,8 @@ describe('Encuesta E2E (modo selección)', () => {
 
     const creada = await enc.responder(user.id, {
       items: ts.slice(0, 3).map((t) => ({ temaId: t.id })),
-      sugerencia: 'Rust',
     });
-    expect(creada).toMatchObject({ semestreAlResponder: 4, sugerencia: 'Rust' });
+    expect(creada).toMatchObject({ semestreAlResponder: 4 });
 
     await expect(enc.responder(user.id, { items: [{ temaId: ts[0].id }] })).rejects.toThrow('Ya respondiste');
 
@@ -160,8 +156,8 @@ describe('Encuesta E2E (modo selección)', () => {
 
     // El histórico conserva el semestre original aunque el usuario cambie
     await auth.actualizarMiSemestre(user.id, 5);
-    const editada = await enc.editar(user.id, { items: [{ temaId: ts[3].id }, { temaId: ts[4].id }], sugerencia: '' });
-    expect(editada).toMatchObject({ semestreAlResponder: 4, sugerencia: null });
+    const editada = await enc.editar(user.id, { items: [{ temaId: ts[3].id }, { temaId: ts[4].id }] });
+    expect(editada).toMatchObject({ semestreAlResponder: 4 });
     expect((editada!.temas as RespuestaTema[])).toHaveLength(2);
   });
 });
@@ -325,19 +321,6 @@ describe('Recordatorios E2E (cron día 7 y 14, máx 2, sin duplicar)', () => {
     await registrar('nuevo@unipacifico.edu.co', 1);
     await expect(recs.cronDiario()).resolves.toEqual({ enviados: 0 });
     expect(await R.rec.count()).toBe(0);
-  });
-});
-
-describe('Sugerencias E2E', () => {
-  test('convertir crea el tema y queda visible para encuestar', async () => {
-    await periodos.create({ nombre: '2026-1', fechaInicio: hace(3), fechaFin: hace(-100), activo: true, modoEncuesta: 'seleccion' });
-    await crearTemas(['Base']);
-    const { user } = await registrar('sug@unipacifico.edu.co', 1);
-    await enc.responder(user.id, { items: [{ temaId: (await temasSvc.activos())[0].id }], sugerencia: 'Computación cuántica' });
-    const [s] = await R.sug.find();
-    const tema = await enc.convertirSugerencia(s.id);
-    expect(tema.nombre).toBe('Computación cuántica');
-    expect((await enc.temasAleatorios(user.id, (await periodos.activo())!.id)).map((t) => t.nombre)).toContain('Computación cuántica');
   });
 });
 

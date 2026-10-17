@@ -1,11 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
@@ -25,7 +23,7 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
 @Component({
   selector: 'app-encuesta',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule, MatStepperModule, MatProgressBarModule, RouterLink, PageHeaderComponent, EmptyStateComponent, StatusChipComponent],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatSnackBarModule, MatStepperModule, MatProgressBarModule, RouterLink, PageHeaderComponent, EmptyStateComponent, StatusChipComponent],
   styles: [`
     .info-periodo { display: flex; flex-wrap: wrap; gap: var(--esp-2); align-items: center; margin-bottom: var(--esp-4); }
     .progreso { margin: var(--esp-3) 0 var(--esp-1); }
@@ -164,23 +162,7 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
             </div>
           </mat-step>
 
-          <!-- Paso 3: sugerencia -->
-          <mat-step label="Sugiere un tema (opcional)" optional>
-            <mat-card class="mt"><mat-card-content>
-              <mat-form-field class="full-width"><mat-label>¿Otro tema que te interese?</mat-label>
-                <textarea matInput formControlName="sugerencia" maxlength="500" rows="3"
-                  placeholder="Ej.: Me gustaría un taller de…" aria-describedby="ayuda-sugerencia"></textarea>
-                <mat-hint id="ayuda-sugerencia">Si se repite entre estudiantes, puede convertirse en tema oficial.</mat-hint>
-                <mat-hint align="end">{{ form.value.sugerencia?.length || 0 }}/500</mat-hint>
-              </mat-form-field>
-              <div class="nav-pasos">
-                <button mat-button matStepperPrevious>Volver</button>
-                <button mat-raised-button color="primary" matStepperNext>Revisar</button>
-              </div>
-            </mat-card-content></mat-card>
-          </mat-step>
-
-          <!-- Paso 4: revisar y enviar -->
+          <!-- Paso 3: revisar y enviar -->
           <mat-step label="Revisa y envía">
             <mat-card class="mt"><mat-card-content>
               <h3 class="titulo-seccion">Tu respuesta del periodo {{ periodo()!.nombre }}</h3>
@@ -189,9 +171,6 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
                   <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
                   <span>{{ t.nombre }} @if (t.puntaje) { <b>· {{ t.puntaje }}/5</b> }</span>
                 </div>
-              }
-              @if (form.value.sugerencia?.trim()) {
-                <p class="mt"><b>Sugerencia:</b> {{ form.value.sugerencia }}</p>
               }
               @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
               <div class="nav-pasos">
@@ -209,7 +188,6 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
 })
 export class EncuestaComponent implements OnInit {
   private http = inject(HttpClient);
-  private fb = inject(FormBuilder);
   private snack = inject(MatSnackBar);
   auth = inject(AuthService);
   private api = environment.apiUrl;
@@ -223,7 +201,6 @@ export class EncuestaComponent implements OnInit {
   enviando = signal(false);
   cargando = signal(true);
   error = signal('');
-  form = this.fb.group({ sugerencia: [''] });
 
   async ngOnInit() {
     await this.auth.cargarPerfil();
@@ -231,7 +208,7 @@ export class EncuestaComponent implements OnInit {
       const r = await this.http.get<{ periodo: Periodo; temas: Tema[] }>(`${this.api}/encuestas/temas-aleatorios`).toPromise();
       this.periodo.set(r!.periodo);
       this.temas.set(r!.temas);
-      const mia = await this.http.get<{ temas?: { temaId: string; puntaje: number | null }[]; sugerencia?: string } | null>(`${this.api}/encuestas/mi-respuesta`).toPromise();
+      const mia = await this.http.get<{ temas?: { temaId: string; puntaje: number | null }[] } | null>(`${this.api}/encuestas/mi-respuesta`).toPromise();
       if (mia && (mia as { id?: string }).id) {
         this.yaRespondio.set(true);
         const items = (mia as { temas: { temaId: string; puntaje: number | null }[] }).temas || [];
@@ -241,7 +218,6 @@ export class EncuestaComponent implements OnInit {
           for (const i of items) if (i.puntaje) c[i.temaId] = i.puntaje;
           this.calif.set(c);
         }
-        if ((mia as { sugerencia?: string }).sugerencia) this.form.patchValue({ sugerencia: (mia as { sugerencia: string }).sugerencia });
       }
     } catch {
       this.periodo.set(null);
@@ -298,7 +274,7 @@ export class EncuestaComponent implements OnInit {
       if (!items.length) { this.error.set('Califica al menos un tema'); return; }
       if (items.some((i) => !i.puntaje || i.puntaje < 1 || i.puntaje > 5)) { this.error.set('Cada calificación debe ser de 1 a 5'); return; }
     }
-    const body = { items, sugerencia: this.form.value.sugerencia || undefined };
+    const body = { items };
     this.enviando.set(true);
     try {
       if (this.yaRespondio()) await this.http.patch(`${this.api}/encuestas/mi-respuesta`, body).toPromise();

@@ -59,10 +59,6 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/periodos.component').then((m) => m.PeriodosAdminComponent),
       },
       {
-        path: 'sugerencias',
-        loadComponent: () => import('./features/admin/sugerencias.component').then((m) => m.SugerenciasAdminComponent),
-      },
-      {
         path: 'capacitaciones',
         loadComponent: () => import('./features/admin/capacitaciones-admin.component').then((m) => m.CapacitacionesAdminComponent),
       },

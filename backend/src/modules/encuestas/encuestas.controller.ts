@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
 import { EncuestasService } from './encuestas.service';
@@ -35,23 +35,5 @@ export class EncuestasController {
   @ApiOperation({ summary: 'Editar mi respuesta mientras el periodo esté activo' })
   editar(@Req() req: { user: { id: string } }, @Body() dto: CrearEncuestaDto) {
     return this.svc.editar(req.user.id, dto);
-  }
-
-  @Get('sugerencias')
-  @Auth('ADMIN')
-  sugerencias(@Query('estado') estado?: string) {
-    return this.svc.listarSugerencias(estado);
-  }
-
-  @Patch('sugerencias/:id')
-  @Auth('ADMIN')
-  estado(@Param('id') id: string, @Body() b: { estado: string }) {
-    return this.svc.cambiarEstadoSugerencia(id, b.estado);
-  }
-
-  @Post('sugerencias/:id/convertir-tema')
-  @Auth('ADMIN')
-  convertir(@Param('id') id: string) {
-    return this.svc.convertirSugerencia(id);
   }
 }

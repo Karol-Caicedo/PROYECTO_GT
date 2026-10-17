@@ -1,16 +1,15 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EncuestasService } from './encuestas.service';
-import { mockRepository, MockRepo } from '../../test/test-utils';
+import { mockRepository } from '../../test/test-utils';
 
 function buildService() {
   const resp = mockRepository();
   const rt = mockRepository();
-  const sug = mockRepository();
   const temas = mockRepository();
   const periodos = mockRepository();
   const users = mockRepository();
-  const svc = new EncuestasService(resp as never, rt as never, sug as never, temas as never, periodos as never, users as never);
-  return { svc, resp, rt, sug, temas, periodos, users };
+  const svc = new EncuestasService(resp as never, rt as never, temas as never, periodos as never, users as never);
+  return { svc, resp, rt, temas, periodos, users };
 }
 
 const PERIODO_SEL = { id: 'p-1', nombre: '2026-1', modoEncuesta: 'seleccion', activo: true };
@@ -76,7 +75,6 @@ describe('EncuestasService', () => {
       ctx.temas.find.mockResolvedValue(temas);
       ctx.resp.save.mockImplementation((e: unknown) => Promise.resolve({ id: 'r-1', ...(e as object) }));
       // miRespuesta: sin respuesta previa simulada → null (evita joins)
-      ctx.sug.findOne.mockResolvedValue(null);
       return ctx;
     }
 
@@ -114,18 +112,6 @@ describe('EncuestasService', () => {
       const filas = ctx.rt.save.mock.calls[0][0];
       expect(filas).toHaveLength(2);
       expect(filas[0]).toMatchObject({ respuestaId: 'r-1', temaId: 't-1', puntaje: null });
-      expect(ctx.sug.save).not.toHaveBeenCalled();
-    });
-
-    test('guarda sugerencia con estado nueva (trim) e ignora texto en blanco', async () => {
-      const ctx = setup();
-      await ctx.svc.responder('u-1', { items: [{ temaId: 't-1' }], sugerencia: '  Más Rust  ' });
-      expect(ctx.sug.save).toHaveBeenCalledTimes(1);
-      expect(ctx.sug.create).toHaveBeenCalledWith({ respuestaId: 'r-1', texto: 'Más Rust', estado: 'nueva' });
-
-      const ctx2 = setup();
-      await ctx2.svc.responder('u-1', { items: [{ temaId: 't-1' }], sugerencia: '   ' });
-      expect(ctx2.sug.save).not.toHaveBeenCalled();
     });
 
     test('en calificación persiste los puntajes', async () => {
@@ -144,7 +130,6 @@ describe('EncuestasService', () => {
       const ctx = buildService();
       ctx.periodos.findOne.mockResolvedValue(periodo);
       ctx.temas.find.mockResolvedValue(TEMAS);
-      ctx.sug.findOne.mockResolvedValue(null);
       return ctx;
     }
 
@@ -154,29 +139,12 @@ describe('EncuestasService', () => {
       await expect(ctx.svc.editar('u-1', { items: [{ temaId: 't-1' }] })).rejects.toThrow(NotFoundException);
     });
 
-    test('reemplaza ítems (delete + save) y conserva sugerencia si no se envía', async () => {
+    test('reemplaza ítems (delete + save)', async () => {
       const ctx = setup();
       ctx.resp.findOne.mockResolvedValue({ id: 'r-1', temas: [] });
       await ctx.svc.editar('u-1', { items: [{ temaId: 't-3' }] });
       expect(ctx.rt.delete).toHaveBeenCalledWith({ respuestaId: 'r-1' });
       expect(ctx.rt.save).toHaveBeenCalledTimes(1);
-      expect(ctx.sug.delete).not.toHaveBeenCalled();
-    });
-
-    test('sugerencia en blanco elimina la anterior sin crear otra', async () => {
-      const ctx = setup();
-      ctx.resp.findOne.mockResolvedValue({ id: 'r-1', temas: [] });
-      await ctx.svc.editar('u-1', { items: [{ temaId: 't-3' }], sugerencia: '  ' });
-      expect(ctx.sug.delete).toHaveBeenCalledWith({ respuestaId: 'r-1' });
-      expect(ctx.sug.save).not.toHaveBeenCalled();
-    });
-
-    test('nueva sugerencia reemplaza la anterior', async () => {
-      const ctx = setup();
-      ctx.resp.findOne.mockResolvedValue({ id: 'r-1', temas: [] });
-      await ctx.svc.editar('u-1', { items: [{ temaId: 't-3' }], sugerencia: 'Go' });
-      expect(ctx.sug.delete).toHaveBeenCalledWith({ respuestaId: 'r-1' });
-      expect(ctx.sug.create).toHaveBeenCalledWith({ respuestaId: 'r-1', texto: 'Go', estado: 'nueva' });
     });
   });
 
@@ -194,23 +162,21 @@ describe('EncuestasService', () => {
       await expect(await svc.miRespuesta('u-1')).toBeNull();
     });
 
-    test('incluye temasDetalle y texto de sugerencia', async () => {
-      const { svc, periodos, resp, temas, sug } = buildService();
+    test('incluye temasDetalle', async () => {
+      const { svc, periodos, resp, temas } = buildService();
       periodos.findOne.mockResolvedValue(PERIODO_SEL);
       resp.findOne.mockResolvedValue({ id: 'r-1', temas: [{ temaId: 't-1' }] });
       temas.find.mockResolvedValue([{ id: 't-1', nombre: 'IA' }]);
-      sug.findOne.mockResolvedValue({ texto: 'Más Python' });
       const r = await svc.miRespuesta('u-1');
-      expect(r).toMatchObject({ temasDetalle: [{ id: 't-1' }], sugerencia: 'Más Python' });
+      expect(r).toMatchObject({ temasDetalle: [{ id: 't-1' }] });
     });
 
-    test('sin sugerencia → null y sin temas → arreglo vacío', async () => {
-      const { svc, periodos, resp, temas, sug } = buildService();
+    test('sin temas → arreglo vacío', async () => {
+      const { svc, periodos, resp, temas } = buildService();
       periodos.findOne.mockResolvedValue(PERIODO_SEL);
       resp.findOne.mockResolvedValue({ id: 'r-1', temas: [] });
-      sug.findOne.mockResolvedValue(null);
       const r = await svc.miRespuesta('u-1');
-      expect(r).toMatchObject({ temasDetalle: [], sugerencia: null });
+      expect(r).toMatchObject({ temasDetalle: [] });
       expect(temas.find).not.toHaveBeenCalled();
     });
   });
@@ -243,55 +209,4 @@ describe('EncuestasService', () => {
     });
   });
 
-  describe('sugerencias (admin)', () => {
-    let ctx: { svc: EncuestasService; sug: MockRepo; temas: MockRepo };
-    beforeEach(() => {
-      const c = buildService();
-      ctx = { svc: c.svc, sug: c.sug, temas: c.temas };
-    });
-
-    test('estado inválido → 400', async () => {
-      await expect(ctx.svc.cambiarEstadoSugerencia('s-1', 'borrada')).rejects.toThrow(/Estado inválido/);
-    });
-
-    test('sugerencia inexistente → 404 en cambiar y convertir', async () => {
-      ctx.sug.findOne.mockResolvedValue(null);
-      await expect(ctx.svc.cambiarEstadoSugerencia('x', 'revisada')).rejects.toThrow(NotFoundException);
-      await expect(ctx.svc.convertirSugerencia('x')).rejects.toThrow(NotFoundException);
-    });
-
-    test('cambiar estado persiste', async () => {
-      ctx.sug.findOne.mockResolvedValue({ id: 's-1', estado: 'nueva' });
-      await ctx.svc.cambiarEstadoSugerencia('s-1', 'revisada');
-      expect(ctx.sug.save).toHaveBeenCalledWith({ id: 's-1', estado: 'revisada' });
-    });
-
-    test('convertir crea tema activo y marca aceptada', async () => {
-      ctx.sug.findOne.mockResolvedValue({ id: 's-1', texto: '  Rust para backend  ', estado: 'nueva' });
-      ctx.temas.findOne.mockResolvedValue(null);
-      await ctx.svc.convertirSugerencia('s-1');
-      expect(ctx.temas.create).toHaveBeenCalledWith(
-        expect.objectContaining({ nombre: 'Rust para backend', activo: true }),
-      );
-      expect(ctx.sug.save).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 's-1', estado: 'aceptada' }),
-      );
-    });
-
-    test('convertir reutiliza tema existente (no duplica)', async () => {
-      const existente = { id: 't-9', nombre: 'Rust para backend' };
-      ctx.sug.findOne.mockResolvedValue({ id: 's-1', texto: 'Rust para backend', estado: 'nueva' });
-      ctx.temas.findOne.mockResolvedValue(existente);
-      const r = await ctx.svc.convertirSugerencia('s-1');
-      expect(r).toBe(existente);
-      expect(ctx.temas.save).not.toHaveBeenCalled();
-    });
-
-    test('convertir trunca nombres a 120 caracteres', async () => {
-      ctx.sug.findOne.mockResolvedValue({ id: 's-1', texto: ` ${'x'.repeat(200)} `, estado: 'nueva' });
-      ctx.temas.findOne.mockResolvedValue(null);
-      await ctx.svc.convertirSugerencia('s-1');
-      expect(ctx.temas.create).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'x'.repeat(120) }));
-    });
-  });
 });
