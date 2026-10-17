@@ -132,8 +132,10 @@ export class DashboardService {
   async resumen(periodoId?: string) {
     const top = await this.topTemas(periodoId);
     const tasa = await this.tasaRespuesta(periodoId);
+    const totalEstudiantes = await this.users.count({ where: { rol: 'ESTUDIANTE' } });
     return {
       totalRespuestas: tasa.totalRespuestas,
+      totalEstudiantes,
       tasaGlobal: tasa.global,
       top1: top.items[0] ?? null,
     };

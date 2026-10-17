@@ -64,7 +64,7 @@ import {
 
       @if (cargando()) {
         <div class="metricas" role="status" aria-label="Cargando métricas">
-          <div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div>
+          <div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div>
         </div>
         <div class="skeleton" style="height:340px"></div>
       } @else if (fallo()) {
@@ -77,6 +77,7 @@ import {
       } @else {
         <div class="metricas">
           <app-metric-card icono="how_to_reg" [valor]="resumen()?.totalRespuestas ?? '–'" etiqueta="Total de respuestas" acento="azul" />
+          <app-metric-card icono="group" [valor]="resumen()?.totalEstudiantes ?? '–'" etiqueta="Estudiantes registrados" acento="azul" />
           <app-metric-card icono="percent" [valor]="(tasaGlobal() * 100).toFixed(1) + ' %'" etiqueta="Tasa de respuesta global" acento="verde" />
           <app-metric-card icono="emoji_events" [valor]="resumen()?.top1?.nombre || '–'" [etiqueta]="'Tema n.º 1' + (resumen()?.top1 ? ' · ' + resumen()?.top1?.valor + (modo() === 'calificacion' ? ' prom.' : ' votos') : '')" acento="azul" />
         </div>
@@ -151,7 +152,7 @@ export class DashboardComponent implements OnInit {
   periodoId = signal('');
   semestre = signal<string | number>('');
   modo = signal('');
-  resumen = signal<{ totalRespuestas: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null } | null>(null);
+  resumen = signal<{ totalRespuestas: number; totalEstudiantes: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null } | null>(null);
   top = signal<{ nombre: string; valor: number }[]>([]);
   tasa = signal<{ semestre: number; respondieron: number; total: number; tasa: number }[]>([]);
   heat = signal<Record<string, Record<number, number>>>({});
@@ -224,7 +225,7 @@ export class DashboardComponent implements OnInit {
         this.http.get<{ porSemestre: { semestre: number; respondieron: number; total: number; tasa: number }[] }>(`${this.api}/dashboard/tasa-respuesta${q}`).toPromise().catch(() => null),
         this.http.get<{ matriz: Record<string, Record<number, number>> }>(`${this.api}/dashboard/heatmap${q}`).toPromise().catch(() => null),
         this.http.get<{ items: { nombre: string; declarado: number; clics: number }[] }>(`${this.api}/dashboard/declarado-vs-real${q}`).toPromise().catch(() => null),
-        this.http.get<{ totalRespuestas: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null }>(`${this.api}/dashboard/resumen${q}`).toPromise().catch(() => null),
+        this.http.get<{ totalRespuestas: number; totalEstudiantes: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null }>(`${this.api}/dashboard/resumen${q}`).toPromise().catch(() => null),
         this.http.get<{ total: number; respondieronDespues: number; tasaPosterior: number }>(`${this.api}/recordatorios/resumen${q}`).toPromise().catch(() => null),
       ]);
       if (!top || !tasa || !heat || !dvr || !resumen) { this.fallo.set(true); return; }

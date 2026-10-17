@@ -22,14 +22,22 @@ export class AuthService {
   logueado = computed(() => !!this.token());
   esAdmin = computed(() => this.usuario()?.rol === 'ADMIN');
 
-  async cargarPerfil() {
-    if (!this.token()) return;
-    try {
-      const u = await this.http.get<Usuario>(`${this.base}/me`).toPromise();
-      if (u) this.usuario.set(u);
-    } catch {
-      this.salir(false);
-    }
+  private perfilEnCurso: Promise<void> | null = null;
+
+  cargarPerfil(): Promise<void> {
+    if (!this.token()) return Promise.resolve();
+    // Reutiliza la petición en curso (authGuard y roleGuard corren en paralelo).
+    this.perfilEnCurso ??= (async () => {
+      try {
+        const u = await this.http.get<Usuario>(`${this.base}/me`).toPromise();
+        if (u) this.usuario.set(u);
+      } catch {
+        this.salir(false);
+      } finally {
+        this.perfilEnCurso = null;
+      }
+    })();
+    return this.perfilEnCurso;
   }
 
   guardarSesion(access_token: string) {
