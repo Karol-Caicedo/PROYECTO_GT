@@ -101,7 +101,7 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
       } @else {
         <div class="info-periodo">
           <app-status-chip [estado]="periodo()!.modoEncuesta" />
-          <span class="texto-secundario">Periodo {{ periodo()!.nombre }} · Orden aleatorio para que ningún tema tenga ventaja</span>
+          <span class="texto-secundario">Periodo {{ periodo()!.nombre }}</span>
         </div>
 
         <mat-stepper orientation="vertical" #stepper>

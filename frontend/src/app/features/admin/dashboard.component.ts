@@ -48,11 +48,8 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
   `],
   template: `
     <div class="pagina">
-      <app-page-header titulo="Dashboard de intereses" subtitulo="Proyección Social · datos agregados, sin respuestas individuales"
+      <app-page-header titulo="Dashboard de intereses"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Dashboard' }]">
-        <button class="btn-acento" (click)="exportar()" aria-label="Exportar datos del dashboard a CSV">
-          <span class="material-symbols-outlined" aria-hidden="true" style="vertical-align:-4px">download</span>&nbsp;Exportar CSV
-        </button>
       </app-page-header>
 
       <div class="barra-filtros" role="group" aria-label="Filtros del dashboard">
