@@ -16,6 +16,8 @@ import {
   opcionesBarrasHorizontales, opcionesBarrasVerticales, opcionesLinea,
 } from '../../core/charts.config';
 
+type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -33,6 +35,12 @@ import {
     .celda-calor { min-width: 44px; min-height: 40px; display: grid; place-items: center; border-radius: var(--radio-s); font-weight: 700; font-size: var(--t-secundario); border: 1px solid var(--borde); }
     .leyenda-calor { display: flex; align-items: center; gap: var(--esp-2); font-size: 12px; color: var(--texto-secundario); margin-top: var(--esp-3); }
     .leyenda-calor .barra { width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--superficie), var(--azul-500), var(--azul-900)); border: 1px solid var(--borde); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .grafico-entrada { animation: grafico-entrada 180ms ease-out; }
+    @keyframes grafico-entrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .resumen-recordatorios { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--esp-4); margin-top: var(--esp-3); }
+    .resumen-recordatorios .valor { display: block; font-size: var(--t-titulo-sm); font-weight: 800; color: var(--azul-900); line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .resumen-recordatorios .etiqueta { display: block; margin-top: var(--esp-1); font-size: var(--t-secundario); color: var(--texto-secundario); }
     @media (max-width: 600px) {
       .grafico { height: 280px; }
       .grafico.alto { height: 320px; }
@@ -49,13 +57,18 @@ import {
         </button>
       </app-page-header>
 
-      <div class="barra-filtros" role="search" aria-label="Filtros del dashboard">
+      <div class="barra-filtros" role="group" aria-label="Filtros del dashboard">
         <mat-form-field subscriptSizing="dynamic"><mat-label>Periodo</mat-label><mat-select [value]="periodoId()" (selectionChange)="periodoId.set($event.value); cargar()">
           @for (p of periodos(); track p.id) { <mat-option [value]="p.id">{{ p.nombre }} {{ p.activo ? '(activo)' : '' }}</mat-option> }
         </mat-select></mat-form-field>
         <mat-form-field subscriptSizing="dynamic"><mat-label>Semestre</mat-label><mat-select [value]="semestre()" (selectionChange)="semestre.set($event.value); cargar()">
           <mat-option [value]="''">Todos</mat-option>
           @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">Semestre {{ s }}</mat-option> }
+        </mat-select></mat-form-field>
+        <mat-form-field subscriptSizing="dynamic"><mat-label>Gráfico</mat-label><mat-select [value]="grafico()" (selectionChange)="grafico.set($event.value)" aria-label="Gráfico que se muestra en el dashboard">
+          @for (g of opcionesGrafico; track g.id) {
+            <mat-option [value]="g.id">{{ g.id === 'top' ? 'Top 10 de temas (' + (modo() === 'calificacion' ? 'promedio' : 'votos') + ')' : g.texto }}</mat-option>
+          }
         </mat-select></mat-form-field>
         @if (nombrePeriodo()) { <span class="chip-filtro">{{ nombrePeriodo() }}</span> }
         @if (semestre() !== '') { <span class="chip-filtro">Semestre {{ semestre() }}</span> }
@@ -82,63 +95,93 @@ import {
           <app-metric-card icono="emoji_events" [valor]="resumen()?.top1?.nombre || '–'" [etiqueta]="'Tema n.º 1' + (resumen()?.top1 ? ' · ' + resumen()?.top1?.valor + (modo() === 'calificacion' ? ' prom.' : ' votos') : '')" acento="azul" />
         </div>
 
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">leaderboard</span>Top 10 de temas ({{ modo() === 'calificacion' ? 'promedio' : 'votos' }})</h2>
-          <p class="desc-grafico">Los temas con más interés declarado en el periodo y filtro elegidos.</p>
-          @if (top().length) { <div class="grafico alto"><canvas baseChart [data]="topData()" [options]="hbar" [type]="'bar'"></canvas></div> }
-          @else { <p class="texto-secundario">Aún no hay respuestas para este filtro.</p> }
-        </mat-card-content></mat-card>
+        <p class="sr-only" aria-live="polite">Gráfico mostrado: {{ textoGrafico() }}</p>
 
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">group</span>Tasa de respuesta por semestre</h2>
-          <p class="desc-grafico">Estudiantes que respondieron frente al total registrado en cada semestre.</p>
-          <div class="grafico"><canvas baseChart [data]="tasaData()" [options]="vbar" [type]="'bar'"></canvas></div>
-          @for (t of tasa(); track t.semestre) {
-            @if (t.respondieron < 10) {
-              <div class="alerta-advertencia" role="note">
-                <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                <span>Semestre {{ t.semestre }}: solo {{ t.respondieron }} respuestas — <b>muestra pequeña, interpretar con cuidado</b>.</span>
-              </div>
-            }
+        @switch (grafico()) {
+          @case ('top') {
+            <mat-card class="mt grafico-entrada"><mat-card-content>
+              <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">leaderboard</span>Top 10 de temas ({{ modo() === 'calificacion' ? 'promedio' : 'votos' }})</h2>
+              <p class="desc-grafico">Los temas con más interés declarado en el periodo y filtro elegidos.</p>
+              @if (top().length) { <div class="grafico alto"><canvas baseChart [data]="topData()" [options]="hbar" [type]="'bar'" role="img" [attr.aria-label]="'Top 10 de temas por ' + (modo() === 'calificacion' ? 'promedio' : 'votos') + ' con el filtro seleccionado'"></canvas></div> }
+              @else { <p class="texto-secundario">Aún no hay respuestas para este filtro.</p> }
+            </mat-card-content></mat-card>
           }
-        </mat-card-content></mat-card>
 
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span>Mapa de calor temas × semestres</h2>
-          <p class="desc-grafico">Intensidad del interés por tema en cada semestre. Los números acompañan al color.</p>
-          @if (heatFilas().length) {
-            <div style="overflow:auto"><table class="tabla-calor">
-              <tr><th scope="col">Tema</th>@for (s of [1,2,3,4,5,6,7,8,9]; track s) { <th scope="col">S{{s}}</th> }</tr>
-              @for (tema of heatFilas(); track tema) {
-                <tr><td>{{ tema }}</td>
-                  @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-                    <td><div class="celda-calor" [style.background]="celda(tema, s).fondo" [style.color]="celda(tema, s).texto">{{ heat()[tema]?.[s] ?? 0 }}</div></td>
-                  }</tr>
+          @case ('tasa') {
+            <mat-card class="mt grafico-entrada"><mat-card-content>
+              <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">group</span>Tasa de respuesta por semestre</h2>
+              <p class="desc-grafico">Estudiantes que respondieron frente al total registrado en cada semestre.</p>
+              @if (tasa().length) {
+                <div class="grafico"><canvas baseChart [data]="tasaData()" [options]="vbar" [type]="'bar'" role="img" aria-label="Tasa de respuesta por semestre"></canvas></div>
+                @for (t of tasa(); track t.semestre) {
+                  @if (t.respondieron < 10) {
+                    <div class="alerta-advertencia" role="note">
+                      <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                      <span>Semestre {{ t.semestre }}: solo {{ t.respondieron }} respuestas — <b>muestra pequeña, interpretar con cuidado</b>.</span>
+                    </div>
+                  }
+                }
+              } @else {
+                <p class="texto-secundario">Aún no hay respuestas para este filtro.</p>
               }
-            </table></div>
-            <div class="leyenda-calor" aria-hidden="true"><span>Menor</span><span class="barra"></span><span>Mayor</span></div>
-          } @else { <p class="texto-secundario">Aún no hay respuestas para este filtro.</p> }
-        </mat-card-content></mat-card>
+            </mat-card-content></mat-card>
+          }
 
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">compare</span>Interés declarado vs. real</h2>
-          <p class="desc-grafico">Azul = lo elegido en la encuesta · Verde = clics reales en capacitaciones del tema.</p>
-          <div class="grafico alto"><canvas baseChart [data]="dvrData()" [options]="vbar" [type]="'bar'"></canvas></div>
-        </mat-card-content></mat-card>
+          @case ('calor') {
+            <mat-card class="mt grafico-entrada"><mat-card-content>
+              <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span>Mapa de calor temas × semestres</h2>
+              <p class="desc-grafico">Intensidad del interés por tema en cada semestre. Los números acompañan al color.</p>
+              @if (heatFilas().length) {
+                <div style="overflow:auto"><table class="tabla-calor">
+                  <tr><th scope="col">Tema</th>@for (s of [1,2,3,4,5,6,7,8,9]; track s) { <th scope="col">S{{s}}</th> }</tr>
+                  @for (tema of heatFilas(); track tema) {
+                    <tr><td>{{ tema }}</td>
+                      @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+                        <td><div class="celda-calor" [style.background]="celda(tema, s).fondo" [style.color]="celda(tema, s).texto">{{ heat()[tema]?.[s] ?? 0 }}</div></td>
+                      }</tr>
+                  }
+                </table></div>
+                <div class="leyenda-calor" aria-hidden="true"><span>Menor</span><span class="barra"></span><span>Mayor</span></div>
+              } @else { <p class="texto-secundario">Aún no hay respuestas para este filtro.</p> }
+            </mat-card-content></mat-card>
+          }
 
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">show_chart</span>Comparativo entre periodos</h2>
-          <p class="desc-grafico">Evolución del tema seleccionado a lo largo de los periodos.</p>
-          <mat-form-field subscriptSizing="dynamic"><mat-label>Tema</mat-label><mat-select [value]="temaComp()" (selectionChange)="temaComp.set($event.value); cargarComp()">
-            @for (t of todosTemas(); track t.id) { <mat-option [value]="t.id">{{ t.nombre }}</mat-option> }
-          </mat-select></mat-form-field>
-          <div class="grafico mt"><canvas baseChart [data]="compData()" [options]="line" [type]="'line'"></canvas></div>
-        </mat-card-content></mat-card>
+          @case ('declarado') {
+            <mat-card class="mt grafico-entrada"><mat-card-content>
+              <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">compare</span>Interés declarado vs. real</h2>
+              <p class="desc-grafico">Azul = lo elegido en la encuesta · Verde = clics reales en capacitaciones del tema.</p>
+              @if (dvr().length) {
+                <div class="grafico alto"><canvas baseChart [data]="dvrData()" [options]="vbar" [type]="'bar'" role="img" aria-label="Interés declarado en la encuesta frente a clics reales"></canvas></div>
+              } @else {
+                <p class="texto-secundario">Aún no hay respuestas para este filtro.</p>
+              }
+            </mat-card-content></mat-card>
+          }
+
+          @case ('comparativo') {
+            <mat-card class="mt grafico-entrada"><mat-card-content>
+              <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">show_chart</span>Comparativo entre periodos</h2>
+              <p class="desc-grafico">Evolución del tema seleccionado a lo largo de los periodos.</p>
+              <mat-form-field subscriptSizing="dynamic"><mat-label>Tema</mat-label><mat-select [value]="temaComp()" (selectionChange)="temaComp.set($event.value); cargarComp()">
+                @for (t of todosTemas(); track t.id) { <mat-option [value]="t.id">{{ t.nombre }}</mat-option> }
+              </mat-select></mat-form-field>
+              @if (comp().length) {
+                <div class="grafico mt"><canvas baseChart [data]="compData()" [options]="line" [type]="'line'" role="img" aria-label="Evolución del tema seleccionado entre periodos"></canvas></div>
+              } @else {
+                <p class="texto-secundario">No hay datos de este tema en los periodos registrados.</p>
+              }
+            </mat-card-content></mat-card>
+          }
+        }
 
         <mat-card class="mt"><mat-card-content>
           <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">mark_email_read</span>Recordatorios</h2>
           <p class="desc-grafico">Correos de recordatorio enviados y respuesta posterior.</p>
-          <p>Enviados: <b>{{ rec()?.total ?? 0 }}</b> · Respondieron después: <b>{{ rec()?.respondieronDespues ?? 0 }}</b> ({{ ((rec()?.tasaPosterior || 0) * 100).toFixed(0) }} %)</p>
+          <div class="resumen-recordatorios">
+            <div><span class="valor">{{ rec()?.total ?? 0 }}</span><span class="etiqueta">Enviados</span></div>
+            <div><span class="valor">{{ rec()?.respondieronDespues ?? 0 }}</span><span class="etiqueta">Respondieron después</span></div>
+            <div><span class="valor">{{ ((rec()?.tasaPosterior || 0) * 100).toFixed(0) }} %</span><span class="etiqueta">Tasa posterior</span></div>
+          </div>
         </mat-card-content></mat-card>
       }
     </div>
@@ -162,6 +205,14 @@ export class DashboardComponent implements OnInit {
   rec = signal<{ total: number; respondieronDespues: number; tasaPosterior: number } | null>(null);
   cargando = signal(true);
   fallo = signal(false);
+  grafico = signal<GraficoDashboard>('top');
+  opcionesGrafico: { id: GraficoDashboard; texto: string }[] = [
+    { id: 'top', texto: 'Top 10 de temas' },
+    { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
+    { id: 'calor', texto: 'Mapa de calor temas × semestres' },
+    { id: 'declarado', texto: 'Interés declarado vs. real' },
+    { id: 'comparativo', texto: 'Comparativo entre periodos' },
+  ];
 
   hbar: ChartConfiguration['options'] = opcionesBarrasHorizontales();
   vbar: ChartConfiguration['options'] = opcionesBarrasVerticales();
@@ -189,6 +240,9 @@ export class DashboardComponent implements OnInit {
   heatFilas = () => Object.keys(this.heat());
   tasaGlobal = () => this.resumen()?.tasaGlobal ?? 0;
   nombrePeriodo = () => this.periodos().find((p) => p.id === this.periodoId())?.nombre ?? '';
+  textoGrafico = () => this.grafico() === 'top'
+    ? `Top 10 de temas (${this.modo() === 'calificacion' ? 'promedio' : 'votos'})`
+    : this.opcionesGrafico.find((g) => g.id === this.grafico())?.texto ?? '';
 
   maxCalor(): number {
     return Math.max(1, ...Object.values(this.heat()).flatMap((r) => Object.values(r)));
