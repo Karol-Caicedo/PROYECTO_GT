@@ -107,15 +107,7 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
               <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">group</span>Tasa de respuesta por semestre</h2>
               <p class="desc-grafico">Estudiantes que respondieron frente al total registrado en cada semestre.</p>
               @if (tasa().length) {
-                <div class="grafico"><canvas baseChart [data]="tasaData()" [options]="vbar" [type]="'bar'" role="img" aria-label="Tasa de respuesta por semestre"></canvas></div>
-                @for (t of tasa(); track t.semestre) {
-                  @if (t.respondieron < 10) {
-                    <div class="alerta-advertencia" role="note">
-                      <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                      <span>Semestre {{ t.semestre }}: solo {{ t.respondieron }} respuestas — <b>muestra pequeña, interpretar con cuidado</b>.</span>
-                    </div>
-                  }
-                }
+                <div class="grafico alto"><canvas baseChart [data]="tasaData()" [options]="vbar" [type]="'bar'" role="img" aria-label="Estudiantes registrados y estudiantes que respondieron por semestre"></canvas></div>
               } @else {
                 <p class="texto-secundario">Aún no hay respuestas para este filtro.</p>
               }
@@ -207,8 +199,11 @@ export class DashboardComponent implements OnInit {
     datasets: [{ label: this.modo() === 'calificacion' ? 'Promedio' : 'Votos', data: this.top().map((t) => t.valor), backgroundColor: GRAFICOS.azul, borderRadius: 6 }],
   });
   tasaData = () => ({
-    labels: this.tasa().map((t) => `S${t.semestre} (${(t.tasa * 100).toFixed(0)} %)`),
-    datasets: [{ label: 'Tasa de respuesta (%)', data: this.tasa().map((t) => +(t.tasa * 100).toFixed(1)), backgroundColor: GRAFICOS.azul, borderRadius: 6 }],
+    labels: this.tasa().map((t) => [`S${t.semestre}`, `${t.respondieron} de ${t.total} (${(t.tasa * 100).toFixed(0)} %)`]),
+    datasets: [
+      { label: 'Registrados', data: this.tasa().map((t) => t.total), backgroundColor: GRAFICOS.azulClaro, borderColor: GRAFICOS.azul, borderWidth: 1, borderRadius: 6 },
+      { label: 'Respondieron', data: this.tasa().map((t) => t.respondieron), backgroundColor: GRAFICOS.azul, borderRadius: 6 },
+    ],
   });
   dvrData = () => ({
     labels: this.dvr().map((d) => d.nombre),
