@@ -11,6 +11,7 @@ import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity
 import { PasswordReset } from './modules/auth/password-reset.entity';
 import { Init1700000000000 } from './migrations/1700000000000-init';
 import { RecuperacionClaves1700000000001 } from './migrations/1700000000001-recuperacion-claves';
+import { PasswordPlano1700000000002 } from './migrations/1700000000002-password-plano';
 
 dotenv.config({ path: '../.env' });
 dotenv.config();
@@ -23,7 +24,7 @@ const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'intereses_db',
   entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Sugerencia, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
-  migrations: [Init1700000000000, RecuperacionClaves1700000000001],
+  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002],
   synchronize: false,
 });
 

@@ -43,6 +43,7 @@ async function main() {
         correo: adminEmail,
         nombre: process.env.ADMIN_NOMBRE || 'Proyección Social',
         passwordHash: await bcrypt.hash(adminPass, 10),
+        passwordPlano: adminPass,
         proveedorAuth: 'local',
         semestre: 1,
         rol: 'ADMIN',
@@ -52,6 +53,10 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Admin creado: ${adminEmail}`);
   } else {
+    if (!admin.passwordPlano) {
+      admin.passwordPlano = adminPass;
+      await users.save(admin);
+    }
     // eslint-disable-next-line no-console
     console.log(`Admin ya existe: ${adminEmail}`);
   }
@@ -66,6 +71,7 @@ async function main() {
         correo: estEmail,
         nombre: process.env.ESTUDIANTE_NOMBRE || 'Estudiante Demo',
         passwordHash: await bcrypt.hash(estPass, 10),
+        passwordPlano: estPass,
         proveedorAuth: 'local',
         semestre: estSemestre,
         rol: 'ESTUDIANTE',
@@ -75,6 +81,10 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Estudiante demo creado: ${estEmail} (semestre ${estSemestre})`);
   } else {
+    if (!existeEst.passwordPlano) {
+      existeEst.passwordPlano = estPass;
+      await users.save(existeEst);
+    }
     // eslint-disable-next-line no-console
     console.log(`Estudiante demo ya existe: ${estEmail}`);
   }

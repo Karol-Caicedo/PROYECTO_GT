@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -22,6 +22,7 @@ interface Usuario {
   semestre: number;
   rol: 'ESTUDIANTE' | 'ADMIN';
   proveedorAuth: string;
+  passwordPlano?: string | null;
 }
 
 @Component({
@@ -116,8 +117,11 @@ interface Usuario {
         }
 
         <mat-form-field class="full-width">
-          <mat-label>Nueva contraseña (opcional)</mat-label>
-          <input matInput formControlName="password" type="password" autocomplete="new-password" placeholder="Dejar en blanco para no cambiarla" />
+          <mat-label>Contraseña</mat-label>
+          <input matInput [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" placeholder="Contraseña del usuario" />
+          <button mat-icon-button matSuffix type="button" (click)="mostrarPassword.set(!mostrarPassword())" [attr.aria-label]="mostrarPassword() ? 'Ocultar contraseña' : 'Ver contraseña'" [title]="mostrarPassword() ? 'Ocultar contraseña' : 'Ver contraseña'">
+            <span class="material-symbols-outlined" aria-hidden="true">{{ mostrarPassword() ? 'visibility_off' : 'visibility' }}</span>
+          </button>
           @if (form.controls.password.invalid && form.controls.password.touched) {
             <mat-error>Mínimo 8 caracteres</mat-error>
           }
@@ -144,13 +148,14 @@ export class EditarUsuarioDialogComponent {
 
   error = signal('');
   cargando = signal(false);
+  mostrarPassword = signal(true);
 
   form = this.fb.group({
     nombre: [this.datos.usuario.nombre, Validators.required],
     correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
     semestre: [this.datos.usuario.semestre || 1],
     rol: [this.datos.usuario.rol, Validators.required],
-    password: ['', [Validators.minLength(8)]],
+    password: [this.datos.usuario.passwordPlano || '', [Validators.minLength(8)]],
   });
 
   constructor() {
@@ -228,11 +233,29 @@ export class EditarUsuarioDialogComponent {
       width: 100px;
       text-align: right;
     }
+    .filtro-semestre-header {
+      min-width: 230px;
+    }
+    .filtro-semestre-header ::ng-deep .mat-mdc-text-field-wrapper {
+      background-color: var(--superficie, #ffffff) !important;
+      border-radius: var(--radio-s, 8px);
+    }
   `],
   template: `
     <div class="pagina">
       <app-page-header titulo="Usuarios"
-        [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Usuarios' }]" />
+        [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Usuarios' }]">
+        <mat-form-field subscriptSizing="dynamic" class="filtro-semestre-header">
+          <mat-label>Filtrar por semestre</mat-label>
+          <mat-select [value]="filtroSemestre()" (selectionChange)="filtroSemestre.set($event.value)">
+            <mat-option value="">Todos los semestres</mat-option>
+            @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+              <mat-option [value]="s">Semestre {{ s }}</mat-option>
+            }
+            <mat-option value="ADMIN">Solo Administradores</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </app-page-header>
       <div class="dos-columnas">
         <mat-card><mat-card-content>
           <h2 class="titulo-seccion">Nuevo usuario</h2>
@@ -264,11 +287,13 @@ export class EditarUsuarioDialogComponent {
           </form>
         </mat-card-content></mat-card>
         <mat-card><mat-card-content>
-          <h2 class="titulo-seccion">Usuarios ({{ usuarios().length }})</h2>
+          <h2 class="titulo-seccion">Usuarios ({{ usuariosFiltrados().length }})</h2>
           @if (!usuarios().length) {
             <p class="texto-secundario">Aún no hay usuarios. Crea el primero con el formulario.</p>
+          } @else if (!usuariosFiltrados().length) {
+            <p class="texto-secundario">No se encontraron usuarios para el filtro seleccionado.</p>
           } @else {
-            <div class="tabla-responsive"><table mat-table [dataSource]="usuarios()">
+            <div class="tabla-responsive"><table mat-table [dataSource]="usuariosFiltrados()">
               <ng-container matColumnDef="nombre"><th mat-header-cell *matHeaderCellDef>Usuario</th>
                 <td mat-cell *matCellDef="let u"><b>{{ u.nombre }}</b><br /><small style="color:var(--texto-secundario)">{{ u.correo }}</small></td></ng-container>
               <ng-container matColumnDef="rol"><th mat-header-cell *matHeaderCellDef>Rol</th>
@@ -302,8 +327,17 @@ export class UsuariosAdminComponent implements OnInit {
   private dialog = inject(MatDialog);
   private api = environment.apiUrl;
   usuarios = signal<Usuario[]>([]);
+  filtroSemestre = signal<string | number>('');
   error = signal('');
   guardando = signal(false);
+
+  usuariosFiltrados = computed(() => {
+    const f = this.filtroSemestre();
+    const todos = this.usuarios();
+    if (f === '' || f === 'TODOS') return todos;
+    if (f === 'ADMIN') return todos.filter((u) => u.rol === 'ADMIN');
+    return todos.filter((u) => u.rol === 'ESTUDIANTE' && u.semestre === Number(f));
+  });
   form = this.fb.group({
     nombre: ['', Validators.required],
     correo: ['', [Validators.required, Validators.email]],

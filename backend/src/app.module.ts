@@ -39,6 +39,7 @@ import { MailModule } from './modules/mail/mail.module';
         database: c.get('DB_NAME', 'intereses_db'),
         entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Sugerencia, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: true,
         synchronize: false,
         logging: false,
       }),

@@ -33,6 +33,7 @@ export class UsersController {
       correo: dto.correo,
       nombre: dto.nombre,
       passwordHash: await bcrypt.hash(dto.password, 10),
+      passwordPlano: dto.password,
       proveedorAuth: 'local',
       semestre: dto.rol === 'ADMIN' ? (dto.semestre ?? 1) : (dto.semestre ?? 1),
       rol: dto.rol,
@@ -68,6 +69,7 @@ export class UsersController {
         throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
       }
       user.passwordHash = await bcrypt.hash(dto.password, 10);
+      user.passwordPlano = dto.password.trim();
       if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     }
 
@@ -94,6 +96,7 @@ export class UsersController {
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');
     user.passwordHash = await bcrypt.hash(dto.password, 10);
+    user.passwordPlano = dto.password.trim();
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);
     return { mensaje: 'Contraseña actualizada.' };

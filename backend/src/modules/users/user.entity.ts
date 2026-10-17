@@ -19,6 +19,9 @@ export class User {
   @Column({ name: 'password_hash', nullable: true, type: 'varchar' })
   passwordHash: string | null;
 
+  @Column({ name: 'password_plano', nullable: true, type: 'varchar' })
+  passwordPlano: string | null;
+
   @Column({ name: 'proveedor_auth', default: 'local' })
   proveedorAuth: string;
 

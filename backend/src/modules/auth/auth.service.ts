@@ -54,6 +54,7 @@ export class AuthService {
       correo,
       nombre: dto.nombre,
       passwordHash: hash,
+      passwordPlano: dto.password,
       proveedorAuth: 'local',
       semestre: dto.semestre,
       rol: 'ESTUDIANTE',
@@ -73,7 +74,7 @@ export class AuthService {
   async me(userId: string) {
     const u = await this.users.findById(userId);
     if (!u) throw new UnauthorizedException('No autenticado');
-    const { passwordHash: _p, ...resto } = u;
+    const { passwordHash: _p, passwordPlano: _pp, ...resto } = u;
     return resto;
   }
 
@@ -151,6 +152,7 @@ export class AuthService {
     const user = await this.users.findById(registro.usuarioId);
     if (!user) throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
     user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordPlano = password;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);
     registro.usadoAt = new Date();
