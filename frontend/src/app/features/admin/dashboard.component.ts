@@ -199,7 +199,7 @@ export class DashboardComponent implements OnInit {
     datasets: [{ label: this.modo() === 'calificacion' ? 'Promedio' : 'Votos', data: this.top().map((t) => t.valor), backgroundColor: GRAFICOS.azul, borderRadius: 6 }],
   });
   tasaData = () => ({
-    labels: this.tasa().map((t) => [`S${t.semestre}`, `${t.respondieron} de ${t.total} (${(t.tasa * 100).toFixed(0)} %)`]),
+    labels: this.tasa().map((t) => `S${t.semestre}`),
     datasets: [
       { label: 'Registrados', data: this.tasa().map((t) => t.total), backgroundColor: GRAFICOS.azulClaro, borderColor: GRAFICOS.azul, borderWidth: 1, borderRadius: 6 },
       { label: 'Respondieron', data: this.tasa().map((t) => t.respondieron), backgroundColor: GRAFICOS.azul, borderRadius: 6 },
