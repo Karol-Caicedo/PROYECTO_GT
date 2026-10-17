@@ -23,6 +23,7 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatFormFieldModule, MatSelectModule, MatButtonModule, BaseChartDirective, PageHeaderComponent, MetricCardComponent],
   styles: [`
+    .barra-filtros { margin-bottom: var(--esp-8); }
     .metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--esp-4); margin-bottom: var(--esp-5); }
     .grafico { height: 320px; position: relative; }
     .grafico.alto { height: 380px; }
@@ -38,9 +39,6 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .grafico-entrada { animation: grafico-entrada 180ms ease-out; }
     @keyframes grafico-entrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-    .resumen-recordatorios { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--esp-4); margin-top: var(--esp-3); }
-    .resumen-recordatorios .valor { display: block; font-size: var(--t-titulo-sm); font-weight: 800; color: var(--azul-900); line-height: 1.2; font-variant-numeric: tabular-nums; }
-    .resumen-recordatorios .etiqueta { display: block; margin-top: var(--esp-1); font-size: var(--t-secundario); color: var(--texto-secundario); }
     @media (max-width: 600px) {
       .grafico { height: 280px; }
       .grafico.alto { height: 320px; }
@@ -70,9 +68,6 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
             <mat-option [value]="g.id">{{ g.id === 'top' ? 'Top 10 de temas (' + (modo() === 'calificacion' ? 'promedio' : 'votos') + ')' : g.texto }}</mat-option>
           }
         </mat-select></mat-form-field>
-        @if (nombrePeriodo()) { <span class="chip-filtro">{{ nombrePeriodo() }}</span> }
-        @if (semestre() !== '') { <span class="chip-filtro">Semestre {{ semestre() }}</span> }
-        @if (modo()) { <span class="chip-filtro">Modo: {{ modo() === 'seleccion' ? 'selección' : 'calificación' }}</span> }
       </div>
 
       @if (cargando()) {
@@ -173,16 +168,6 @@ type GraficoDashboard = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
             </mat-card-content></mat-card>
           }
         }
-
-        <mat-card class="mt"><mat-card-content>
-          <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">mark_email_read</span>Recordatorios</h2>
-          <p class="desc-grafico">Correos de recordatorio enviados y respuesta posterior.</p>
-          <div class="resumen-recordatorios">
-            <div><span class="valor">{{ rec()?.total ?? 0 }}</span><span class="etiqueta">Enviados</span></div>
-            <div><span class="valor">{{ rec()?.respondieronDespues ?? 0 }}</span><span class="etiqueta">Respondieron después</span></div>
-            <div><span class="valor">{{ ((rec()?.tasaPosterior || 0) * 100).toFixed(0) }} %</span><span class="etiqueta">Tasa posterior</span></div>
-          </div>
-        </mat-card-content></mat-card>
       }
     </div>
   `,
@@ -202,7 +187,6 @@ export class DashboardComponent implements OnInit {
   dvr = signal<{ nombre: string; declarado: number; clics: number }[]>([]);
   comp = signal<{ periodo: string; valor: number }[]>([]);
   temaComp = signal('');
-  rec = signal<{ total: number; respondieronDespues: number; tasaPosterior: number } | null>(null);
   cargando = signal(true);
   fallo = signal(false);
   grafico = signal<GraficoDashboard>('top');
@@ -239,7 +223,6 @@ export class DashboardComponent implements OnInit {
   });
   heatFilas = () => Object.keys(this.heat());
   tasaGlobal = () => this.resumen()?.tasaGlobal ?? 0;
-  nombrePeriodo = () => this.periodos().find((p) => p.id === this.periodoId())?.nombre ?? '';
   textoGrafico = () => this.grafico() === 'top'
     ? `Top 10 de temas (${this.modo() === 'calificacion' ? 'promedio' : 'votos'})`
     : this.opcionesGrafico.find((g) => g.id === this.grafico())?.texto ?? '';
@@ -274,13 +257,12 @@ export class DashboardComponent implements OnInit {
     this.fallo.set(false);
     try {
       const q = this.qs();
-      const [top, tasa, heat, dvr, resumen, rec] = await Promise.all([
+      const [top, tasa, heat, dvr, resumen] = await Promise.all([
         this.http.get<{ modo: string; items: { nombre: string; valor: number }[] }>(`${this.api}/dashboard/top-temas${q}`).toPromise().catch(() => null),
         this.http.get<{ porSemestre: { semestre: number; respondieron: number; total: number; tasa: number }[] }>(`${this.api}/dashboard/tasa-respuesta${q}`).toPromise().catch(() => null),
         this.http.get<{ matriz: Record<string, Record<number, number>> }>(`${this.api}/dashboard/heatmap${q}`).toPromise().catch(() => null),
         this.http.get<{ items: { nombre: string; declarado: number; clics: number }[] }>(`${this.api}/dashboard/declarado-vs-real${q}`).toPromise().catch(() => null),
         this.http.get<{ totalRespuestas: number; totalEstudiantes: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null }>(`${this.api}/dashboard/resumen${q}`).toPromise().catch(() => null),
-        this.http.get<{ total: number; respondieronDespues: number; tasaPosterior: number }>(`${this.api}/recordatorios/resumen${q}`).toPromise().catch(() => null),
       ]);
       if (!top || !tasa || !heat || !dvr || !resumen) { this.fallo.set(true); return; }
       this.top.set(top.items); this.modo.set(top.modo);
@@ -288,7 +270,6 @@ export class DashboardComponent implements OnInit {
       this.heat.set(heat.matriz);
       this.dvr.set(dvr.items);
       this.resumen.set(resumen);
-      if (rec) this.rec.set(rec);
     } finally {
       this.cargando.set(false);
     }
