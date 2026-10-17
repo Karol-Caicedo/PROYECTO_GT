@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Respuesta, RespuestaTema } from './respuesta.entity';
-import { Sugerencia } from './sugerencia.entity';
 import { Tema } from '../temas/tema.entity';
 import { Periodo } from '../periodos/periodo.entity';
 import { User } from '../users/user.entity';
@@ -13,7 +12,6 @@ export class EncuestasService {
   constructor(
     @InjectRepository(Respuesta) private resp: Repository<Respuesta>,
     @InjectRepository(RespuestaTema) private rt: Repository<RespuestaTema>,
-    @InjectRepository(Sugerencia) private sug: Repository<Sugerencia>,
     @InjectRepository(Tema) private temas: Repository<Tema>,
     @InjectRepository(Periodo) private periodos: Repository<Periodo>,
     @InjectRepository(User) private users: Repository<User>,
@@ -72,8 +70,7 @@ export class EncuestasService {
     if (!r) return null;
     const temasIds = r.temas.map((t) => t.temaId);
     const info = temasIds.length ? await this.temas.find({ where: { id: In(temasIds) } }) : [];
-    const sug = await this.sug.findOne({ where: { respuestaId: r.id } });
-    return { ...r, temasDetalle: info, sugerencia: sug?.texto ?? null };
+    return { ...r, temasDetalle: info };
   }
 
   async responder(userId: string, dto: CrearEncuestaDto) {
@@ -99,9 +96,6 @@ export class EncuestasService {
         }),
       ),
     );
-    if (dto.sugerencia?.trim()) {
-      await this.sug.save(this.sug.create({ respuestaId: r.id, texto: dto.sugerencia.trim(), estado: 'nueva' }));
-    }
     return this.miRespuesta(userId, periodo.id);
   }
 
@@ -123,39 +117,6 @@ export class EncuestasService {
         }),
       ),
     );
-    if (dto.sugerencia !== undefined) {
-      await this.sug.delete({ respuestaId: r.id });
-      if (dto.sugerencia?.trim())
-        await this.sug.save(this.sug.create({ respuestaId: r.id, texto: dto.sugerencia.trim(), estado: 'nueva' }));
-    }
     return this.miRespuesta(userId, periodo.id);
-  }
-
-  // ---- Sugerencias (admin) ----
-  listarSugerencias(estado?: string) {
-    const qb = this.sug.createQueryBuilder('s')
-      .leftJoinAndMapOne('s.respuesta', Respuesta, 'r', 'r.id = s.respuestaId')
-      .orderBy('s.createdAt', 'DESC');
-    if (estado) qb.where('s.estado = :e', { e: estado });
-    return qb.getMany();
-  }
-
-  async cambiarEstadoSugerencia(id: string, estado: string) {
-    if (!['nueva', 'revisada', 'aceptada'].includes(estado)) throw new BadRequestException('Estado inválido');
-    const s = await this.sug.findOne({ where: { id } });
-    if (!s) throw new NotFoundException('Sugerencia no encontrada');
-    s.estado = estado as never;
-    return this.sug.save(s);
-  }
-
-  async convertirSugerencia(id: string) {
-    const s = await this.sug.findOne({ where: { id } });
-    if (!s) throw new NotFoundException('Sugerencia no encontrada');
-    const nombre = s.texto.trim().slice(0, 120);
-    let tema = await this.temas.findOne({ where: { nombre } });
-    if (!tema) tema = await this.temas.save(this.temas.create({ nombre, descripcion: `Propuesto por estudiantes: ${s.texto}`, activo: true }));
-    s.estado = 'aceptada';
-    await this.sug.save(s);
-    return tema;
   }
 }

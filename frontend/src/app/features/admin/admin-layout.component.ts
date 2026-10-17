@@ -57,7 +57,6 @@ export class AdminLayoutComponent {
     { ruta: 'dashboard', texto: 'Dashboard', icono: 'dashboard' },
     { ruta: 'temas', texto: 'Temas', icono: 'interests' },
     { ruta: 'periodos', texto: 'Periodos', icono: 'calendar_month' },
-    { ruta: 'sugerencias', texto: 'Sugerencias', icono: 'lightbulb' },
     { ruta: 'capacitaciones', texto: 'Capacitaciones', icono: 'school' },
     { ruta: 'usuarios', texto: 'Usuarios', icono: 'group' },
   ];

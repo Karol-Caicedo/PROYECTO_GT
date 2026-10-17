@@ -8,7 +8,6 @@ import { User } from './modules/users/user.entity';
 import { Periodo } from './modules/periodos/periodo.entity';
 import { Tema } from './modules/temas/tema.entity';
 import { Respuesta, RespuestaTema } from './modules/encuestas/respuesta.entity';
-import { Sugerencia } from './modules/encuestas/sugerencia.entity';
 import { Capacitacion, CapacitacionSemestre } from './modules/capacitaciones/capacitacion.entity';
 import { ClicCapacitacion } from './modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity';
@@ -37,7 +36,7 @@ import { MailModule } from './modules/mail/mail.module';
         username: c.get('DB_USER', 'postgres'),
         password: c.get('DB_PASSWORD', 'postgres'),
         database: c.get('DB_NAME', 'intereses_db'),
-        entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Sugerencia, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
+        entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: true,
         synchronize: false,

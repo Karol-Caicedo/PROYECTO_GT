@@ -5,7 +5,6 @@ import { User } from '../modules/users/user.entity';
 import { Periodo } from '../modules/periodos/periodo.entity';
 import { Tema } from '../modules/temas/tema.entity';
 import { Respuesta, RespuestaTema } from '../modules/encuestas/respuesta.entity';
-import { Sugerencia } from '../modules/encuestas/sugerencia.entity';
 import { Capacitacion, CapacitacionSemestre } from '../modules/capacitaciones/capacitacion.entity';
 import { ClicCapacitacion } from '../modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entity';
@@ -17,7 +16,6 @@ export const ENTIDADES_TEST = [
   Tema,
   Respuesta,
   RespuestaTema,
-  Sugerencia,
   Capacitacion,
   CapacitacionSemestre,
   ClicCapacitacion,
@@ -64,7 +62,6 @@ const TABLAS = [
   'clics_capacitacion',
   'capacitacion_semestres',
   'capacitaciones',
-  'sugerencias',
   'respuesta_temas',
   'respuestas',
   'periodos',

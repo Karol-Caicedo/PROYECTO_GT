@@ -68,7 +68,7 @@ describe('DTOs: CrearEncuestaDto', () => {
     await expect(errores(dto)).resolves.toEqual([]);
   });
 
-  test('items vacío, uuid inválido, puntaje fuera de rango y sugerencia >500 fallan', async () => {
+  test('items vacío, uuid inválido y puntaje fuera de rango fallan', async () => {
     const vacio = plainToInstance(CrearEncuestaDto, { items: [] });
     expect(await errores(vacio)).not.toHaveLength(0);
 
@@ -77,15 +77,11 @@ describe('DTOs: CrearEncuestaDto', () => {
 
     const puntajeMal = plainToInstance(CrearEncuestaDto, { items: [{ temaId: UUIDS[0], puntaje: 9 }] });
     expect(await errores(puntajeMal)).not.toHaveLength(0);
-
-    const sugLarga = plainToInstance(CrearEncuestaDto, { items: [{ temaId: UUIDS[0] }], sugerencia: 'x'.repeat(501) });
-    expect((await errores(sugLarga)).join()).toMatch(/500/);
   });
 
   test('acepta string JSON (multipart) vía Transform', async () => {
     const dto = plainToInstance(CrearEncuestaDto, {
       items: JSON.stringify([{ temaId: UUIDS[0] }]),
-      sugerencia: 'ok',
     });
     await expect(errores(dto)).resolves.toEqual([]);
   });

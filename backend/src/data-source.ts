@@ -4,7 +4,6 @@ import { User } from './modules/users/user.entity';
 import { Periodo } from './modules/periodos/periodo.entity';
 import { Tema } from './modules/temas/tema.entity';
 import { Respuesta, RespuestaTema } from './modules/encuestas/respuesta.entity';
-import { Sugerencia } from './modules/encuestas/sugerencia.entity';
 import { Capacitacion, CapacitacionSemestre } from './modules/capacitaciones/capacitacion.entity';
 import { ClicCapacitacion } from './modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity';
@@ -12,6 +11,7 @@ import { PasswordReset } from './modules/auth/password-reset.entity';
 import { Init1700000000000 } from './migrations/1700000000000-init';
 import { RecuperacionClaves1700000000001 } from './migrations/1700000000001-recuperacion-claves';
 import { PasswordPlano1700000000002 } from './migrations/1700000000002-password-plano';
+import { DropSugerencias1700000000003 } from './migrations/1700000000003-drop-sugerencias';
 
 dotenv.config({ path: '../.env' });
 dotenv.config();
@@ -23,8 +23,8 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'intereses_db',
-  entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Sugerencia, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
-  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002],
+  entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
+  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002, DropSugerencias1700000000003],
   synchronize: false,
 });
 
