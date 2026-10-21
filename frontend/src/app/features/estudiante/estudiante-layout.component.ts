@@ -54,7 +54,8 @@ export class EstudianteLayoutComponent {
   private breakpoint = inject(BreakpointObserver);
 
   items = [
-    { ruta: '/encuesta', texto: 'Encuesta', icono: 'poll' },
+    { ruta: '/encuesta', texto: 'Encuesta Intereses', icono: 'poll' },
+    { ruta: '/encuesta-asignaturas', texto: 'Encuesta Materias', icono: 'menu_book' },
     { ruta: '/capacitaciones', texto: 'Capacitaciones', icono: 'school' },
   ];
 

@@ -14,7 +14,15 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
 import { UiService } from '../../shared/ui/ui.service';
 
-interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: string; activo: boolean; modoEncuesta: string }
+interface Periodo {
+  id: string;
+  nombre: string;
+  fechaInicio: string;
+  fechaFin: string;
+  activo: boolean;
+  modoEncuesta: string;
+  encuestaAsignaturasActiva?: boolean;
+}
 
 @Component({
   selector: 'app-periodos-admin',
@@ -59,6 +67,13 @@ interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: s
             <td mat-cell *matCellDef="let p"><b>{{ p.nombre }}</b><br /><small style="color:var(--texto-secundario)">{{ p.fechaInicio | date:'mediumDate' }} – {{ p.fechaFin | date:'mediumDate' }}</small></td></ng-container>
           <ng-container matColumnDef="modo"><th mat-header-cell *matHeaderCellDef>Modo</th>
             <td mat-cell *matCellDef="let p"><app-status-chip [estado]="p.modoEncuesta" /></td></ng-container>
+          <ng-container matColumnDef="encuestaAsig"><th mat-header-cell *matHeaderCellDef>Encuesta Materias</th>
+            <td mat-cell *matCellDef="let p">
+              <button mat-stroked-button [color]="p.encuestaAsignaturasActiva ? 'primary' : ''" (click)="toggleEncuestaAsignaturas(p)" title="Habilitar/deshabilitar encuesta de materias para este periodo">
+                <span class="material-symbols-outlined" style="font-size:16px; vertical-align:-3px">{{ p.encuestaAsignaturasActiva ? 'check_circle' : 'cancel' }}</span>
+                {{ p.encuestaAsignaturasActiva ? 'Habilitada' : 'Deshabilitada' }}
+              </button>
+            </td></ng-container>
           <ng-container matColumnDef="estado"><th mat-header-cell *matHeaderCellDef>Estado</th>
             <td mat-cell *matCellDef="let p"><app-status-chip [estado]="p.activo ? 'activo' : 'inactivo'" /></td></ng-container>
           <ng-container matColumnDef="acc"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let p">
@@ -73,8 +88,8 @@ interface Periodo { id: string; nombre: string; fechaInicio: string; fechaFin: s
               </button>
             </div>
           </td></ng-container>
-          <tr mat-header-row *matHeaderRowDef="['nombre','modo','estado','acc']"></tr>
-          <tr mat-row *matRowDef="let r; columns: ['nombre','modo','estado','acc']"></tr>
+          <tr mat-header-row *matHeaderRowDef="['nombre','modo','encuestaAsig','estado','acc']"></tr>
+          <tr mat-row *matRowDef="let r; columns: ['nombre','modo','encuestaAsig','estado','acc']"></tr>
         </table></div>
       </mat-card-content></mat-card>
     </div>
@@ -131,6 +146,14 @@ export class PeriodosAdminComponent implements OnInit {
     } catch {
       this.ui.error('No se puede eliminar el periodo activo.');
     }
+    await this.cargar();
+  }
+  async toggleEncuestaAsignaturas(p: Periodo) {
+    const nueva = !p.encuestaAsignaturasActiva;
+    await this.http.patch(`${this.api}/periodos/${p.id}/encuesta-asignaturas`, {
+      encuestaAsignaturasActiva: nueva,
+    }).toPromise();
+    this.ui.exito(`Encuesta de asignaturas ${nueva ? 'habilitada' : 'deshabilitada'} para ${p.nombre}.`);
     await this.cargar();
   }
 }

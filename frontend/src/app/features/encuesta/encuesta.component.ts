@@ -94,11 +94,23 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
           <p>Tus intereses del periodo {{ periodo()!.nombre }} quedaron registrados y ayudarán a Proyección Social
             a programar capacitaciones para tu semestre. Puedes editarlos mientras el periodo siga activo.</p>
           <div class="acciones">
-            <a mat-raised-button color="primary" routerLink="/capacitaciones">Ver capacitaciones</a>
-            <button mat-stroked-button color="primary" (click)="enviado.set(false)">Editar mi respuesta</button>
+            <a mat-raised-button color="primary" routerLink="/encuesta-asignaturas">
+              <span class="material-symbols-outlined" style="font-size:18px; margin-right:4px">menu_book</span>
+              Evaluar Asignaturas del Semestre
+            </a>
+            <a mat-stroked-button routerLink="/capacitaciones">Ver capacitaciones</a>
+            <button mat-stroked-button (click)="enviado.set(false)">Editar intereses</button>
           </div>
         </mat-card-content></mat-card>
       } @else {
+        <div style="background:var(--azul-50); border:1px solid var(--borde); border-radius:var(--radio-s); padding:var(--esp-3); margin-bottom:var(--esp-3); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--esp-2)">
+          <div style="display:flex; align-items:center; gap:var(--esp-2)">
+            <span class="material-symbols-outlined" style="color:var(--azul-700)">menu_book</span>
+            <span style="font-size:var(--t-secundario); color:var(--azul-900); font-weight:600">También puedes evaluar las asignaturas de tu semestre</span>
+          </div>
+          <a mat-button color="primary" routerLink="/encuesta-asignaturas">Ir a Encuesta de Asignaturas →</a>
+        </div>
+
         <div class="info-periodo">
           <app-status-chip [estado]="periodo()!.modoEncuesta" />
           <span class="texto-secundario">Periodo {{ periodo()!.nombre }}</span>
