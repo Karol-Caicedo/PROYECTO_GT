@@ -16,6 +16,10 @@ export class User {
   @Column()
   nombre: string;
 
+  @Column({ name: 'numero_identificacion', nullable: true, type: 'varchar' })
+  @Index('idx_usuarios_numero_identificacion')
+  numeroIdentificacion: string | null;
+
   @Column({ name: 'password_hash', nullable: true, type: 'varchar' })
   passwordHash: string | null;
 

@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import AppDataSource from './data-source';
 import { User } from './modules/users/user.entity';
 import { Tema } from './modules/temas/tema.entity';
+import { Asignatura } from './modules/asignaturas/asignatura.entity';
 
 export const TEMAS_INICIALES = [
   ['IA generativa y prompt engineering', 'Modelos generativos, prompting y aplicaciones'],
@@ -25,6 +26,45 @@ export const TEMAS_INICIALES = [
   ['Emprendimiento tecnológico', 'Startups, modelo de negocio y pitch'],
   ['Certificaciones internacionales', 'Preparación para certificaciones de la industria'],
   ['Inglés técnico', 'Inglés aplicado a tecnología y empleabilidad'],
+];
+
+export const ASIGNATURAS_INICIALES: { nombre: string; semestre: number }[] = [
+  { nombre: 'Cálculo Diferencial', semestre: 1 },
+  { nombre: 'Álgebra Lineal', semestre: 1 },
+  { nombre: 'Fundamentos de Programación', semestre: 1 },
+  { nombre: 'Introducción a la Ingeniería de Sistemas', semestre: 1 },
+  { nombre: 'Cálculo Integral', semestre: 2 },
+  { nombre: 'Física Mecánica', semestre: 2 },
+  { nombre: 'Programación Orientada a Objetos', semestre: 2 },
+  { nombre: 'Matemáticas Discretas', semestre: 2 },
+  { nombre: 'Cálculo Multivariable', semestre: 3 },
+  { nombre: 'Física Electromagnetismo', semestre: 3 },
+  { nombre: 'Estructuras de Datos', semestre: 3 },
+  { nombre: 'Arquitectura de Computadores', semestre: 3 },
+  { nombre: 'Análisis de Algoritmos', semestre: 4 },
+  { nombre: 'Bases de Datos I', semestre: 4 },
+  { nombre: 'Sistemas Operativos', semestre: 4 },
+  { nombre: 'Redes de Computadores I', semestre: 4 },
+  { nombre: 'Bases de Datos II', semestre: 5 },
+  { nombre: 'Ingeniería de Software I', semestre: 5 },
+  { nombre: 'Redes de Computadores II', semestre: 5 },
+  { nombre: 'Desarrollo Web', semestre: 5 },
+  { nombre: 'Ingeniería de Software II', semestre: 6 },
+  { nombre: 'Inteligencia Artificial', semestre: 6 },
+  { nombre: 'Seguridad Informática', semestre: 6 },
+  { nombre: 'Computación en la Nube', semestre: 6 },
+  { nombre: 'Arquitectura de Software', semestre: 7 },
+  { nombre: 'Desarrollo Móvil', semestre: 7 },
+  { nombre: 'Big Data y Analítica', semestre: 7 },
+  { nombre: 'Gestión de Proyectos TI', semestre: 7 },
+  { nombre: 'Calidad y Pruebas de Software', semestre: 8 },
+  { nombre: 'Auditoría de Sistemas', semestre: 8 },
+  { nombre: 'Trabajo de Grado I', semestre: 8 },
+  { nombre: 'Práctica Profesional', semestre: 8 },
+  { nombre: 'Trabajo de Grado II', semestre: 9 },
+  { nombre: 'Emprendimiento e Innovación TI', semestre: 9 },
+  { nombre: 'Legislación y Ética en TI', semestre: 9 },
+  { nombre: 'Seminario de Nuevas Tecnologías', semestre: 9 },
 ];
 
 async function main() {
@@ -100,6 +140,17 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log('Base de datos ya inicializada: respetando temas eliminados por el administrador.');
   }
+
+  const asignaturasRepo = AppDataSource.getRepository(Asignatura);
+  const totalAsignaturas = await asignaturasRepo.count();
+  if (totalAsignaturas === 0) {
+    for (const item of ASIGNATURAS_INICIALES) {
+      await asignaturasRepo.save(asignaturasRepo.create({ ...item, activo: true }));
+    }
+    // eslint-disable-next-line no-console
+    console.log(`Asignaturas iniciales creadas: ${ASIGNATURAS_INICIALES.length}`);
+  }
+
   await AppDataSource.destroy();
   process.exit(0);
 }

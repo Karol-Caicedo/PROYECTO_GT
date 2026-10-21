@@ -12,6 +12,8 @@ import { Capacitacion, CapacitacionSemestre } from './modules/capacitaciones/cap
 import { ClicCapacitacion } from './modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity';
 import { PasswordReset } from './modules/auth/password-reset.entity';
+import { Asignatura } from './modules/asignaturas/asignatura.entity';
+import { RespuestaAsignatura, RespuestaAsignaturaItem } from './modules/encuestas-asignaturas/respuesta-asignatura.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PeriodosModule } from './modules/periodos/periodos.module';
@@ -21,6 +23,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CapacitacionesModule } from './modules/capacitaciones/capacitaciones.module';
 import { RecordatoriosModule } from './modules/recordatorios/recordatorios.module';
 import { MailModule } from './modules/mail/mail.module';
+import { AsignaturasModule } from './modules/asignaturas/asignaturas.module';
+import { EncuestasAsignaturasModule } from './modules/encuestas-asignaturas/encuestas-asignaturas.module';
 
 @Module({
   imports: [
@@ -36,7 +40,11 @@ import { MailModule } from './modules/mail/mail.module';
         username: c.get('DB_USER', 'postgres'),
         password: c.get('DB_PASSWORD', 'postgres'),
         database: c.get('DB_NAME', 'intereses_db'),
-        entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset],
+        entities: [
+          User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion,
+          CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset,
+          Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem,
+        ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: true,
         synchronize: false,
@@ -52,6 +60,8 @@ import { MailModule } from './modules/mail/mail.module';
     DashboardModule,
     CapacitacionesModule,
     RecordatoriosModule,
+    AsignaturasModule,
+    EncuestasAsignaturasModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

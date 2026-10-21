@@ -12,6 +12,10 @@ export class CrearUsuarioDto {
   password: string;
 
   @IsOptional()
+  @IsString()
+  numeroIdentificacion?: string;
+
+  @IsOptional()
   @IsInt({ message: 'Semestre debe ser un número entre 1 y 9' })
   @Min(1)
   @Max(9)
@@ -22,6 +26,10 @@ export class CrearUsuarioDto {
 }
 
 export class ActualizarUsuarioDto {
+  @IsOptional()
+  @IsString()
+  numeroIdentificacion?: string;
+
   @IsOptional()
   @IsEmail({}, { message: 'Correo institucional inválido' })
   correo?: string;
@@ -44,6 +52,11 @@ export class ActualizarUsuarioDto {
   @IsOptional()
   @IsIn(['ESTUDIANTE', 'ADMIN'], { message: 'Rol inválido' })
   rol?: 'ESTUDIANTE' | 'ADMIN';
+}
+
+export class VerificarAdminDto {
+  @IsString()
+  password: string;
 }
 
 export class CambiarClaveDto {

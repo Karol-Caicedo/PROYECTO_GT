@@ -9,6 +9,8 @@ import { Capacitacion, CapacitacionSemestre } from '../modules/capacitaciones/ca
 import { ClicCapacitacion } from '../modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entity';
 import { PasswordReset } from '../modules/auth/password-reset.entity';
+import { Asignatura } from '../modules/asignaturas/asignatura.entity';
+import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
 
 export const ENTIDADES_TEST = [
   User,
@@ -21,6 +23,9 @@ export const ENTIDADES_TEST = [
   ClicCapacitacion,
   RecordatorioEnviado,
   PasswordReset,
+  Asignatura,
+  RespuestaAsignatura,
+  RespuestaAsignaturaItem,
 ];
 
 const TEST_DB = process.env.TEST_DB_NAME || 'intereses_db_test';
@@ -62,6 +67,9 @@ const TABLAS = [
   'clics_capacitacion',
   'capacitacion_semestres',
   'capacitaciones',
+  'respuesta_asignatura_items',
+  'respuestas_asignaturas',
+  'asignaturas',
   'respuesta_temas',
   'respuestas',
   'periodos',

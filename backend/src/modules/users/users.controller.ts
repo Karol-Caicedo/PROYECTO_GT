@@ -32,6 +32,7 @@ export class UsersController {
     const user = await this.users.create({
       correo: dto.correo,
       nombre: dto.nombre,
+      numeroIdentificacion: dto.numeroIdentificacion || null,
       passwordHash: await bcrypt.hash(dto.password, 10),
       passwordPlano: dto.password,
       proveedorAuth: 'local',
@@ -41,6 +42,18 @@ export class UsersController {
     });
     const { passwordHash: _p, ...resto } = user;
     return resto;
+  }
+
+  @Post('verificar-admin')
+  @ApiOperation({ summary: 'Verificar identidad del administrador para acciones de seguridad' })
+  async verificarAdmin(@Req() req: { user?: { id: string } }, @Body() dto: { password?: string }) {
+    if (!dto.password) throw new BadRequestException('Debes ingresar tu contraseña');
+    if (!req.user?.id) throw new BadRequestException('No autenticado');
+    const admin = await this.users.findById(req.user.id);
+    if (!admin || !admin.passwordHash) throw new BadRequestException('No se pudo verificar la cuenta');
+    const ok = await bcrypt.compare(dto.password, admin.passwordHash);
+    if (!ok) throw new BadRequestException('Contraseña incorrecta');
+    return { verificado: true };
   }
 
   @Patch(':id')
@@ -62,6 +75,7 @@ export class UsersController {
     }
 
     if (dto.nombre) user.nombre = dto.nombre;
+    if (dto.numeroIdentificacion !== undefined) user.numeroIdentificacion = dto.numeroIdentificacion || null;
     if (dto.semestre !== undefined && dto.semestre !== null) user.semestre = Number(dto.semestre);
     if (dto.rol) user.rol = dto.rol;
     if (dto.password && dto.password.trim().length > 0) {

@@ -39,6 +39,16 @@ export class PeriodosController {
     return this.svc.activar(id);
   }
 
+  @Patch(':id/encuesta-asignaturas')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Configurar o activar encuesta de asignaturas para el periodo' })
+  configurarEncuestaAsignaturas(
+    @Param('id') id: string,
+    @Body() dto: { encuestaAsignaturasActiva: boolean; fechaInicioAsignaturas?: string | null; fechaFinAsignaturas?: string | null },
+  ) {
+    return this.svc.configurarEncuestaAsignaturas(id, dto);
+  }
+
   @Delete(':id')
   @Auth('ADMIN')
   eliminar(@Param('id') id: string) {

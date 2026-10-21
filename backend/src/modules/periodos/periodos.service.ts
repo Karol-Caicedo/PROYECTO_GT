@@ -45,4 +45,21 @@ export class PeriodosService {
     p.activo = true;
     return this.repo.save(p);
   }
+
+  async configurarEncuestaAsignaturas(id: string, dto: { encuestaAsignaturasActiva: boolean; fechaInicioAsignaturas?: string | null; fechaFinAsignaturas?: string | null }) {
+    const p = await this.repo.findOne({ where: { id } });
+    if (!p) throw new NotFoundException('Periodo no encontrado');
+    p.encuestaAsignaturasActiva = dto.encuestaAsignaturasActiva;
+    if (dto.fechaInicioAsignaturas !== undefined) p.fechaInicioAsignaturas = dto.fechaInicioAsignaturas;
+    if (dto.fechaFinAsignaturas !== undefined) p.fechaFinAsignaturas = dto.fechaFinAsignaturas;
+    return this.repo.save(p);
+  }
+
+  esEncuestaAsignaturasVigente(p: Periodo): boolean {
+    if (!p || !p.activo || !p.encuestaAsignaturasActiva) return false;
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (p.fechaInicioAsignaturas && hoy < p.fechaInicioAsignaturas) return false;
+    if (p.fechaFinAsignaturas && hoy > p.fechaFinAsignaturas) return false;
+    return true;
+  }
 }
