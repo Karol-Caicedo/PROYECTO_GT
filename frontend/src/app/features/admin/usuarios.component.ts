@@ -19,6 +19,7 @@ interface Usuario {
   id: string;
   correo: string;
   nombre: string;
+  numeroIdentificacion?: string | null;
   semestre: number;
   rol: 'ESTUDIANTE' | 'ADMIN';
   proveedorAuth: string;
@@ -81,6 +82,11 @@ interface Usuario {
     <div class="dialogo-editar">
       <h2 class="titulo-seccion">Editar usuario</h2>
       <form [formGroup]="form" (ngSubmit)="guardar()">
+        <mat-form-field class="full-width">
+          <mat-label>Identificación</mat-label>
+          <input matInput formControlName="numeroIdentificacion" placeholder="Número de identificación" />
+        </mat-form-field>
+
         <mat-form-field class="full-width">
           <mat-label>Nombre completo</mat-label>
           <input matInput formControlName="nombre" />
@@ -151,6 +157,7 @@ export class EditarUsuarioDialogComponent {
   mostrarPassword = signal(true);
 
   form = this.fb.group({
+    numeroIdentificacion: [this.datos.usuario.numeroIdentificacion || ''],
     nombre: [this.datos.usuario.nombre, Validators.required],
     correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
     semestre: [this.datos.usuario.semestre || 1],
@@ -182,6 +189,7 @@ export class EditarUsuarioDialogComponent {
       const val = this.form.value;
       const esAdmin = val.rol === 'ADMIN';
       const body: Record<string, unknown> = {
+        numeroIdentificacion: val.numeroIdentificacion?.trim() || null,
         nombre: val.nombre,
         correo: val.correo,
         semestre: esAdmin ? 1 : Number(val.semestre || 1),
@@ -260,6 +268,10 @@ export class EditarUsuarioDialogComponent {
         <mat-card><mat-card-content>
           <h2 class="titulo-seccion">Nuevo usuario</h2>
           <form [formGroup]="form" (ngSubmit)="crear()">
+            <mat-form-field class="full-width">
+              <mat-label>Identificación</mat-label>
+              <input matInput formControlName="numeroIdentificacion" placeholder="Número de identificación" />
+            </mat-form-field>
             <mat-form-field class="full-width"><mat-label>Nombre completo</mat-label><input matInput formControlName="nombre" /></mat-form-field>
             <mat-form-field class="full-width"><mat-label>Correo institucional</mat-label>
               <input matInput formControlName="correo" type="email" placeholder="usuario@gmail.com" />
@@ -295,7 +307,13 @@ export class EditarUsuarioDialogComponent {
           } @else {
             <div class="tabla-responsive"><table mat-table [dataSource]="usuariosFiltrados()">
               <ng-container matColumnDef="nombre"><th mat-header-cell *matHeaderCellDef>Usuario</th>
-                <td mat-cell *matCellDef="let u"><b>{{ u.nombre }}</b><br /><small style="color:var(--texto-secundario)">{{ u.correo }}</small></td></ng-container>
+                <td mat-cell *matCellDef="let u">
+                  <b>{{ u.nombre }}</b>
+                  @if (u.numeroIdentificacion) {
+                    <br /><small style="color:var(--azul-700); font-weight:600">ID: {{ u.numeroIdentificacion }}</small>
+                  }
+                  <br /><small style="color:var(--texto-secundario)">{{ u.correo }}</small>
+                </td></ng-container>
               <ng-container matColumnDef="rol"><th mat-header-cell *matHeaderCellDef>Rol</th>
                 <td mat-cell *matCellDef="let u"><app-status-chip [texto]="u.rol === 'ADMIN' ? 'Admin' : 'Estudiante'" [tono]="u.rol === 'ADMIN' ? 'ambar' : 'azul'" /></td></ng-container>
               <ng-container matColumnDef="semestre"><th mat-header-cell *matHeaderCellDef>Sem.</th>
@@ -339,6 +357,7 @@ export class UsuariosAdminComponent implements OnInit {
     return todos.filter((u) => u.rol === 'ESTUDIANTE' && u.semestre === Number(f));
   });
   form = this.fb.group({
+    numeroIdentificacion: [''],
     nombre: ['', Validators.required],
     correo: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
@@ -376,9 +395,10 @@ export class UsuariosAdminComponent implements OnInit {
       const esAdmin = val.rol === 'ADMIN';
       await this.http.post(`${this.api}/usuarios`, {
         ...val,
+        numeroIdentificacion: val.numeroIdentificacion?.trim() || undefined,
         semestre: esAdmin ? 1 : Number(val.semestre || 1),
       }).toPromise();
-      this.form.reset({ semestre: 1, rol: 'ESTUDIANTE' });
+      this.form.reset({ numeroIdentificacion: '', semestre: 1, rol: 'ESTUDIANTE' });
       await this.cargar();
       this.ui.exito('Usuario creado. Compártele su clave inicial por un canal seguro.');
     } catch (e: unknown) {
