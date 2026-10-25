@@ -69,10 +69,12 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
                   }
                 </div>
                 <h2 class="titulo">{{ c.titulo }}</h2>
-                <p class="desc">{{ c.descripcion.slice(0, 140) }}{{ c.descripcion.length > 140 ? '…' : '' }}</p>
+                @if (c.descripcion) {
+                  <p class="desc">{{ c.descripcion.slice(0, 140) }}{{ c.descripcion.length > 140 ? '…' : '' }}</p>
+                }
               </div>
               <div class="acciones">
-                <button mat-raised-button color="primary" class="full-width" (click)="abrir(c)">Ver más / Inscribirme</button>
+                <button mat-raised-button color="primary" class="full-width" (click)="abrir(c)" [disabled]="!c.enlace">Ver más / Inscribirme</button>
               </div>
             </mat-card>
           }

@@ -52,8 +52,8 @@ export class CapacitacionesService {
     const c = await this.cap.save(
       this.cap.create({
         titulo: dto.titulo,
-        descripcion: dto.descripcion,
-        enlace: dto.enlace,
+        descripcion: dto.descripcion ?? '',
+        enlace: dto.enlace ?? '',
         imagenUrl,
         temaId: dto.temaId || null,
         fechaEvento: dto.fechaEvento ? new Date(dto.fechaEvento) : null,
@@ -81,8 +81,8 @@ export class CapacitacionesService {
     if (!c) throw new NotFoundException('Capacitación no encontrada');
     Object.assign(c, {
       titulo: dto.titulo ?? c.titulo,
-      descripcion: dto.descripcion ?? c.descripcion,
-      enlace: dto.enlace ?? c.enlace,
+      descripcion: dto.descripcion !== undefined ? (dto.descripcion ?? '') : c.descripcion,
+      enlace: dto.enlace !== undefined ? (dto.enlace ?? '') : c.enlace,
       temaId: dto.temaId !== undefined ? dto.temaId || null : c.temaId,
       fechaEvento: dto.fechaEvento !== undefined ? (dto.fechaEvento ? new Date(dto.fechaEvento) : null) : c.fechaEvento,
       modalidad: dto.modalidad ?? c.modalidad,

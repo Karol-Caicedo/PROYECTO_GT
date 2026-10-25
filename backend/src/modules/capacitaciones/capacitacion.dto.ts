@@ -5,11 +5,19 @@ export class CapacitacionDto {
   @IsString()
   titulo: string;
 
+  @IsOptional()
   @IsString()
-  descripcion: string;
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  descripcion?: string;
 
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'string' && value.trim() === '') return undefined;
+    return typeof value === 'string' ? value.trim() : value;
+  })
   @IsUrl({}, { message: 'El enlace debe ser una URL válida' })
-  enlace: string;
+  enlace?: string;
 
   @IsOptional()
   @IsString()

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -75,10 +75,10 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
               </mat-select></mat-form-field>
             </fieldset>
             <fieldset><legend>Enlace e imagen</legend>
-              <mat-form-field class="full-width"><mat-label>Enlace (URL de inscripción)</mat-label><input matInput formControlName="enlace" type="url" placeholder="https://" /></mat-form-field>
+              <mat-form-field class="full-width"><mat-label>Enlace</mat-label><input matInput formControlName="enlace" type="url" placeholder="https://" /></mat-form-field>
               <div class="subir">
                 <label for="imagen">Imagen (jpg, png o webp, máx. 2 MB):</label>
-                <input id="imagen" type="file" accept="image/jpeg,image/png,image/webp" (change)="onFile($event)" />
+                <input #fileInput id="imagen" type="file" accept="image/jpeg,image/png,image/webp" (change)="onFile($event)" />
                 @if (vistaPreviaImg()) { <img class="miniatura" [src]="vistaPreviaImg()" alt="Vista previa de la imagen elegida" /> }
               </div>
               @if (errorArchivo()) { <p class="error" role="alert">{{ errorArchivo() }}</p> }
@@ -96,19 +96,18 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
             <fieldset><legend>Visibilidad</legend>
               <div class="fila">
                 <mat-form-field>
-                  <mat-label>Visible desde (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerDesde" (click)="pickerDesde.open()" formControlName="visibleDesde" placeholder="dd/mm/aaaa" />
+                  <mat-label>Visible desde</mat-label>
+                  <input matInput [matDatepicker]="pickerDesde" (click)="pickerDesde.open()" [min]="hoy" formControlName="visibleDesde" placeholder="dd/mm/aaaa" />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerDesde"></mat-datepicker-toggle>
                   <mat-datepicker #pickerDesde></mat-datepicker>
                 </mat-form-field>
                 <mat-form-field>
-                  <mat-label>Visible hasta (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerHasta" (click)="pickerHasta.open()" formControlName="visibleHasta" placeholder="dd/mm/aaaa" />
+                  <mat-label>Visible hasta</mat-label>
+                  <input matInput [matDatepicker]="pickerHasta" (click)="pickerHasta.open()" [min]="form.value.visibleDesde || hoy" formControlName="visibleHasta" placeholder="dd/mm/aaaa" />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerHasta"></mat-datepicker-toggle>
                   <mat-datepicker #pickerHasta></mat-datepicker>
                 </mat-form-field>
               </div>
-              <p class="texto-secundario">Si se vence la fecha, la tarjeta se oculta sola al estudiante.</p>
             </fieldset>
             @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
             <button mat-raised-button color="primary" [disabled]="form.invalid || guardando()">{{ guardando() ? 'Guardando…' : 'Publicar capacitación' }}</button>
@@ -132,7 +131,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
         <h2 class="titulo-seccion">Publicadas ({{ filtradas().length }})</h2>
         <div class="barra-filtros" style="position:static;margin-bottom:var(--esp-3)">
           <mat-form-field subscriptSizing="dynamic"><mat-label>Estado</mat-label><mat-select [value]="filtroEstado()" (selectionChange)="filtroEstado.set($event.value)">
-            <mat-option value="">Todos</mat-option><mat-option value="publicado">Publicado</mat-option><mat-option value="borrador">Borrador</mat-option>
+            <mat-option value="">Todos</mat-option><mat-option value="publicado">Publicado</mat-option>
           </mat-select></mat-form-field>
           <mat-form-field subscriptSizing="dynamic"><mat-label>Semestre</mat-label><mat-select [value]="filtroSem()" (selectionChange)="filtroSem.set($event.value)">
             <mat-option value="">Todos</mat-option>
@@ -170,6 +169,10 @@ export class CapacitacionesAdminComponent implements OnInit {
   private fb = inject(FormBuilder);
   private ui = inject(UiService);
   private api = environment.apiUrl;
+  readonly hoy = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+
   caps = signal<Cap[]>([]);
   temas = signal<{ id: string; nombre: string }[]>([]);
   semSel = signal<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -181,18 +184,17 @@ export class CapacitacionesAdminComponent implements OnInit {
   errorArchivo = signal('');
   error = signal('');
   guardando = signal(false);
-  private urlTemporal: string | null = null;
 
   form = this.fb.group({
     titulo: ['', Validators.required],
-    descripcion: ['', Validators.required],
-    enlace: ['', Validators.required],
+    descripcion: [''],
+    enlace: [''],
     temaId: [''],
     modalidad: ['virtual'],
     estado: ['publicado'],
     fechaEvento: [''],
-    visibleDesde: [''],
-    visibleHasta: [''],
+    visibleDesde: ['', Validators.required],
+    visibleHasta: ['', Validators.required],
   });
 
   async ngOnInit() {
@@ -219,12 +221,30 @@ export class CapacitacionesAdminComponent implements OnInit {
   }
   onFile(e: Event) {
     this.errorArchivo.set('');
-    const f = (e.target as HTMLInputElement).files?.[0] || null;
-    if (f && f.size > 2 * 1024 * 1024) { this.errorArchivo.set('La imagen no puede superar 2 MB.'); return; }
-    this.archivo = f;
-    if (this.urlTemporal) URL.revokeObjectURL(this.urlTemporal);
-    this.urlTemporal = f ? URL.createObjectURL(f) : null;
-    this.vistaPreviaImg.set(this.urlTemporal);
+    const input = e.target as HTMLInputElement;
+    const f = input.files?.[0] || null;
+    if (f) {
+      if (f.size > 2 * 1024 * 1024) {
+        this.errorArchivo.set('La imagen no puede superar 2 MB.');
+        input.value = '';
+        this.archivo = null;
+        this.vistaPreviaImg.set(null);
+        return;
+      }
+      this.archivo = f;
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.vistaPreviaImg.set(reader.result as string);
+      };
+      reader.onerror = () => {
+        this.errorArchivo.set('No se pudo leer la imagen.');
+        this.vistaPreviaImg.set(null);
+      };
+      reader.readAsDataURL(f);
+    } else {
+      this.archivo = null;
+      this.vistaPreviaImg.set(null);
+    }
   }
   async crear() {
     this.error.set('');
@@ -232,7 +252,7 @@ export class CapacitacionesAdminComponent implements OnInit {
     try {
       const fd = new FormData();
       for (const [k, v] of Object.entries(this.form.value)) {
-        if (v) {
+        if (v !== null && v !== undefined && v !== '') {
           if ((v as unknown) instanceof Date) {
             fd.append(k, (v as unknown as Date).toISOString());
           } else {
@@ -246,10 +266,15 @@ export class CapacitacionesAdminComponent implements OnInit {
       this.form.reset({ modalidad: 'virtual', estado: 'publicado' });
       this.archivo = null;
       this.vistaPreviaImg.set(null);
+      if (this.fileInput?.nativeElement) this.fileInput.nativeElement.value = '';
       await this.cargar();
       this.ui.exito('Capacitación guardada.');
-    } catch {
-      this.error.set('No se pudo guardar. Revisa los datos e inténtalo de nuevo.');
+    } catch (e: any) {
+      const backendMsg = e?.error?.message;
+      const texto = Array.isArray(backendMsg)
+        ? backendMsg.join('. ')
+        : (typeof backendMsg === 'string' ? backendMsg : 'No se pudo guardar. Revisa los datos e inténtalo de nuevo.');
+      this.error.set(texto);
     } finally {
       this.guardando.set(false);
     }

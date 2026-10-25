@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiOperation } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { Auth } from '../../common/auth.decorator';
 import { CapacitacionesService } from './capacitaciones.service';
@@ -10,7 +10,8 @@ import { CapacitacionDto } from './capacitacion.dto';
 import { MailService } from '../mail/mail.service';
 
 function storage() {
-  const dir = process.env.UPLOADS_DIR || './uploads';
+  const uploadsDir = process.env.UPLOADS_DIR || './uploads';
+  const dir = uploadsDir.startsWith('/') ? uploadsDir : join(process.cwd(), uploadsDir);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return diskStorage({
     destination: dir,
@@ -22,7 +23,7 @@ function storage() {
 }
 
 function fileFilter(_req: unknown, file: Express.Multer.File, cb: (e: Error | null, ok: boolean) => void) {
-  const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+  const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.mimetype.toLowerCase());
   if (!ok) return cb(new BadRequestException('Solo se permiten imágenes jpg, png o webp'), false);
   cb(null, true);
 }
