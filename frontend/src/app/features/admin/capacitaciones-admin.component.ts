@@ -25,7 +25,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
     @media (max-width: 1000px) { .dos-columnas { grid-template-columns: 1fr; } }
     fieldset { border: 1px solid var(--borde); border-radius: var(--radio-m); padding: var(--esp-4); margin: 0 0 var(--esp-4); }
     legend { font-weight: 700; color: var(--azul-900); padding: 0 var(--esp-2); font-size: var(--t-cuerpo); }
-    .fila { display: flex; gap: var(--esp-3); flex-wrap: wrap; }
+    .fila { display: flex; gap: var(--esp-3); flex-wrap: wrap; align-items: flex-start; }
     .fila > * { flex: 1 1 200px; }
     .chips-sem { display: flex; gap: var(--esp-2); flex-wrap: wrap; margin-top: var(--esp-2); }
     .chip-sem {
@@ -65,9 +65,11 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
           <h2 class="titulo-seccion">Nueva capacitación</h2>
           <form [formGroup]="form" (ngSubmit)="crear()">
             <fieldset><legend>Información</legend>
-              <mat-form-field class="full-width"><mat-label>Título</mat-label><input matInput formControlName="titulo" maxlength="120" /></mat-form-field>
-              <mat-form-field class="full-width"><mat-label>Descripción</mat-label><textarea matInput formControlName="descripcion" rows="3"></textarea></mat-form-field>
-              <mat-form-field class="full-width"><mat-label>Tema relacionado (opcional)</mat-label><mat-select formControlName="temaId">
+              <div class="fila">
+                <mat-form-field><mat-label>Título</mat-label><input matInput formControlName="titulo" maxlength="120" /></mat-form-field>
+                <mat-form-field><mat-label>Descripción</mat-label><input matInput formControlName="descripcion" /></mat-form-field>
+              </div>
+              <mat-form-field class="full-width" style="margin-top:var(--esp-2)"><mat-label>Tema relacionado (opcional)</mat-label><mat-select formControlName="temaId">
                 <mat-option value="">Ninguno</mat-option>
                 @for (t of temas(); track t.id) { <mat-option [value]="t.id">{{ t.nombre }}</mat-option> }
               </mat-select></mat-form-field>
@@ -80,22 +82,6 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
                 @if (vistaPreviaImg()) { <img class="miniatura" [src]="vistaPreviaImg()" alt="Vista previa de la imagen elegida" /> }
               </div>
               @if (errorArchivo()) { <p class="error" role="alert">{{ errorArchivo() }}</p> }
-            </fieldset>
-            <fieldset><legend>Fecha y modalidad</legend>
-              <div class="fila">
-                <mat-form-field>
-                  <mat-label>Fecha del evento (opcional)</mat-label>
-                  <input matInput [matDatepicker]="pickerEvento" (click)="pickerEvento.open()" formControlName="fechaEvento" placeholder="dd/mm/aaaa" />
-                  <mat-datepicker-toggle matIconSuffix [for]="pickerEvento"></mat-datepicker-toggle>
-                  <mat-datepicker #pickerEvento></mat-datepicker>
-                </mat-form-field>
-                <mat-form-field><mat-label>Modalidad</mat-label><mat-select formControlName="modalidad">
-                  <mat-option value="virtual">Virtual</mat-option><mat-option value="presencial">Presencial</mat-option>
-                </mat-select></mat-form-field>
-                <mat-form-field><mat-label>Estado</mat-label><mat-select formControlName="estado">
-                  <mat-option value="borrador">Borrador</mat-option><mat-option value="publicado">Publicado</mat-option>
-                </mat-select></mat-form-field>
-              </div>
             </fieldset>
             <fieldset><legend>Semestres destino</legend>
               <div class="chips-sem" role="group" aria-label="Semestres destino">
@@ -203,7 +189,7 @@ export class CapacitacionesAdminComponent implements OnInit {
     enlace: ['', Validators.required],
     temaId: [''],
     modalidad: ['virtual'],
-    estado: ['borrador'],
+    estado: ['publicado'],
     fechaEvento: [''],
     visibleDesde: [''],
     visibleHasta: [''],
@@ -257,7 +243,7 @@ export class CapacitacionesAdminComponent implements OnInit {
       fd.append('semestres', JSON.stringify(this.todos() ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : this.semSel()));
       if (this.archivo) fd.append('imagen', this.archivo);
       await this.http.post(`${this.api}/capacitaciones`, fd).toPromise();
-      this.form.reset({ modalidad: 'virtual', estado: 'borrador' });
+      this.form.reset({ modalidad: 'virtual', estado: 'publicado' });
       this.archivo = null;
       this.vistaPreviaImg.set(null);
       await this.cargar();
