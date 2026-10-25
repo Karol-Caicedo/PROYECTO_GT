@@ -23,6 +23,7 @@ const MAPA_ESTADOS: Record<string, { texto: string; tono: TonoChip }> = {
   standalone: true,
   imports: [CommonModule],
   styles: [`
+    :host { display: inline-flex; align-items: center; }
     .chip-estado {
       display: inline-flex; align-items: center; gap: var(--esp-1);
       border-radius: var(--radio-chip);

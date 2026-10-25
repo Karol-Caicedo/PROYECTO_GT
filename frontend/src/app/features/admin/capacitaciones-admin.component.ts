@@ -45,12 +45,13 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
     }
     .lista-items-cap { max-height: 620px; overflow-y: auto; padding-right: var(--esp-1); }
     .portada-placeholder .material-symbols-outlined { font-size: 56px; color: var(--superficie); }
-    .item-cap { display: flex; gap: var(--esp-3); align-items: flex-start; padding: var(--esp-3) 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+    .item-cap { display: flex; gap: var(--esp-3); align-items: center; padding: var(--esp-3) 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
     .item-cap:last-child { border-bottom: none; }
     .item-info { flex: 1 1 220px; }
     .item-info b { color: var(--azul-900); display: block; }
     .item-info small { color: var(--texto-secundario); font-size: var(--t-secundario); }
-    .item-acciones { display: flex; gap: var(--esp-1); }
+    .item-cap app-status-chip { display: inline-flex; align-items: center; align-self: center; }
+    .item-acciones { display: flex; align-items: center; gap: var(--esp-1); align-self: center; }
     .subir { display: flex; gap: var(--esp-3); align-items: center; flex-wrap: wrap; font-size: var(--t-secundario); }
     .miniatura { width: 96px; height: 54px; object-fit: cover; border-radius: var(--radio-s); border: 1px solid var(--borde); }
   `],
