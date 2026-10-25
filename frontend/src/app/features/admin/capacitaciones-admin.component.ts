@@ -128,7 +128,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
               <div class="item-cap">
                 <div class="item-info">
                   <b>{{ c.titulo }}</b>
-                  <small>{{ c.modalidad }} · {{ c.clics ?? 0 }} clics · Sem: {{ semStr(c) }}</small>
+                  <small>{{ c.clics ?? 0 }} clics · Sem: {{ semStr(c) }}</small>
                 </div>
                 <app-status-chip [estado]="c.estado" />
                 <div class="item-acciones">

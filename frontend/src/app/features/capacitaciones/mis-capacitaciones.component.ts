@@ -25,14 +25,16 @@ interface Cap {
 @Component({
   selector: 'app-detalle-capacitacion-dialog',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatDialogModule, StatusChipComponent],
+  imports: [CommonModule, MatButtonModule, MatDialogModule],
   styles: [`
     .dialogo-detalle {
-      max-width: 680px;
-      width: 100%;
+      width: auto;
+      max-width: 560px;
+      min-width: min(320px, 92vw);
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      margin: 0 auto;
     }
     .contenedor-img {
       width: 100%;
@@ -44,22 +46,24 @@ interface Cap {
       border-bottom: 1px solid var(--borde, #e2e8f0);
     }
     .detalle-img {
-      width: 100%;
+      max-width: 100%;
+      max-height: 50vh;
+      width: auto;
       height: auto;
-      max-height: 520px;
       object-fit: contain;
       display: block;
+      margin: 0 auto;
       background: var(--fondo-pagina, #f8fafc);
     }
     .btn-ver-tamano-completo {
       position: absolute;
-      bottom: 10px;
-      right: 10px;
+      bottom: 8px;
+      right: 8px;
       background: rgba(11, 58, 94, 0.88);
       color: #ffffff;
       padding: 4px 10px;
       border-radius: var(--radio-pildora, 16px);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-decoration: none;
       display: inline-flex;
@@ -73,10 +77,10 @@ interface Cap {
       transform: scale(1.02);
     }
     .cuerpo-detalle {
-      padding: var(--esp-5);
+      padding: var(--esp-3) var(--esp-4);
       display: flex;
       flex-direction: column;
-      gap: var(--esp-3);
+      gap: var(--esp-2);
     }
     .meta {
       display: flex;
@@ -92,31 +96,31 @@ interface Cap {
       font-weight: 700;
       color: var(--azul-700);
       background: var(--azul-50);
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: var(--radio-pildora);
     }
     .titulo {
       margin: 0;
-      font-size: var(--t-titulo-md, 22px);
+      font-size: var(--t-titulo-sm, 18px);
       font-weight: 700;
       color: var(--azul-900);
       line-height: 1.3;
     }
     .desc {
       margin: 0;
-      font-size: var(--t-base, 15px);
+      font-size: var(--t-secundario, 14px);
       color: var(--texto);
-      line-height: 1.6;
+      line-height: 1.5;
       white-space: pre-line;
-      max-height: 240px;
+      max-height: 180px;
       overflow-y: auto;
     }
     .acciones-dialogo {
       display: flex;
       justify-content: flex-end;
       align-items: center;
-      gap: var(--esp-3);
-      padding: var(--esp-3) var(--esp-5) var(--esp-5);
+      gap: var(--esp-2);
+      padding: var(--esp-2) var(--esp-4) var(--esp-3);
       border-top: 1px solid var(--borde, #e2e8f0);
     }
     .btn-enlace {
@@ -137,12 +141,11 @@ interface Cap {
         </div>
       }
       <div class="cuerpo-detalle">
-        <div class="meta">
-          <app-status-chip [estado]="c.modalidad" />
-          @if (c.fechaEvento) {
+        @if (c.fechaEvento) {
+          <div class="meta">
             <span class="fecha"><span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">event</span>{{ c.fechaEvento | date:'mediumDate' }}</span>
-          }
-        </div>
+          </div>
+        }
         <h2 class="titulo">{{ c.titulo }}</h2>
         @if (c.descripcion) {
           <p class="desc">{{ c.descripcion }}</p>
@@ -197,7 +200,7 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
 @Component({
   selector: 'app-mis-capacitaciones',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatDialogModule, PageHeaderComponent, EmptyStateComponent, StatusChipComponent],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatDialogModule, PageHeaderComponent, EmptyStateComponent],
   styles: [`
     .grid-caps { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--esp-4); }
     .cap { display: flex; flex-direction: column; overflow: hidden; transition: box-shadow var(--transicion-media), transform var(--transicion-media); }
@@ -246,12 +249,11 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
                 </div>
               }
               <div class="cuerpo">
-                <div style="display:flex;gap:8px;align-items:center">
-                  <app-status-chip [estado]="c.modalidad" />
-                  @if (c.fechaEvento) {
+                @if (c.fechaEvento) {
+                  <div style="display:flex;gap:8px;align-items:center">
                     <span class="fecha"><span class="material-symbols-outlined" aria-hidden="true">event</span>{{ c.fechaEvento | date:'mediumDate' }}</span>
-                  }
-                </div>
+                  </div>
+                }
                 <h2 class="titulo">{{ c.titulo }}</h2>
                 @if (c.descripcion) {
                   <p class="desc">{{ c.descripcion.slice(0, 140) }}{{ c.descripcion.length > 140 ? '…' : '' }}</p>
@@ -310,9 +312,9 @@ export class MisCapacitacionesComponent implements OnInit {
     this.notifService.marcarComoVista(c.id);
     this.dialog.open(DetalleCapacitacionDialogComponent, {
       data: { cap: c },
-      width: '680px',
-      maxWidth: '95vw',
-      maxHeight: '92vh',
+      maxWidth: '92vw',
+      maxHeight: '90vh',
+      autoFocus: false,
     });
   }
 }

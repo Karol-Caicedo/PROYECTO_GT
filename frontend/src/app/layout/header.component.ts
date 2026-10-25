@@ -49,6 +49,40 @@ import { NotificacionesService, CapacitacionNotif } from '../core/notificaciones
       gap: var(--esp-2);
       flex-shrink: 0;
     }
+    .btn-perfil {
+      height: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 var(--esp-2) !important;
+      vertical-align: middle !important;
+    }
+    .btn-perfil ::ng-deep .mdc-button__label {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      height: 100% !important;
+      vertical-align: middle !important;
+    }
+    .perfil-contenido {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+      vertical-align: middle;
+    }
+    .icono-perfil {
+      font-size: 22px !important;
+      width: 22px !important;
+      height: 22px !important;
+      line-height: 22px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+      margin: 0 !important;
+      flex-shrink: 0;
+    }
     .btn-notificaciones {
       position: relative !important;
       width: 40px !important;
@@ -336,12 +370,11 @@ import { NotificacionesService, CapacitacionNotif } from '../core/notificaciones
                           }
                         </div>
                         <div class="item-notif-nombre" [class.texto-atenuado]="c.leida">{{ c.titulo }}</div>
-                        <div class="item-notif-meta">
-                          <span class="meta-tag">{{ c.modalidad === 'presencial' ? 'Presencial' : 'Virtual' }}</span>
-                          @if (c.fechaEvento) {
+                        @if (c.fechaEvento) {
+                          <div class="item-notif-meta">
                             <span>{{ c.fechaEvento | date:'mediumDate' }}</span>
-                          }
-                        </div>
+                          </div>
+                        }
                       </div>
                     </button>
                   }
@@ -358,8 +391,11 @@ import { NotificacionesService, CapacitacionNotif } from '../core/notificaciones
             </mat-menu>
           }
 
-          <button mat-button [matMenuTriggerFor]="menu" [attr.aria-label]="'Cuenta de ' + auth.usuario()?.nombre">
-            <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>&nbsp;<span class="nombre-usuario">{{ auth.usuario()?.nombre }}</span>
+          <button mat-button class="btn-perfil" [matMenuTriggerFor]="menu" [attr.aria-label]="'Cuenta de ' + auth.usuario()?.nombre">
+            <span class="perfil-contenido">
+              <span class="material-symbols-outlined icono-perfil" aria-hidden="true">account_circle</span>
+              <span class="nombre-usuario">{{ auth.usuario()?.nombre }}</span>
+            </span>
           </button>
           <mat-menu #menu="matMenu">
             <p style="padding:0 16px;font-size:14px;color:var(--texto-secundario)">{{ auth.usuario()?.correo }}</p>
