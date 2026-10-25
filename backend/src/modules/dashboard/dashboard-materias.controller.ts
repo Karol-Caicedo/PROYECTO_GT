@@ -10,7 +10,7 @@ export class DashboardMateriasController {
   constructor(private svc: DashboardMateriasService) {}
 
   @Get('top-asignaturas')
-  @ApiOperation({ summary: 'Top 10 de asignaturas con dificultad reportada' })
+  @ApiOperation({ summary: 'Top 5 de asignaturas con dificultad reportada' })
   top(@Query('periodoId') p?: string, @Query('semestre') s?: string) {
     return this.svc.topAsignaturas(p, s ? Number(s) : undefined);
   }

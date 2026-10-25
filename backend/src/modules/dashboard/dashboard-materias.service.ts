@@ -27,7 +27,7 @@ export class DashboardMateriasService {
     return p;
   }
 
-  /** Top 10 de asignaturas con mayor reporte de dificultad */
+  /** Top 5 de asignaturas con mayor reporte de dificultad */
   async topAsignaturas(periodoId?: string, semestre?: number) {
     const p = await this.periodoOrFail(periodoId);
     const qb = this.raiRepo.createQueryBuilder('rai')
@@ -46,7 +46,7 @@ export class DashboardMateriasService {
 
     qb.groupBy('a.id').addGroupBy('a.nombre').addGroupBy('a.semestre')
       .orderBy('valor', 'DESC')
-      .limit(10);
+      .limit(5);
 
     const rows = await qb.getRawMany();
     return {

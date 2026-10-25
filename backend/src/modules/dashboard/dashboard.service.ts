@@ -29,7 +29,7 @@ export class DashboardService {
     return p;
   }
 
-  /** Top 10: en selección cuenta elecciones; en calificación promedio. Solo agregados. */
+  /** Top 5: en selección cuenta elecciones; en calificación promedio. Solo agregados. */
   async topTemas(periodoId?: string, semestre?: number) {
     const p = await this.periodoOrFail(periodoId);
     const qb = this.rt.createQueryBuilder('rt')
@@ -44,7 +44,7 @@ export class DashboardService {
     } else {
       qb.addSelect('COUNT(*)', 'valor');
     }
-    qb.groupBy('t.id').addGroupBy('t.nombre').orderBy('valor', 'DESC', 'NULLS LAST').limit(10);
+    qb.groupBy('t.id').addGroupBy('t.nombre').orderBy('valor', 'DESC', 'NULLS LAST').limit(5);
     const rows = await qb.getRawMany();
     return { periodo: p, modo: p.modoEncuesta, items: rows.map((r) => ({ ...r, valor: Number(r.valor) })) };
   }

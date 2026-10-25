@@ -158,14 +158,18 @@ describe('DTOs: recuperación de clave y creación admin de usuarios', () => {
     expect((await errores(mal)).length).toBeGreaterThanOrEqual(2);
   });
 
-  test('CrearUsuarioDto valida rol y semestre', async () => {
+  test('CrearUsuarioDto valida rol, semestre e identificacion obligatoria', async () => {
     const ok = plainToInstance(CrearUsuarioDto, {
-      correo: 'n@unipacifico.edu.co', nombre: 'N', password: 'Clave1234', semestre: 1, rol: 'ADMIN',
+      correo: 'n@unipacifico.edu.co', nombre: 'N', password: 'Clave1234', numeroIdentificacion: '1234567890', semestre: 1, rol: 'ADMIN',
     });
     await expect(errores(ok)).resolves.toEqual([]);
     const mal = plainToInstance(CrearUsuarioDto, {
       correo: 'n@unipacifico.edu.co', nombre: 'N', password: 'Clave1234', semestre: 10, rol: 'SUPER',
     });
     expect((await errores(mal)).length).toBeGreaterThanOrEqual(2);
+    const sinId = plainToInstance(CrearUsuarioDto, {
+      correo: 'n@unipacifico.edu.co', nombre: 'N', password: 'Clave1234', semestre: 1, rol: 'ADMIN',
+    });
+    expect((await errores(sinId)).join()).toMatch(/número de identificación es obligatorio/);
   });
 });

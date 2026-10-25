@@ -184,7 +184,7 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
           @switch (graficoTemas()) {
             @case ('top') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">leaderboard</span>Top 10 de temas ({{ modo() === 'calificacion' ? 'promedio' : 'votos' }})</h2>
+                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">leaderboard</span>Top 5 de temas ({{ modo() === 'calificacion' ? 'promedio' : 'votos' }})</h2>
                 <p class="desc-grafico">Los temas con más interés declarado en el periodo y filtro elegidos.</p>
                 @if (top().length) {
                   <div class="grafico alto"><canvas baseChart [data]="topData()" [options]="hbar" [type]="'bar'"></canvas></div>
@@ -273,7 +273,7 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
           @switch (graficoMaterias()) {
             @case ('top') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">warning</span>Top 10 de asignaturas con dificultad reportada</h2>
+                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">warning</span>Top 5 de asignaturas con dificultad reportada</h2>
                 <p class="desc-grafico">Materias donde los estudiantes han solicitado mayor apoyo y refuerzo académico.</p>
                 @if (topMaterias().length) {
                   <div class="grafico alto"><canvas baseChart [data]="topMateriasData()" [options]="hbar" [type]="'bar'"></canvas></div>
@@ -379,7 +379,7 @@ export class DashboardComponent implements OnInit {
   comp = signal<{ periodo: string; valor: number }[]>([]);
   graficoTemas = signal<GraficoTemas>('top');
   opcionesGraficoTemas: { id: GraficoTemas; texto: string }[] = [
-    { id: 'top', texto: 'Top 10 de temas' },
+    { id: 'top', texto: 'Top 5 de temas' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'calor', texto: 'Mapa de calor temas × semestres' },
     { id: 'declarado', texto: 'Interés declarado vs. real' },
@@ -397,7 +397,7 @@ export class DashboardComponent implements OnInit {
   compMaterias = signal<{ periodo: string; promedio: number; dificultadCount: number }[]>([]);
   graficoMaterias = signal<GraficoMaterias>('top');
   opcionesGraficoMaterias: { id: GraficoMaterias; texto: string }[] = [
-    { id: 'top', texto: 'Top 10 dificultad reportada' },
+    { id: 'top', texto: 'Top 5 dificultad reportada' },
     { id: 'satisfaccion', texto: 'Satisfacción promedio por asignatura' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'calor', texto: 'Mapa de calor Asignatura × Semestre' },

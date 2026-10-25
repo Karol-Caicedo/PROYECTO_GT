@@ -83,8 +83,11 @@ interface Usuario {
       <h2 class="titulo-seccion">Editar usuario</h2>
       <form [formGroup]="form" (ngSubmit)="guardar()">
         <mat-form-field class="full-width">
-          <mat-label>Identificación</mat-label>
+          <mat-label>Identificación *</mat-label>
           <input matInput formControlName="numeroIdentificacion" placeholder="Número de identificación" />
+          @if (form.controls.numeroIdentificacion.invalid && form.controls.numeroIdentificacion.touched) {
+            <mat-error>El número de identificación es obligatorio</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field class="full-width">
@@ -157,7 +160,7 @@ export class EditarUsuarioDialogComponent {
   mostrarPassword = signal(true);
 
   form = this.fb.group({
-    numeroIdentificacion: [this.datos.usuario.numeroIdentificacion || ''],
+    numeroIdentificacion: [this.datos.usuario.numeroIdentificacion || '', Validators.required],
     nombre: [this.datos.usuario.nombre, Validators.required],
     correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
     semestre: [this.datos.usuario.semestre || 1],
@@ -269,8 +272,11 @@ export class EditarUsuarioDialogComponent {
           <h2 class="titulo-seccion">Nuevo usuario</h2>
           <form [formGroup]="form" (ngSubmit)="crear()">
             <mat-form-field class="full-width">
-              <mat-label>Identificación</mat-label>
+              <mat-label>Identificación *</mat-label>
               <input matInput formControlName="numeroIdentificacion" placeholder="Número de identificación" />
+              @if (form.controls.numeroIdentificacion.invalid && form.controls.numeroIdentificacion.touched) {
+                <mat-error>El número de identificación es obligatorio</mat-error>
+              }
             </mat-form-field>
             <mat-form-field class="full-width"><mat-label>Nombre completo</mat-label><input matInput formControlName="nombre" /></mat-form-field>
             <mat-form-field class="full-width"><mat-label>Correo institucional</mat-label>
@@ -357,7 +363,7 @@ export class UsuariosAdminComponent implements OnInit {
     return todos.filter((u) => u.rol === 'ESTUDIANTE' && u.semestre === Number(f));
   });
   form = this.fb.group({
-    numeroIdentificacion: [''],
+    numeroIdentificacion: ['', Validators.required],
     nombre: ['', Validators.required],
     correo: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],

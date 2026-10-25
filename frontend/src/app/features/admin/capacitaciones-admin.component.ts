@@ -57,7 +57,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
   `],
   template: `
     <div class="pagina">
-      <app-page-header titulo="Capacitaciones" subtitulo="Publica oportunidades por semestre y mide su interés real"
+      <app-page-header titulo="Capacitaciones"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Capacitaciones' }]" />
 
       <div class="dos-columnas">
@@ -69,10 +69,6 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
                 <mat-form-field><mat-label>Título</mat-label><input matInput formControlName="titulo" maxlength="120" /></mat-form-field>
                 <mat-form-field><mat-label>Descripción</mat-label><input matInput formControlName="descripcion" /></mat-form-field>
               </div>
-              <mat-form-field class="full-width" style="margin-top:var(--esp-2)"><mat-label>Tema relacionado (opcional)</mat-label><mat-select formControlName="temaId">
-                <mat-option value="">Ninguno</mat-option>
-                @for (t of temas(); track t.id) { <mat-option [value]="t.id">{{ t.nombre }}</mat-option> }
-              </mat-select></mat-form-field>
             </fieldset>
             <fieldset><legend>Enlace e imagen</legend>
               <mat-form-field class="full-width"><mat-label>Enlace</mat-label><input matInput formControlName="enlace" type="url" placeholder="https://" /></mat-form-field>
@@ -122,7 +118,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
             <app-status-chip [estado]="form.value.modalidad || 'virtual'" />
             <h3 style="color:var(--azul-900);margin:8px 0">{{ form.value.titulo || 'Título de ejemplo' }}</h3>
             <p class="texto-secundario">{{ form.value.descripcion || 'La descripción aparecerá aquí…' }}</p>
-            <button mat-raised-button color="primary" class="full-width" disabled>Ver más / Inscribirme</button>
+            <button mat-raised-button color="primary" class="full-width" disabled>Ver más</button>
           </div>
         </mat-card-content></mat-card>
       </div>

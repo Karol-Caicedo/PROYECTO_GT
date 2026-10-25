@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class CrearUsuarioDto {
   @IsEmail({}, { message: 'Correo institucional inválido' })
@@ -11,9 +11,9 @@ export class CrearUsuarioDto {
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   password: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'El número de identificación es obligatorio' })
   @IsString()
-  numeroIdentificacion?: string;
+  numeroIdentificacion: string;
 
   @IsOptional()
   @IsInt({ message: 'Semestre debe ser un número entre 1 y 9' })
