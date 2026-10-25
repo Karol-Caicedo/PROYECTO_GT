@@ -17,7 +17,7 @@ import {
 } from '../../core/charts.config';
 
 type TipoDashboard = 'temas' | 'materias';
-type GraficoTemas = 'top' | 'tasa' | 'calor' | 'declarado' | 'comparativo';
+type GraficoTemas = 'top' | 'tasa' | 'calor' | 'comparativo';
 type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo';
 
 @Component({
@@ -225,17 +225,6 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
               </mat-card-content></mat-card>
             }
 
-            @case ('declarado') {
-              <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">compare</span>Interés declarado vs. real</h2>
-                <p class="desc-grafico">Azul = lo elegido en la encuesta · Verde = clics reales en capacitaciones del tema.</p>
-                @if (dvr().length) {
-                  <div class="grafico alto"><canvas baseChart [data]="dvrData()" [options]="vbar" [type]="'bar'"></canvas></div>
-                } @else {
-                  <p class="texto-secundario">Aún no hay respuestas para este filtro.</p>
-                }
-              </mat-card-content></mat-card>
-            }
 
             @case ('comparativo') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
@@ -375,14 +364,12 @@ export class DashboardComponent implements OnInit {
   top = signal<{ nombre: string; valor: number }[]>([]);
   tasa = signal<{ semestre: number; respondieron: number; total: number; tasa: number }[]>([]);
   heat = signal<Record<string, Record<number, number>>>({});
-  dvr = signal<{ nombre: string; declarado: number; clics: number }[]>([]);
   comp = signal<{ periodo: string; valor: number }[]>([]);
   graficoTemas = signal<GraficoTemas>('top');
   opcionesGraficoTemas: { id: GraficoTemas; texto: string }[] = [
     { id: 'top', texto: 'Top 5 de temas' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'calor', texto: 'Mapa de calor temas × semestres' },
-    { id: 'declarado', texto: 'Interés declarado vs. real' },
     { id: 'comparativo', texto: 'Comparativo entre periodos' },
   ];
 
@@ -421,13 +408,7 @@ export class DashboardComponent implements OnInit {
       { label: 'Respondieron', data: this.tasa().map((t) => t.respondieron), backgroundColor: GRAFICOS.azul, borderRadius: 6 },
     ],
   });
-  dvrData = () => ({
-    labels: this.dvr().map((d) => d.nombre),
-    datasets: [
-      { label: 'Declarado (encuesta)', data: this.dvr().map((d) => d.declarado), backgroundColor: GRAFICOS.azul, borderRadius: 6 },
-      { label: 'Real (clics)', data: this.dvr().map((d) => d.clics), backgroundColor: GRAFICOS.verde, borderRadius: 6 },
-    ],
-  });
+
   compData = () => ({
     labels: this.comp().map((c) => c.periodo),
     datasets: [{ label: 'Evolución del tema', data: this.comp().map((c) => c.valor), borderColor: GRAFICOS.azul, backgroundColor: GRAFICOS.azul, fill: false }],
@@ -517,19 +498,17 @@ export class DashboardComponent implements OnInit {
     this.fallo.set(false);
     try {
       const q = this.qs();
-      const [top, tasa, heat, dvr, resumen] = await Promise.all([
+      const [top, tasa, heat, resumen] = await Promise.all([
         this.http.get<{ modo: string; items: { nombre: string; valor: number }[] }>(`${this.api}/dashboard/top-temas${q}`).toPromise().catch(() => null),
         this.http.get<{ porSemestre: { semestre: number; respondieron: number; total: number; tasa: number }[] }>(`${this.api}/dashboard/tasa-respuesta${q}`).toPromise().catch(() => null),
         this.http.get<{ matriz: Record<string, Record<number, number>> }>(`${this.api}/dashboard/heatmap${q}`).toPromise().catch(() => null),
-        this.http.get<{ items: { nombre: string; declarado: number; clics: number }[] }>(`${this.api}/dashboard/declarado-vs-real${q}`).toPromise().catch(() => null),
         this.http.get<{ totalRespuestas: number; totalEstudiantes: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null }>(`${this.api}/dashboard/resumen${q}`).toPromise().catch(() => null),
       ]);
-      if (!top || !tasa || !heat || !dvr || !resumen) { this.fallo.set(true); return; }
+      if (!top || !tasa || !heat || !resumen) { this.fallo.set(true); return; }
       this.top.set(top.items);
       this.modo.set(top.modo);
       this.tasa.set(tasa.porSemestre);
       this.heat.set(heat.matriz);
-      this.dvr.set(dvr.items);
       this.resumen.set(resumen);
     } finally {
       this.cargando.set(false);

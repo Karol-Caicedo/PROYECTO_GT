@@ -38,13 +38,12 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
     .chip-sem.elegido { background: var(--azul-500); border-color: var(--azul-500); color: var(--superficie); }
     .chip-sem:disabled { opacity: 0.45; cursor: not-allowed; }
     .chip-sem.todos { min-width: auto; padding: 0 var(--esp-4); }
-    .vista-previa { position: sticky; top: var(--esp-4); }
+    .card-publicadas { position: sticky; top: var(--esp-4); }
     @media (max-width: 1000px) {
-      .vista-previa { position: static; }
+      .card-publicadas { position: static; }
       fieldset { padding: var(--esp-3) var(--esp-2); }
     }
-    .portada { aspect-ratio: 16 / 9; width: 100%; object-fit: cover; display: block; }
-    .portada-placeholder { aspect-ratio: 16 / 9; display: grid; place-items: center; background: linear-gradient(135deg, var(--azul-500), var(--verde-500)); }
+    .lista-items-cap { max-height: 620px; overflow-y: auto; padding-right: var(--esp-1); }
     .portada-placeholder .material-symbols-outlined { font-size: 56px; color: var(--superficie); }
     .item-cap { display: flex; gap: var(--esp-3); align-items: flex-start; padding: var(--esp-3) 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
     .item-cap:last-child { border-bottom: none; }
@@ -110,53 +109,43 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
           </form>
         </mat-card-content></mat-card>
 
-        <mat-card class="vista-previa"><mat-card-content>
-          <h2 class="titulo-seccion">Vista previa (así la verá el estudiante)</h2>
-          @if (vistaPreviaImg()) { <img class="portada" [src]="vistaPreviaImg()" alt="" /> }
-          @else { <div class="portada-placeholder" aria-hidden="true"><span class="material-symbols-outlined">school</span></div> }
-          <div style="padding:var(--esp-4) 0 0">
-            <app-status-chip [estado]="form.value.modalidad || 'virtual'" />
-            <h3 style="color:var(--azul-900);margin:8px 0">{{ form.value.titulo || 'Título de ejemplo' }}</h3>
-            <p class="texto-secundario">{{ form.value.descripcion || 'La descripción aparecerá aquí…' }}</p>
-            <button mat-raised-button color="primary" class="full-width" disabled>Ver más</button>
+        <mat-card class="card-publicadas"><mat-card-content>
+          <h2 class="titulo-seccion">Publicadas ({{ filtradas().length }})</h2>
+          <div class="barra-filtros" style="position:static;margin-bottom:var(--esp-3)">
+            <mat-form-field subscriptSizing="dynamic"><mat-label>Estado</mat-label><mat-select [value]="filtroEstado()" (selectionChange)="filtroEstado.set($event.value)">
+              <mat-option value="publicado">Publicado</mat-option>
+            </mat-select></mat-form-field>
+            <mat-form-field subscriptSizing="dynamic"><mat-label>Semestre</mat-label><mat-select [value]="filtroSem()" (selectionChange)="filtroSem.set($event.value)">
+              <mat-option value="">Todos</mat-option>
+              @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">S{{ s }}</mat-option> }
+            </mat-select></mat-form-field>
+          </div>
+          @if (!filtradas().length) {
+            <p class="texto-secundario">No hay capacitaciones con esos filtros.</p>
+          }
+          <div class="lista-items-cap">
+            @for (c of filtradas(); track c.id) {
+              <div class="item-cap">
+                <div class="item-info">
+                  <b>{{ c.titulo }}</b>
+                  <small>{{ c.modalidad }} · {{ c.clics ?? 0 }} clics · Sem: {{ semStr(c) }}</small>
+                </div>
+                <app-status-chip [estado]="c.estado" />
+                <div class="item-acciones">
+                  @if (c.estado === 'publicado') {
+                    <button mat-icon-button (click)="notificar(c)" aria-label="Notificar por correo" title="Notificar por correo">
+                      <span class="material-symbols-outlined" aria-hidden="true">send</span>
+                    </button>
+                  }
+                  <button mat-icon-button color="warn" (click)="eliminar(c)" aria-label="Eliminar capacitación" title="Eliminar">
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                  </button>
+                </div>
+              </div>
+            }
           </div>
         </mat-card-content></mat-card>
       </div>
-
-      <mat-card class="mt"><mat-card-content>
-        <h2 class="titulo-seccion">Publicadas ({{ filtradas().length }})</h2>
-        <div class="barra-filtros" style="position:static;margin-bottom:var(--esp-3)">
-          <mat-form-field subscriptSizing="dynamic"><mat-label>Estado</mat-label><mat-select [value]="filtroEstado()" (selectionChange)="filtroEstado.set($event.value)">
-            <mat-option value="">Todos</mat-option><mat-option value="publicado">Publicado</mat-option>
-          </mat-select></mat-form-field>
-          <mat-form-field subscriptSizing="dynamic"><mat-label>Semestre</mat-label><mat-select [value]="filtroSem()" (selectionChange)="filtroSem.set($event.value)">
-            <mat-option value="">Todos</mat-option>
-            @for (s of [1,2,3,4,5,6,7,8,9]; track s) { <mat-option [value]="s">S{{ s }}</mat-option> }
-          </mat-select></mat-form-field>
-        </div>
-        @if (!filtradas().length) {
-          <p class="texto-secundario">No hay capacitaciones con esos filtros.</p>
-        }
-        @for (c of filtradas(); track c.id) {
-          <div class="item-cap">
-            <div class="item-info">
-              <b>{{ c.titulo }}</b>
-              <small>{{ c.modalidad }} · {{ c.clics ?? 0 }} clics · Sem: {{ semStr(c) }}</small>
-            </div>
-            <app-status-chip [estado]="c.estado" />
-            <div class="item-acciones">
-              @if (c.estado === 'publicado') {
-                <button mat-icon-button (click)="notificar(c)" aria-label="Notificar por correo" title="Notificar por correo">
-                  <span class="material-symbols-outlined" aria-hidden="true">send</span>
-                </button>
-              }
-              <button mat-icon-button color="warn" (click)="eliminar(c)" aria-label="Eliminar capacitación" title="Eliminar">
-                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-              </button>
-            </div>
-          </div>
-        }
-      </mat-card-content></mat-card>
     </div>
   `,
 })
@@ -173,7 +162,7 @@ export class CapacitacionesAdminComponent implements OnInit {
   temas = signal<{ id: string; nombre: string }[]>([]);
   semSel = signal<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   todos = signal(true);
-  filtroEstado = signal('');
+  filtroEstado = signal('publicado');
   filtroSem = signal<string | number>('');
   archivo: File | null = null;
   vistaPreviaImg = signal<string | null>(null);

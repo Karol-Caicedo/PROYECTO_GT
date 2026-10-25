@@ -29,6 +29,8 @@ interface Periodo {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, MatDatepickerModule, PageHeaderComponent, StatusChipComponent],
   styles: [`
+    .card-crear { margin-bottom: var(--esp-6); }
+    .card-historial { margin-top: var(--esp-6); }
     .form-crear { display: flex; gap: var(--esp-3); flex-wrap: wrap; align-items: flex-start; }
     .form-crear mat-form-field { flex: 1 1 180px; }
     .acciones { display: flex; gap: var(--esp-1); justify-content: flex-end; align-items: center; }
@@ -37,7 +39,7 @@ interface Periodo {
     <div class="pagina">
       <app-page-header titulo="Periodos académicos" subtitulo="Solo puede haber un periodo activo a la vez"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Periodos' }]" />
-      <mat-card><mat-card-content>
+      <mat-card class="card-crear"><mat-card-content>
         <h2 class="titulo-seccion">Crear periodo</h2>
         <form [formGroup]="form" (ngSubmit)="crear()" class="form-crear">
           <mat-form-field><mat-label>Nombre (ej. 2026-2)</mat-label><input matInput formControlName="nombre" /></mat-form-field>
@@ -60,7 +62,7 @@ interface Periodo {
           <button mat-raised-button color="primary" [disabled]="form.invalid">Crear</button>
         </form>
       </mat-card-content></mat-card>
-      <mat-card class="mt"><mat-card-content>
+      <mat-card class="card-historial"><mat-card-content>
         <h2 class="titulo-seccion">Historial de periodos</h2>
         <div class="tabla-responsive"><table mat-table [dataSource]="periodos()">
           <ng-container matColumnDef="nombre"><th mat-header-cell *matHeaderCellDef>Periodo</th>

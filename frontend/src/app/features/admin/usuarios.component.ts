@@ -244,8 +244,27 @@ export class EditarUsuarioDialogComponent {
       width: 100px;
       text-align: right;
     }
+    .filtros-header {
+      display: flex;
+      gap: var(--esp-2);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .barra-busqueda-header {
+      min-width: 260px;
+    }
+    .barra-busqueda-header ::ng-deep .mat-mdc-text-field-wrapper {
+      background-color: var(--superficie, #ffffff) !important;
+      border-radius: var(--radio-s, 8px);
+    }
+    .icono-buscar {
+      color: var(--texto-secundario);
+      font-size: 20px;
+      margin-right: var(--esp-2);
+      margin-left: var(--esp-1);
+    }
     .filtro-semestre-header {
-      min-width: 230px;
+      min-width: 210px;
     }
     .filtro-semestre-header ::ng-deep .mat-mdc-text-field-wrapper {
       background-color: var(--superficie, #ffffff) !important;
@@ -256,16 +275,28 @@ export class EditarUsuarioDialogComponent {
     <div class="pagina">
       <app-page-header titulo="Usuarios"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Usuarios' }]">
-        <mat-form-field subscriptSizing="dynamic" class="filtro-semestre-header">
-          <mat-label>Filtrar por semestre</mat-label>
-          <mat-select [value]="filtroSemestre()" (selectionChange)="filtroSemestre.set($event.value)">
-            <mat-option value="">Todos los semestres</mat-option>
-            @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-              <mat-option [value]="s">Semestre {{ s }}</mat-option>
+        <div class="filtros-header">
+          <mat-form-field subscriptSizing="dynamic" class="barra-busqueda-header">
+            <span matPrefix class="material-symbols-outlined icono-buscar" aria-hidden="true">search</span>
+            <mat-label>Buscar usuario</mat-label>
+            <input matInput [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" placeholder="Nombre o identificación" />
+            @if (busqueda()) {
+              <button mat-icon-button matSuffix type="button" (click)="busqueda.set('')" aria-label="Limpiar búsqueda" title="Limpiar">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px">close</span>
+              </button>
             }
-            <mat-option value="ADMIN">Solo Administradores</mat-option>
-          </mat-select>
-        </mat-form-field>
+          </mat-form-field>
+          <mat-form-field subscriptSizing="dynamic" class="filtro-semestre-header">
+            <mat-label>Filtrar por semestre</mat-label>
+            <mat-select [value]="filtroSemestre()" (selectionChange)="filtroSemestre.set($event.value)">
+              <mat-option value="">Todos los semestres</mat-option>
+              @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+                <mat-option [value]="s">Semestre {{ s }}</mat-option>
+              }
+              <mat-option value="ADMIN">Solo Administradores</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
       </app-page-header>
       <div class="dos-columnas">
         <mat-card><mat-card-content>
@@ -352,15 +383,29 @@ export class UsuariosAdminComponent implements OnInit {
   private api = environment.apiUrl;
   usuarios = signal<Usuario[]>([]);
   filtroSemestre = signal<string | number>('');
+  busqueda = signal('');
   error = signal('');
   guardando = signal(false);
 
   usuariosFiltrados = computed(() => {
     const f = this.filtroSemestre();
-    const todos = this.usuarios();
-    if (f === '' || f === 'TODOS') return todos;
-    if (f === 'ADMIN') return todos.filter((u) => u.rol === 'ADMIN');
-    return todos.filter((u) => u.rol === 'ESTUDIANTE' && u.semestre === Number(f));
+    const q = this.busqueda().trim().toLowerCase();
+    let lista = this.usuarios();
+    if (f !== '' && f !== 'TODOS') {
+      if (f === 'ADMIN') {
+        lista = lista.filter((u) => u.rol === 'ADMIN');
+      } else {
+        lista = lista.filter((u) => u.rol === 'ESTUDIANTE' && u.semestre === Number(f));
+      }
+    }
+    if (q) {
+      lista = lista.filter((u) =>
+        (u.nombre && u.nombre.toLowerCase().includes(q)) ||
+        (u.numeroIdentificacion && u.numeroIdentificacion.toLowerCase().includes(q)) ||
+        (u.correo && u.correo.toLowerCase().includes(q))
+      );
+    }
+    return lista;
   });
   form = this.fb.group({
     numeroIdentificacion: ['', Validators.required],
