@@ -218,7 +218,7 @@ export class EditarUsuarioDialogComponent {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, MatDialogModule, PageHeaderComponent, StatusChipComponent],
   styles: [`
-    .dos-columnas { display: grid; grid-template-columns: 340px 1fr; gap: var(--esp-4); align-items: start; }
+    .dos-columnas { display: grid; grid-template-columns: 340px 1fr; gap: var(--esp-4); align-items: start; margin-top: var(--esp-4); }
     @media (max-width: 900px) { .dos-columnas { grid-template-columns: 1fr; } }
     .dos-columnas mat-form-field { width: 100% !important; display: block !important; }
     .dos-columnas ::ng-deep .mat-mdc-form-field { width: 100% !important; display: block !important; }

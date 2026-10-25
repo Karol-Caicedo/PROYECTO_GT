@@ -9,6 +9,12 @@ export interface Miga { texto: string; ruta?: string }
   selector: 'app-page-header',
   standalone: true,
   imports: [CommonModule, RouterLink],
+  styles: [`
+    :host {
+      display: block;
+      margin-bottom: var(--esp-5);
+    }
+  `],
   template: `
     @if (miga.length) {
       <nav class="miga" aria-label="Miga de pan">

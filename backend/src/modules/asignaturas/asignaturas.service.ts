@@ -37,4 +37,13 @@ export class AsignaturasService {
     await this.repo.remove(a);
     return { ok: true };
   }
+
+  async cambiarEstadoTodas(activo: boolean, semestre?: number) {
+    const qb = this.repo.createQueryBuilder().update(Asignatura).set({ activo });
+    if (semestre) {
+      qb.where('semestre = :semestre', { semestre });
+    }
+    await qb.execute();
+    return { ok: true, activo, semestre };
+  }
 }

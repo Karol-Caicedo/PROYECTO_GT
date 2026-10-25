@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
 import { AsignaturasService } from './asignaturas.service';
-import { AsignaturaDto, ActualizarAsignaturaDto } from './asignatura.dto';
+import { AsignaturaDto, ActualizarAsignaturaDto, CambiarEstadoTodasDto } from './asignatura.dto';
 
 @ApiTags('asignaturas')
 @Controller('asignaturas')
@@ -28,6 +28,13 @@ export class AsignaturasController {
   @ApiOperation({ summary: 'Crear una nueva asignatura' })
   crear(@Body() dto: AsignaturaDto) {
     return this.svc.crear(dto);
+  }
+
+  @Patch('admin/cambiar-estado-todas')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Activar o inactivar todas las asignaturas' })
+  cambiarEstadoTodas(@Body() dto: CambiarEstadoTodasDto) {
+    return this.svc.cambiarEstadoTodas(dto.activo, dto.semestre);
   }
 
   @Patch(':id')

@@ -110,10 +110,23 @@ export interface Asignatura {
               </mat-form-field>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--esp-2)">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--esp-3); flex-wrap:wrap; gap:var(--esp-2)">
               <h2 class="titulo-seccion" style="margin:0">
                 Asignaturas ({{ asignaturasFiltradas().length }} de {{ asignaturas().length }})
               </h2>
+
+              <button
+                mat-flat-button
+                [color]="todasActivas() ? 'warn' : 'primary'"
+                (click)="toggleTodas()"
+                type="button"
+                [disabled]="asignaturas().length === 0"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px; margin-right:4px">
+                  {{ todasActivas() ? 'block' : 'check_circle' }}
+                </span>
+                {{ textoBotonToggle() }}
+              </button>
             </div>
 
             @if (!asignaturasFiltradas().length) {
@@ -148,9 +161,6 @@ export interface Asignatura {
                       <div class="acciones">
                         <button mat-icon-button (click)="editar(a)" aria-label="Editar asignatura" title="Editar">
                           <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                        </button>
-                        <button mat-icon-button (click)="toggle(a)" [attr.aria-label]="a.activo ? 'Desactivar asignatura' : 'Activar asignatura'" [title]="a.activo ? 'Desactivar' : 'Activar'">
-                          <span class="material-symbols-outlined" aria-hidden="true">{{ a.activo ? 'visibility_off' : 'visibility' }}</span>
                         </button>
                         <button mat-icon-button color="warn" (click)="eliminar(a)" aria-label="Eliminar asignatura" title="Eliminar">
                           <span class="material-symbols-outlined" aria-hidden="true">delete</span>
@@ -196,6 +206,23 @@ export class AsignaturasAdminComponent implements OnInit {
     });
   });
 
+  todasActivas = computed(() => {
+    const sem = this.semestreFiltro();
+    const lista = sem !== ''
+      ? this.asignaturas().filter((a) => a.semestre === Number(sem))
+      : this.asignaturas();
+    return lista.length > 0 && lista.every((a) => a.activo);
+  });
+
+  textoBotonToggle = computed(() => {
+    const sem = this.semestreFiltro();
+    const activas = this.todasActivas();
+    if (sem !== '') {
+      return activas ? `Inactivar semestre ${sem}` : `Activar semestre ${sem}`;
+    }
+    return activas ? 'Inactivar todas' : 'Activar todas';
+  });
+
   async ngOnInit() {
     await this.cargar();
   }
@@ -232,10 +259,30 @@ export class AsignaturasAdminComponent implements OnInit {
     this.form.reset({ nombre: '', semestre: 1 });
   }
 
-  async toggle(a: Asignatura) {
-    await this.http.patch(`${this.api}/asignaturas/${a.id}`, { activo: !a.activo }).toPromise();
-    this.ui.exito(`Asignatura ${a.activo ? 'desactivada' : 'activada'}.`);
-    await this.cargar();
+  async toggleTodas() {
+    const sem = this.semestreFiltro();
+    const nuevoEstado = !this.todasActivas();
+    const accion = nuevoEstado ? 'activar' : 'inactivar';
+    const alcance = sem !== '' ? `todas las asignaturas del semestre ${sem}` : 'todas las asignaturas';
+
+    const ok = await this.ui.confirmar({
+      titulo: `${nuevoEstado ? 'Activar' : 'Inactivar'} asignaturas`,
+      mensaje: `¿Estás seguro de que deseas ${accion} ${alcance}?`,
+      textoConfirmar: nuevoEstado ? 'Activar' : 'Inactivar',
+      peligro: !nuevoEstado,
+    });
+    if (!ok) return;
+
+    try {
+      await this.http.patch(`${this.api}/asignaturas/admin/cambiar-estado-todas`, {
+        activo: nuevoEstado,
+        semestre: sem !== '' ? Number(sem) : undefined,
+      }).toPromise();
+      this.ui.exito(`Asignaturas ${nuevoEstado ? 'activadas' : 'inactivadas'} exitosamente.`);
+      await this.cargar();
+    } catch {
+      this.ui.error('No se pudo cambiar el estado de las asignaturas.');
+    }
   }
 
   async eliminar(a: Asignatura) {
