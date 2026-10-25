@@ -87,19 +87,40 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
           mensaje="No hay periodo académico abierto en este momento. Vuelve pronto.">
           <a mat-raised-button color="primary" routerLink="/capacitaciones">Ver capacitaciones</a>
         </app-empty-state>
-      } @else if (enviado()) {
+      } @else if (yaRespondio() || enviado()) {
         <mat-card><mat-card-content class="confirmacion" role="status">
           <span class="material-symbols-outlined icono-grande" aria-hidden="true">check_circle</span>
-          <h2>¡Gracias por responder!</h2>
-          <p>Tus intereses del periodo {{ periodo()!.nombre }} quedaron registrados y ayudarán a Proyección Social
-            a programar capacitaciones para tu semestre. Puedes editarlos mientras el periodo siga activo.</p>
+          <h2>¡Respuestas registradas!</h2>
+          <p>Tus intereses para el periodo <b>{{ periodo()!.nombre }}</b> quedaron registrados exitosamente. Las respuestas son definitivas y ayudarán a Proyección Social a programar las capacitaciones de tu semestre.</p>
+
+          <div style="max-width:650px; margin: var(--esp-4) auto var(--esp-6); text-align:left;">
+            <h3 style="color:var(--azul-900); margin-bottom:var(--esp-3); font-size:var(--t-cuerpo); font-weight:700">Detalle de tu votación:</h3>
+            <div style="display:flex; flex-direction:column; gap:var(--esp-2)">
+              @for (t of resumenVotacion(); track t.id) {
+                <div class="resumen-item" style="background:var(--superficie); border:1px solid var(--borde); border-radius:var(--radio-s); padding:var(--esp-3); justify-content:space-between;">
+                  <div style="display:flex; align-items:flex-start; gap:var(--esp-2)">
+                    <span class="material-symbols-outlined" style="color:var(--verde-700); margin-top:2px;">check_circle</span>
+                    <div>
+                      <b style="color:var(--azul-900); display:block;">{{ t.nombre }}</b>
+                      @if (t.descripcion) {
+                        <small style="color:var(--texto-secundario); display:block; margin-top:2px;">{{ t.descripcion }}</small>
+                      }
+                    </div>
+                  </div>
+                  @if (t.puntaje) {
+                    <span style="font-weight:700; color:var(--azul-700); background:var(--azul-50); padding:4px 10px; border-radius:var(--radio-s); white-space:nowrap;">{{ t.puntaje }} / 5</span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
           <div class="acciones">
             <a mat-raised-button color="primary" routerLink="/encuesta-asignaturas">
               <span class="material-symbols-outlined" style="font-size:18px; margin-right:4px">menu_book</span>
               Evaluar Asignaturas del Semestre
             </a>
             <a mat-stroked-button routerLink="/capacitaciones">Ver capacitaciones</a>
-            <button mat-stroked-button (click)="enviado.set(false)">Editar intereses</button>
           </div>
         </mat-card-content></mat-card>
       } @else {
@@ -148,9 +169,6 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
                     [attr.aria-pressed]="esElegido(t.id)" (click)="toggle(t.id)">
                     <span class="icono" aria-hidden="true"><span class="material-symbols-outlined">{{ iconoTema(i) }}</span></span>
                     <span><b>{{ t.nombre }}</b>@if (t.descripcion) { <small>{{ t.descripcion }}</small> }</span>
-                    @if (esElegido(t.id)) {
-                      <span class="check"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Listo</span>
-                    }
                   </button>
                 }
               </div>
@@ -188,7 +206,7 @@ const ICONOS_TEMAS = ['smart_toy', 'database', 'shield', 'cloud', 'settings', 'c
               <div class="nav-pasos">
                 <button mat-button matStepperPrevious>Volver</button>
                 <button mat-raised-button color="primary" (click)="enviar()" [disabled]="enviando()">
-                  {{ enviando() ? 'Enviando…' : (yaRespondio() ? 'Actualizar mi respuesta' : 'Enviar mi respuesta') }}
+                  {{ enviando() ? 'Enviando…' : 'Enviar mi respuesta' }}
                 </button>
               </div>
             </mat-card-content></mat-card>
@@ -209,10 +227,13 @@ export class EncuestaComponent implements OnInit {
   elegidos = signal<string[]>([]);
   calif = signal<Record<string, number>>({});
   yaRespondio = signal(false);
+  miRespuestaData = signal<any>(null);
   enviado = signal(false);
   enviando = signal(false);
   cargando = signal(true);
   error = signal('');
+
+  private readonly STORAGE_KEY = 'sigice_borrador_encuesta';
 
   async ngOnInit() {
     await this.auth.cargarPerfil();
@@ -220,22 +241,54 @@ export class EncuestaComponent implements OnInit {
       const r = await this.http.get<{ periodo: Periodo; temas: Tema[] }>(`${this.api}/encuestas/temas-aleatorios`).toPromise();
       this.periodo.set(r!.periodo);
       this.temas.set(r!.temas);
-      const mia = await this.http.get<{ temas?: { temaId: string; puntaje: number | null }[] } | null>(`${this.api}/encuestas/mi-respuesta`).toPromise();
-      if (mia && (mia as { id?: string }).id) {
+      const mia = await this.http.get<any>(`${this.api}/encuestas/mi-respuesta`).toPromise();
+      if (mia && mia.id) {
         this.yaRespondio.set(true);
-        const items = (mia as { temas: { temaId: string; puntaje: number | null }[] }).temas || [];
-        if (r!.periodo.modoEncuesta === 'seleccion') this.elegidos.set(items.map((i) => i.temaId));
+        this.miRespuestaData.set(mia);
+        const items = mia.temas || [];
+        if (r!.periodo.modoEncuesta === 'seleccion') this.elegidos.set(items.map((i: any) => i.temaId));
         else {
           const c: Record<string, number> = {};
           for (const i of items) if (i.puntaje) c[i.temaId] = i.puntaje;
           this.calif.set(c);
         }
+      } else {
+        this.recuperarBorrador(r!.periodo.modoEncuesta);
       }
     } catch {
       this.periodo.set(null);
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  private guardarBorrador() {
+    if (this.yaRespondio()) return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+        elegidos: this.elegidos(),
+        calif: this.calif(),
+      }));
+    } catch { /* noop */ }
+  }
+
+  private recuperarBorrador(modo: string) {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (modo === 'seleccion' && Array.isArray(data.elegidos) && data.elegidos.length) {
+        this.elegidos.set(data.elegidos);
+      } else if (modo === 'calificacion' && data.calif && Object.keys(data.calif).length) {
+        this.calif.set(data.calif);
+      }
+    } catch { /* noop */ }
+  }
+
+  private limpiarBorrador() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch { /* noop */ }
   }
 
   iconoTema(i: number) { return ICONOS_TEMAS[i % ICONOS_TEMAS.length]; }
@@ -247,8 +300,12 @@ export class EncuestaComponent implements OnInit {
       if (cur.length >= 5) return; // el aviso en línea ya informa el límite
       this.elegidos.set([...cur, id]);
     }
+    this.guardarBorrador();
   }
-  setCalif(id: string, v: number) { this.calif.set({ ...this.calif(), [id]: Number(v) }); }
+  setCalif(id: string, v: number) {
+    this.calif.set({ ...this.calif(), [id]: Number(v) });
+    this.guardarBorrador();
+  }
 
   pasoTemasValido(): boolean {
     const p = this.periodo();
@@ -257,15 +314,42 @@ export class EncuestaComponent implements OnInit {
     return Object.keys(this.calif()).length >= 1;
   }
 
-  resumenTemas(): { id: string; nombre: string; puntaje?: number }[] {
+  resumenTemas(): { id: string; nombre: string; descripcion?: string; puntaje?: number }[] {
     const p = this.periodo();
     if (!p) return [];
     if (p.modoEncuesta === 'seleccion') {
       const mapa = new Map(this.temas().map((t) => [t.id, t]));
-      return this.elegidos().map((id) => ({ id, nombre: mapa.get(id)?.nombre ?? id }));
+      return this.elegidos().map((id) => ({
+        id,
+        nombre: mapa.get(id)?.nombre ?? id,
+        descripcion: mapa.get(id)?.descripcion,
+      }));
     }
     const mapa = new Map(this.temas().map((t) => [t.id, t]));
-    return Object.entries(this.calif()).map(([id, puntaje]) => ({ id, nombre: mapa.get(id)?.nombre ?? id, puntaje }));
+    return Object.entries(this.calif()).map(([id, puntaje]) => ({
+      id,
+      nombre: mapa.get(id)?.nombre ?? id,
+      descripcion: mapa.get(id)?.descripcion,
+      puntaje,
+    }));
+  }
+
+  resumenVotacion(): { id: string; nombre: string; descripcion?: string; puntaje?: number | null }[] {
+    const mia = this.miRespuestaData();
+    if (mia && mia.temas && mia.temas.length) {
+      const mapaDetalle = new Map<string, Tema>((mia.temasDetalle || []).map((t: Tema) => [t.id, t]));
+      const mapaTemas = new Map<string, Tema>(this.temas().map((t: Tema) => [t.id, t]));
+      return mia.temas.map((item: any) => {
+        const tema = mapaDetalle.get(item.temaId) || mapaTemas.get(item.temaId);
+        return {
+          id: item.temaId,
+          nombre: tema?.nombre || 'Tema',
+          descripcion: tema?.descripcion,
+          puntaje: item.puntaje,
+        };
+      });
+    }
+    return this.resumenTemas();
   }
 
   async cambiarSemestre(s: number) {
@@ -289,8 +373,9 @@ export class EncuestaComponent implements OnInit {
     const body = { items };
     this.enviando.set(true);
     try {
-      if (this.yaRespondio()) await this.http.patch(`${this.api}/encuestas/mi-respuesta`, body).toPromise();
-      else await this.http.post(`${this.api}/encuestas`, body).toPromise();
+      const resp = await this.http.post<any>(`${this.api}/encuestas`, body).toPromise();
+      this.limpiarBorrador();
+      this.miRespuestaData.set(resp);
       this.yaRespondio.set(true);
       this.enviado.set(true);
       this.snack.open('¡Gracias por responder!', 'Cerrar', { duration: 3000, panelClass: 'snack-exito' });

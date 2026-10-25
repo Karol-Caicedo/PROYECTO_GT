@@ -77,7 +77,7 @@ export class EncuestasService {
     const periodo = await this.periodoActivoOrFail();
     this.validar(dto.items, periodo.modoEncuesta);
     const ya = await this.resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
-    if (ya) throw new BadRequestException('Ya respondiste la encuesta de este periodo (puedes editarla)');
+    if (ya) throw new BadRequestException('Ya respondiste la encuesta de este periodo (no se puede modificar)');
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     const activos = await this.temas.find({ where: { activo: true } });

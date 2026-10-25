@@ -85,7 +85,7 @@ interface Cap { id: string; titulo: string; descripcion: string; enlace: string;
             </fieldset>
             <fieldset><legend>Semestres destino</legend>
               <div class="chips-sem" role="group" aria-label="Semestres destino">
-                <button type="button" class="chip-sem todos" [class.elegido]="todos()" [attr.aria-pressed]="todos()" (click)="todos.set(!todos())">Todos</button>
+                <button type="button" class="chip-sem todos" [class.elegido]="todos()" [attr.aria-pressed]="todos()" (click)="toggleTodos()">Todos</button>
                 @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
                   <button type="button" class="chip-sem" [class.elegido]="todos() || semSel().includes(s)"
                     [disabled]="todos()" [attr.aria-pressed]="todos() || semSel().includes(s)"
@@ -192,16 +192,59 @@ export class CapacitacionesAdminComponent implements OnInit {
     temaId: [''],
     modalidad: ['virtual'],
     estado: ['publicado'],
-    fechaEvento: [''],
-    visibleDesde: ['', Validators.required],
-    visibleHasta: ['', Validators.required],
+    fechaEvento: ['' as string | Date],
+    visibleDesde: ['' as string | Date, Validators.required],
+    visibleHasta: ['' as string | Date, Validators.required],
   });
 
+  private readonly STORAGE_KEY = 'sigice_borrador_capacitacion';
+
   async ngOnInit() {
+    this.recuperarBorrador();
+    this.form.valueChanges.subscribe(() => this.guardarBorrador());
     await this.cargar();
     const t = await this.http.get<{ id: string; nombre: string }[]>(`${this.api}/temas/admin/todos`).toPromise().catch(() => []);
     this.temas.set(t || []);
   }
+
+  private guardarBorrador() {
+    try {
+      const data = {
+        ...this.form.value,
+        todos: this.todos(),
+        semSel: this.semSel(),
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch { /* noop */ }
+  }
+
+  private recuperarBorrador() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      this.form.patchValue({
+        titulo: data.titulo || '',
+        descripcion: data.descripcion || '',
+        enlace: data.enlace || '',
+        temaId: data.temaId || '',
+        modalidad: data.modalidad || 'virtual',
+        estado: data.estado || 'publicado',
+        fechaEvento: data.fechaEvento ? new Date(data.fechaEvento) : '',
+        visibleDesde: data.visibleDesde ? new Date(data.visibleDesde) : '',
+        visibleHasta: data.visibleHasta ? new Date(data.visibleHasta) : '',
+      });
+      if (typeof data.todos === 'boolean') this.todos.set(data.todos);
+      if (Array.isArray(data.semSel)) this.semSel.set(data.semSel);
+    } catch { /* noop */ }
+  }
+
+  private limpiarBorrador() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch { /* noop */ }
+  }
+
   async cargar() {
     const r = await this.http.get<Cap[]>(`${this.api}/capacitaciones`).toPromise().catch(() => []);
     this.caps.set(r || []);
@@ -215,9 +258,14 @@ export class CapacitacionesAdminComponent implements OnInit {
   semStr(c: Cap) {
     return (c.semestres || []).map((s) => s.semestre).join(', ');
   }
+  toggleTodos() {
+    this.todos.set(!this.todos());
+    this.guardarBorrador();
+  }
   toggleSem(s: number) {
     const c = this.semSel();
     this.semSel.set(c.includes(s) ? c.filter((x) => x !== s) : [...c, s]);
+    this.guardarBorrador();
   }
   onFile(e: Event) {
     this.errorArchivo.set('');
@@ -263,6 +311,7 @@ export class CapacitacionesAdminComponent implements OnInit {
       fd.append('semestres', JSON.stringify(this.todos() ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : this.semSel()));
       if (this.archivo) fd.append('imagen', this.archivo);
       await this.http.post(`${this.api}/capacitaciones`, fd).toPromise();
+      this.limpiarBorrador();
       this.form.reset({ modalidad: 'virtual', estado: 'publicado' });
       this.archivo = null;
       this.vistaPreviaImg.set(null);

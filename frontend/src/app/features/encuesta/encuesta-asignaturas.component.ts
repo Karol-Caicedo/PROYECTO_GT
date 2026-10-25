@@ -321,6 +321,8 @@ export class EncuestaAsignaturasComponent implements OnInit {
     return asigs.every((a) => !!mapa[a.id]?.nivelSatisfaccion);
   });
 
+  private readonly STORAGE_KEY = 'sigice_borrador_encuesta_asig';
+
   async ngOnInit() {
     await this.cargarEstado();
   }
@@ -340,11 +342,43 @@ export class EncuestaAsignaturasComponent implements OnInit {
             nivelSatisfaccion: 3, // Valor neutro por defecto
           };
         }
+
+        if (!res.yaRespondio) {
+          const guardado = localStorage.getItem(this.STORAGE_KEY);
+          if (guardado) {
+            try {
+              const p = JSON.parse(guardado);
+              for (const a of res.asignaturas) {
+                if (p[a.id]) {
+                  inicial[a.id] = {
+                    ...inicial[a.id],
+                    tieneDificultad: !!p[a.id].tieneDificultad,
+                    nivelSatisfaccion: Number(p[a.id].nivelSatisfaccion) || 3,
+                  };
+                }
+              }
+            } catch { /* noop */ }
+          }
+        }
+
         this.evaluacion.set(inicial);
       }
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  private guardarBorrador() {
+    if (this.estado()?.yaRespondio) return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.evaluacion()));
+    } catch { /* noop */ }
+  }
+
+  private limpiarBorrador() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch { /* noop */ }
   }
 
   toggleDificultad(asigId: string) {
@@ -362,6 +396,7 @@ export class EncuestaAsignaturasComponent implements OnInit {
       tieneDificultad: !actual.tieneDificultad,
     };
     this.evaluacion.set(mapa);
+    this.guardarBorrador();
   }
 
   setSatisfaccion(asigId: string, nivel: number) {
@@ -374,6 +409,7 @@ export class EncuestaAsignaturasComponent implements OnInit {
       nivelSatisfaccion: nivel,
     };
     this.evaluacion.set(mapa);
+    this.guardarBorrador();
   }
 
   etiquetaNivel(v: number): string {
@@ -398,6 +434,7 @@ export class EncuestaAsignaturasComponent implements OnInit {
     try {
       const items = Object.values(this.evaluacion());
       await this.http.post(`${this.api}/encuestas-asignaturas`, { items }).toPromise();
+      this.limpiarBorrador();
       this.ui.exito('Evaluación enviada con éxito.');
       await this.cargarEstado();
     } catch (err: any) {

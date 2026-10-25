@@ -382,7 +382,42 @@ export class UsuariosAdminComponent implements OnInit {
     semControl.updateValueAndValidity();
   }
 
-  async ngOnInit() { await this.cargar(); }
+  private readonly STORAGE_KEY = 'sigice_borrador_usuario';
+
+  async ngOnInit() {
+    this.recuperarBorrador();
+    this.form.valueChanges.subscribe(() => this.guardarBorrador());
+    await this.cargar();
+  }
+
+  private guardarBorrador() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.form.value));
+    } catch { /* noop */ }
+  }
+
+  private recuperarBorrador() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      this.form.patchValue({
+        numeroIdentificacion: data.numeroIdentificacion || '',
+        nombre: data.nombre || '',
+        correo: data.correo || '',
+        password: data.password || '',
+        semestre: data.semestre || 1,
+        rol: data.rol || 'ESTUDIANTE',
+      });
+    } catch { /* noop */ }
+  }
+
+  private limpiarBorrador() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch { /* noop */ }
+  }
+
   async cargar() {
     const r = await this.http.get<Usuario[]>(`${this.api}/usuarios`).toPromise().catch(() => []);
     this.usuarios.set(r || []);
@@ -398,6 +433,7 @@ export class UsuariosAdminComponent implements OnInit {
         numeroIdentificacion: val.numeroIdentificacion?.trim() || undefined,
         semestre: esAdmin ? 1 : Number(val.semestre || 1),
       }).toPromise();
+      this.limpiarBorrador();
       this.form.reset({ numeroIdentificacion: '', semestre: 1, rol: 'ESTUDIANTE' });
       await this.cargar();
       this.ui.exito('Usuario creado. Compártele su clave inicial por un canal seguro.');

@@ -101,9 +101,47 @@ export class PeriodosAdminComponent implements OnInit {
   private ui = inject(UiService);
   private api = environment.apiUrl;
   periodos = signal<Periodo[]>([]);
-  form = this.fb.group({ nombre: ['', Validators.required], fechaInicio: ['', Validators.required], fechaFin: ['', Validators.required], modoEncuesta: ['seleccion', Validators.required] });
+  form = this.fb.group({
+    nombre: ['', Validators.required],
+    fechaInicio: ['' as string | Date, Validators.required],
+    fechaFin: ['' as string | Date, Validators.required],
+    modoEncuesta: ['seleccion', Validators.required],
+  });
 
-  async ngOnInit() { await this.cargar(); }
+  private readonly STORAGE_KEY = 'sigice_borrador_periodo';
+
+  async ngOnInit() {
+    this.recuperarBorrador();
+    this.form.valueChanges.subscribe(() => this.guardarBorrador());
+    await this.cargar();
+  }
+
+  private guardarBorrador() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.form.value));
+    } catch { /* noop */ }
+  }
+
+  private recuperarBorrador() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      this.form.patchValue({
+        nombre: data.nombre || '',
+        fechaInicio: data.fechaInicio ? new Date(data.fechaInicio) : '',
+        fechaFin: data.fechaFin ? new Date(data.fechaFin) : '',
+        modoEncuesta: data.modoEncuesta || 'seleccion',
+      });
+    } catch { /* noop */ }
+  }
+
+  private limpiarBorrador() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch { /* noop */ }
+  }
+
   async cargar() {
     const r = await this.http.get<Periodo[]>(`${this.api}/periodos`).toPromise().catch(() => []);
     this.periodos.set(r || []);
@@ -126,6 +164,7 @@ export class PeriodosAdminComponent implements OnInit {
       fechaFin: toYmd(val.fechaFin),
       activo: false,
     }).toPromise();
+    this.limpiarBorrador();
     this.form.reset({ modoEncuesta: 'seleccion' });
     await this.cargar();
     this.ui.exito('Periodo creado.');

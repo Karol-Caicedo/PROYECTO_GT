@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
 import { EncuestasService } from './encuestas.service';
@@ -32,8 +32,8 @@ export class EncuestasController {
 
   @Patch('encuestas/mi-respuesta')
   @Auth('ESTUDIANTE')
-  @ApiOperation({ summary: 'Editar mi respuesta mientras el periodo esté activo' })
-  editar(@Req() req: { user: { id: string } }, @Body() dto: CrearEncuestaDto) {
-    return this.svc.editar(req.user.id, dto);
+  @ApiOperation({ summary: 'Las respuestas son definitivas y no se pueden modificar' })
+  editar() {
+    throw new BadRequestException('Las respuestas ya no se pueden modificar una vez enviadas');
   }
 }

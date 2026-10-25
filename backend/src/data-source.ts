@@ -15,6 +15,7 @@ import { RecuperacionClaves1700000000001 } from './migrations/1700000000001-recu
 import { PasswordPlano1700000000002 } from './migrations/1700000000002-password-plano';
 import { DropSugerencias1700000000003 } from './migrations/1700000000003-drop-sugerencias';
 import { AsignaturasYEncuestas1700000000004 } from './migrations/1700000000004-asignaturas-y-encuestas';
+import { ResetRespuestas1700000000005 } from './migrations/1700000000005-reset-respuestas';
 
 dotenv.config({ path: '../.env' });
 dotenv.config();
@@ -27,7 +28,7 @@ const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'intereses_db',
   entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem],
-  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002, DropSugerencias1700000000003, AsignaturasYEncuestas1700000000004],
+  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002, DropSugerencias1700000000003, AsignaturasYEncuestas1700000000004, ResetRespuestas1700000000005],
   synchronize: false,
 });
 
