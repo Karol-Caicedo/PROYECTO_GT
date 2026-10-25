@@ -1,19 +1,38 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconButton } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
+import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { LayoutService } from './layout.service';
+
+interface CapacitacionNotif {
+  id: string;
+  titulo: string;
+  modalidad: string;
+  fechaEvento?: string | null;
+}
 
 /** Encabezado blanco con franja institucional, logo y perfil de usuario alineado a la derecha. */
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatToolbarModule, MatButtonModule, MatIconButton, MatMenuModule, MatChipsModule],
+  imports: [
+    CommonModule,
+    RouterLink,
+    MatToolbarModule,
+    MatButtonModule,
+    MatIconButton,
+    MatMenuModule,
+    MatChipsModule,
+    MatDividerModule,
+  ],
   styles: [`
     .cabecera {
       background: var(--superficie);
@@ -37,6 +56,160 @@ import { LayoutService } from './layout.service';
       align-items: center;
       gap: var(--esp-2);
       flex-shrink: 0;
+    }
+    .btn-notificaciones {
+      position: relative;
+      color: var(--azul-700);
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .btn-notificaciones:hover {
+      background-color: var(--azul-50);
+      color: var(--azul-900);
+    }
+    .badge-notif {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: var(--error);
+      color: #ffffff;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      line-height: 18px;
+      text-align: center;
+      padding: 0 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+      pointer-events: none;
+      border: 2px solid var(--superficie);
+    }
+    ::ng-deep .menu-notif-panel {
+      max-width: 360px !important;
+      width: 340px !important;
+      border-radius: var(--radio-m, 12px) !important;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15) !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    .menu-notif-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--esp-3) var(--esp-4);
+      background: var(--azul-50);
+    }
+    .menu-notif-titulo {
+      display: flex;
+      align-items: center;
+      gap: var(--esp-1);
+      font-weight: 700;
+      color: var(--azul-900);
+      font-size: var(--t-cuerpo, 16px);
+    }
+    .chip-notif-total {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--azul-100);
+      color: var(--azul-900);
+      padding: 2px 8px;
+      border-radius: var(--radio-s, 8px);
+    }
+    .menu-notif-vacio {
+      padding: var(--esp-5) var(--esp-4);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--esp-1);
+    }
+    .icono-vacio {
+      font-size: 36px;
+      color: var(--texto-secundario);
+      opacity: 0.6;
+      margin-bottom: var(--esp-1);
+    }
+    .menu-notif-lista {
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .item-notif {
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: var(--esp-2) !important;
+      padding: var(--esp-3) var(--esp-4) !important;
+      height: auto !important;
+      line-height: normal !important;
+      border-bottom: 1px solid var(--borde) !important;
+      white-space: normal !important;
+    }
+    .item-notif:hover {
+      background-color: var(--azul-50) !important;
+    }
+    .item-notif-icono {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--azul-100);
+      color: var(--azul-700);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .item-notif-info {
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+    }
+    .item-notif-etiqueta {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--azul-700);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .item-notif-nombre {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--texto);
+      line-height: 1.3;
+      margin-bottom: 4px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .item-notif-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--esp-2);
+      font-size: 11px;
+      color: var(--texto-secundario);
+    }
+    .meta-tag {
+      background: var(--verde-50);
+      color: var(--verde-900);
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .menu-notif-footer {
+      padding: var(--esp-2);
+      text-align: center;
+      background: var(--superficie);
+    }
+    .menu-notif-footer button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--esp-1);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--azul-700);
     }
     @media (max-width: 600px) {
       .cabecera { padding: 0 var(--esp-2); }
@@ -75,7 +248,76 @@ import { LayoutService } from './layout.service';
 
       @if (auth.logueado()) {
         <div class="perfil-usuario">
-          <mat-chip class="chip-sem" aria-label="Tu semestre actual">S{{ auth.usuario()?.semestre }}</mat-chip>
+          @if (!auth.esAdmin()) {
+            <mat-chip class="chip-sem" aria-label="Tu semestre actual">S{{ auth.usuario()?.semestre }}</mat-chip>
+
+            <!-- Botón de notificaciones -->
+            <button mat-icon-button class="btn-notificaciones" [matMenuTriggerFor]="menuNotif"
+              aria-label="Notificaciones de capacitaciones disponibles" title="Notificaciones de capacitaciones">
+              <span class="material-symbols-outlined" aria-hidden="true">
+                {{ notificaciones().length > 0 ? 'notifications_active' : 'notifications' }}
+              </span>
+              @if (notificaciones().length > 0) {
+                <span class="badge-notif">{{ notificaciones().length }}</span>
+              }
+            </button>
+
+            <!-- Menú desplegable de notificaciones -->
+            <mat-menu #menuNotif="matMenu" class="menu-notif-panel" xPosition="before">
+              <div class="menu-notif-header" (click)="$event.stopPropagation()">
+                <div class="menu-notif-titulo">
+                  <span class="material-symbols-outlined" style="font-size:20px; color:var(--azul-700)">notifications</span>
+                  <span>Notificaciones</span>
+                </div>
+                @if (notificaciones().length > 0) {
+                  <span class="chip-notif-total">{{ notificaciones().length }} {{ notificaciones().length === 1 ? 'disponible' : 'disponibles' }}</span>
+                }
+              </div>
+
+              <mat-divider></mat-divider>
+
+              @if (cargandoNotif()) {
+                <div class="menu-notif-vacio" (click)="$event.stopPropagation()">
+                  <p class="texto-secundario" style="margin:0">Cargando notificaciones...</p>
+                </div>
+              } @else if (notificaciones().length === 0) {
+                <div class="menu-notif-vacio" (click)="$event.stopPropagation()">
+                  <span class="material-symbols-outlined icono-vacio" aria-hidden="true">notifications_paused</span>
+                  <p style="margin:0; font-weight:600; color:var(--texto)">No tienes notificaciones</p>
+                  <p class="texto-secundario" style="margin:4px 0 0; font-size:12px">Te avisaremos cuando haya capacitaciones disponibles para tu semestre.</p>
+                </div>
+              } @else {
+                <div class="menu-notif-lista">
+                  @for (c of notificaciones(); track c.id) {
+                    <button mat-menu-item class="item-notif" (click)="irACapacitaciones()">
+                      <div class="item-notif-icono">
+                        <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                      </div>
+                      <div class="item-notif-info">
+                        <div class="item-notif-etiqueta">Capacitación disponible</div>
+                        <div class="item-notif-nombre">{{ c.titulo }}</div>
+                        <div class="item-notif-meta">
+                          <span class="meta-tag">{{ c.modalidad === 'presencial' ? 'Presencial' : 'Virtual' }}</span>
+                          @if (c.fechaEvento) {
+                            <span>{{ c.fechaEvento | date:'mediumDate' }}</span>
+                          }
+                        </div>
+                      </div>
+                    </button>
+                  }
+                </div>
+
+                <mat-divider></mat-divider>
+                <div class="menu-notif-footer" (click)="$event.stopPropagation()">
+                  <button mat-button (click)="irACapacitaciones()">
+                    <span>Ver todas las capacitaciones</span>
+                    <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_forward</span>
+                  </button>
+                </div>
+              }
+            </mat-menu>
+          }
+
           <button mat-button [matMenuTriggerFor]="menu" [attr.aria-label]="'Cuenta de ' + auth.usuario()?.nombre">
             <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>&nbsp;<span class="nombre-usuario">{{ auth.usuario()?.nombre }}</span>
           </button>
@@ -92,6 +334,38 @@ export class HeaderComponent {
   auth = inject(AuthService);
   layout = inject(LayoutService);
   private router = inject(Router);
+  private http = inject(HttpClient);
+  private api = environment.apiUrl;
+
+  notificaciones = signal<CapacitacionNotif[]>([]);
+  cargandoNotif = signal(false);
+
+  constructor() {
+    effect(() => {
+      const u = this.auth.usuario();
+      if (u && u.rol === 'ESTUDIANTE') {
+        this.cargarNotificaciones();
+      } else {
+        this.notificaciones.set([]);
+      }
+    });
+  }
+
+  async cargarNotificaciones() {
+    this.cargandoNotif.set(true);
+    try {
+      const res = await this.http.get<CapacitacionNotif[]>(`${this.api}/capacitaciones/mias`).toPromise();
+      this.notificaciones.set(res || []);
+    } catch {
+      this.notificaciones.set([]);
+    } finally {
+      this.cargandoNotif.set(false);
+    }
+  }
+
+  irACapacitaciones() {
+    this.router.navigate(['/capacitaciones']);
+  }
 
   salir() {
     this.auth.salir();
