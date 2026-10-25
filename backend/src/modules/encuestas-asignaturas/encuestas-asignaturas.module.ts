@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './respuesta-asignatura.entity';
+import { InscripcionAsignatura } from './inscripcion-asignatura.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
 import { Periodo } from '../periodos/periodo.entity';
 import { User } from '../users/user.entity';
@@ -10,7 +11,7 @@ import { EncuestasAsignaturasController } from './encuestas-asignaturas.controll
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RespuestaAsignatura, RespuestaAsignaturaItem, Asignatura, Periodo, User]),
+    TypeOrmModule.forFeature([RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura, Asignatura, Periodo, User]),
     PeriodosModule,
   ],
   controllers: [EncuestasAsignaturasController],

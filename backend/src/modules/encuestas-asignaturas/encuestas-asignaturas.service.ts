@@ -2,17 +2,19 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './respuesta-asignatura.entity';
+import { InscripcionAsignatura } from './inscripcion-asignatura.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
 import { Periodo } from '../periodos/periodo.entity';
 import { PeriodosService } from '../periodos/periodos.service';
 import { User } from '../users/user.entity';
-import { ResponderEncuestaAsignaturaDto } from './encuesta-asignatura.dto';
+import { ResponderEncuestaAsignaturaDto, GuardarInscripcionesDto } from './encuesta-asignatura.dto';
 
 @Injectable()
 export class EncuestasAsignaturasService {
   constructor(
     @InjectRepository(RespuestaAsignatura) private resp: Repository<RespuestaAsignatura>,
     @InjectRepository(RespuestaAsignaturaItem) private respItems: Repository<RespuestaAsignaturaItem>,
+    @InjectRepository(InscripcionAsignatura) private inscripcionesRepo: Repository<InscripcionAsignatura>,
     @InjectRepository(Asignatura) private asignaturasRepo: Repository<Asignatura>,
     @InjectRepository(Periodo) private periodosRepo: Repository<Periodo>,
     @InjectRepository(User) private usersRepo: Repository<User>,
@@ -22,29 +24,94 @@ export class EncuestasAsignaturasService {
   async obtenerEstadoParaEstudiante(userId: string) {
     const periodo = await this.periodosService.activo();
     if (!periodo) {
-      return { activa: false, periodo: null, asignaturas: [], yaRespondio: false, miRespuesta: null };
+      return {
+        activa: false,
+        periodo: null,
+        todasAsignaturas: [],
+        inscripcionIds: [],
+        asignaturasInscritas: [],
+        yaRespondio: false,
+        miRespuesta: null,
+      };
     }
 
     const activa = this.periodosService.esEncuestaAsignaturasVigente(periodo);
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    const semestre = user.semestre || 1;
-    const asignaturas = await this.asignaturasRepo.find({
-      where: { semestre, activo: true },
-      order: { nombre: 'ASC' },
+    // Todas las materias activas del pensum académico (sin sesgo de semestre)
+    const todasAsignaturas = await this.asignaturasRepo.find({
+      where: { activo: true },
+      order: { semestre: 'ASC', nombre: 'ASC' },
     });
 
     const miRespuesta = await this.miRespuesta(userId, periodo.id);
     const yaRespondio = !!miRespuesta;
 
+    // Inscripciones actuales del estudiante en el periodo activo
+    const inscripciones = await this.inscripcionesRepo.find({
+      where: { usuarioId: userId, periodoId: periodo.id },
+      relations: ['asignatura'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const inscripcionIds = inscripciones.map((i) => i.asignaturaId);
+    let asignaturasInscritas = inscripciones.map((i) => i.asignatura).filter(Boolean);
+
+    // Si ya respondió, sus materias evaluadas son las de su respuesta
+    if (yaRespondio && miRespuesta?.items?.length) {
+      const idsRespondidos = miRespuesta.items.map((it) => it.asignaturaId);
+      asignaturasInscritas = todasAsignaturas.filter((a) => idsRespondidos.includes(a.id));
+    }
+
     return {
       activa,
       periodo,
-      asignaturas,
+      todasAsignaturas,
+      inscripcionIds,
+      asignaturasInscritas,
       yaRespondio,
       miRespuesta,
     };
+  }
+
+  async guardarInscripciones(userId: string, dto: GuardarInscripcionesDto) {
+    const periodo = await this.periodosService.activo();
+    if (!periodo) {
+      throw new BadRequestException('No hay periodo académico activo');
+    }
+
+    const ya = await this.resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
+    if (ya) {
+      throw new BadRequestException('Ya enviaste tu encuesta para este periodo y no puedes modificar tus materias');
+    }
+
+    const uniqueIds = Array.from(new Set(dto.asignaturaIds || []));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Debes seleccionar al menos una materia que estés cursando');
+    }
+
+    const asignaturasValidas = await this.asignaturasRepo.find({
+      where: { id: In(uniqueIds), activo: true },
+    });
+
+    if (asignaturasValidas.length !== uniqueIds.length) {
+      throw new BadRequestException('Algunas de las materias seleccionadas no existen o están inactivas');
+    }
+
+    // Limpiar inscripciones previas de este estudiante en este periodo y guardar las nuevas
+    await this.inscripcionesRepo.delete({ usuarioId: userId, periodoId: periodo.id });
+
+    const nuevas = uniqueIds.map((asigId) =>
+      this.inscripcionesRepo.create({
+        usuarioId: userId,
+        periodoId: periodo.id,
+        asignaturaId: asigId,
+      }),
+    );
+    await this.inscripcionesRepo.save(nuevas);
+
+    return this.obtenerEstadoParaEstudiante(userId);
   }
 
   async miRespuesta(userId: string, periodoId?: string) {
@@ -92,7 +159,7 @@ export class EncuestasAsignaturasService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Debes evaluar las asignaturas de tu semestre');
+      throw new BadRequestException('Debes evaluar las asignaturas que estás cursando');
     }
 
     const dificultades = dto.items.filter((i) => i.tieneDificultad);
@@ -106,24 +173,42 @@ export class EncuestasAsignaturasService {
       }
     }
 
-    // Verificar que las asignaturas existan y pertenezcan al semestre
     const ids = dto.items.map((i) => i.asignaturaId);
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Hay asignaturas duplicadas en la respuesta');
     }
 
+    // Verificar que las materias existan y estén activas
     const asigsValidas = await this.asignaturasRepo.find({
-      where: { id: In(ids), activo: true, semestre: user.semestre },
+      where: { id: In(ids), activo: true },
     });
     if (asigsValidas.length !== ids.length) {
-      throw new BadRequestException('Algunas asignaturas no corresponden a tu semestre o no están activas');
+      throw new BadRequestException('Algunas asignaturas seleccionadas no están activas en el periodo');
+    }
+
+    // Asegurar que las inscripciones existan para cada materia evaluada
+    const inscripcionesActuales = await this.inscripcionesRepo.find({
+      where: { usuarioId: userId, periodoId: periodo.id },
+    });
+    const idsInscritos = new Set(inscripcionesActuales.map((i) => i.asignaturaId));
+
+    const inscripcionesFaltantes = ids.filter((id) => !idsInscritos.has(id));
+    if (inscripcionesFaltantes.length > 0) {
+      const nuevasInscripciones = inscripcionesFaltantes.map((asigId) =>
+        this.inscripcionesRepo.create({
+          usuarioId: userId,
+          periodoId: periodo.id,
+          asignaturaId: asigId,
+        }),
+      );
+      await this.inscripcionesRepo.save(nuevasInscripciones);
     }
 
     const r = await this.resp.save(
       this.resp.create({
         usuarioId: userId,
         periodoId: periodo.id,
-        semestreAlResponder: user.semestre,
+        semestreAlResponder: user.semestre || 1,
       }),
     );
 

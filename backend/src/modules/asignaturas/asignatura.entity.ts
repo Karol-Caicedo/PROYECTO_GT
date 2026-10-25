@@ -10,6 +10,9 @@ export class Asignatura {
   @Column()
   nombre: string;
 
+  @Column({ nullable: true })
+  codigo?: string;
+
   @Column({ type: 'int' })
   semestre: number;
 

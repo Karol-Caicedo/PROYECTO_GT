@@ -20,3 +20,10 @@ export class ResponderEncuestaAsignaturaDto {
   @Type(() => ItemEncuestaAsignaturaDto)
   items: ItemEncuestaAsignaturaDto[];
 }
+
+export class GuardarInscripcionesDto {
+  @IsArray({ message: 'Debes enviar la lista de asignaturas a inscribir' })
+  @IsString({ each: true, message: 'Cada identificador de asignatura debe ser una cadena' })
+  asignaturaIds: string[];
+}
+

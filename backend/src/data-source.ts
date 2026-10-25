@@ -10,12 +10,14 @@ import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity
 import { PasswordReset } from './modules/auth/password-reset.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './modules/encuestas-asignaturas/respuesta-asignatura.entity';
+import { InscripcionAsignatura } from './modules/encuestas-asignaturas/inscripcion-asignatura.entity';
 import { Init1700000000000 } from './migrations/1700000000000-init';
 import { RecuperacionClaves1700000000001 } from './migrations/1700000000001-recuperacion-claves';
 import { PasswordPlano1700000000002 } from './migrations/1700000000002-password-plano';
 import { DropSugerencias1700000000003 } from './migrations/1700000000003-drop-sugerencias';
 import { AsignaturasYEncuestas1700000000004 } from './migrations/1700000000004-asignaturas-y-encuestas';
 import { ResetRespuestas1700000000005 } from './migrations/1700000000005-reset-respuestas';
+import { InscripcionesMaterias1700000000006 } from './migrations/1700000000006-inscripciones-materias';
 
 dotenv.config({ path: '../.env' });
 dotenv.config();
@@ -27,8 +29,8 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'intereses_db',
-  entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem],
-  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002, DropSugerencias1700000000003, AsignaturasYEncuestas1700000000004, ResetRespuestas1700000000005],
+  entities: [User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion, CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura],
+  migrations: [Init1700000000000, RecuperacionClaves1700000000001, PasswordPlano1700000000002, DropSugerencias1700000000003, AsignaturasYEncuestas1700000000004, ResetRespuestas1700000000005, InscripcionesMaterias1700000000006],
   synchronize: false,
 });
 

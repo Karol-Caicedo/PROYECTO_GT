@@ -4,6 +4,10 @@ export class AsignaturaDto {
   @IsString({ message: 'El nombre de la asignatura es obligatorio' })
   nombre: string;
 
+  @IsOptional()
+  @IsString()
+  codigo?: string;
+
   @IsInt({ message: 'El semestre debe ser un número entero entre 1 y 9' })
   @Min(1, { message: 'El semestre mínimo es 1' })
   @Max(9, { message: 'El semestre máximo es 9' })
@@ -18,6 +22,10 @@ export class ActualizarAsignaturaDto {
   @IsOptional()
   @IsString()
   nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  codigo?: string;
 
   @IsOptional()
   @IsInt()

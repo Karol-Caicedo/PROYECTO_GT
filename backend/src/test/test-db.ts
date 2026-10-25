@@ -11,6 +11,7 @@ import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entit
 import { PasswordReset } from '../modules/auth/password-reset.entity';
 import { Asignatura } from '../modules/asignaturas/asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
+import { InscripcionAsignatura } from '../modules/encuestas-asignaturas/inscripcion-asignatura.entity';
 
 export const ENTIDADES_TEST = [
   User,
@@ -26,6 +27,7 @@ export const ENTIDADES_TEST = [
   Asignatura,
   RespuestaAsignatura,
   RespuestaAsignaturaItem,
+  InscripcionAsignatura,
 ];
 
 const TEST_DB = process.env.TEST_DB_NAME || 'intereses_db_test';
@@ -67,6 +69,7 @@ const TABLAS = [
   'clics_capacitacion',
   'capacitacion_semestres',
   'capacitaciones',
+  'inscripciones_asignaturas',
   'respuesta_asignatura_items',
   'respuestas_asignaturas',
   'asignaturas',

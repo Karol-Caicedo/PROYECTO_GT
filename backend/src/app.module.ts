@@ -14,6 +14,7 @@ import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity
 import { PasswordReset } from './modules/auth/password-reset.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './modules/encuestas-asignaturas/respuesta-asignatura.entity';
+import { InscripcionAsignatura } from './modules/encuestas-asignaturas/inscripcion-asignatura.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PeriodosModule } from './modules/periodos/periodos.module';
@@ -43,7 +44,7 @@ import { EncuestasAsignaturasModule } from './modules/encuestas-asignaturas/encu
         entities: [
           User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion,
           CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset,
-          Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem,
+          Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura,
         ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: true,

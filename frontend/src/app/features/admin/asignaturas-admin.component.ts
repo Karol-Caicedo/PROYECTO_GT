@@ -16,6 +16,7 @@ import { UiService } from '../../shared/ui/ui.service';
 export interface Asignatura {
   id: string;
   nombre: string;
+  codigo?: string;
   semestre: number;
   activo: boolean;
 }
@@ -68,7 +69,12 @@ export interface Asignatura {
               </mat-form-field>
 
               <mat-form-field class="full-width">
-                <mat-label>Semestre (1 a 9)</mat-label>
+                <mat-label>Código (opcional)</mat-label>
+                <input matInput formControlName="codigo" maxlength="50" placeholder="Ej. IS-101" />
+              </mat-form-field>
+
+              <mat-form-field class="full-width">
+                <mat-label>Semestre del pensum (1 a 9)</mat-label>
                 <mat-select formControlName="semestre">
                   @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
                     <mat-option [value]="s">Semestre {{ s }}</mat-option>
@@ -138,11 +144,14 @@ export interface Asignatura {
                     <th mat-header-cell *matHeaderCellDef>Asignatura</th>
                     <td mat-cell *matCellDef="let a">
                       <b>{{ a.nombre }}</b>
+                      @if (a.codigo) {
+                        <small class="texto-secundario" style="margin-left:6px">({{ a.codigo }})</small>
+                      }
                     </td>
                   </ng-container>
 
                   <ng-container matColumnDef="semestre">
-                    <th mat-header-cell *matHeaderCellDef>Semestre</th>
+                    <th mat-header-cell *matHeaderCellDef>Semestre Pensum</th>
                     <td mat-cell *matCellDef="let a">
                       <span class="chip-semestre">Semestre {{ a.semestre }}</span>
                     </td>
@@ -193,6 +202,7 @@ export class AsignaturasAdminComponent implements OnInit {
 
   form = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(150)]],
+    codigo: ['', [Validators.maxLength(50)]],
     semestre: [1, [Validators.required, Validators.min(1), Validators.max(9)]],
   });
 
@@ -200,7 +210,7 @@ export class AsignaturasAdminComponent implements OnInit {
     const q = this.busqueda().toLowerCase().trim();
     const sem = this.semestreFiltro();
     return this.asignaturas().filter((a) => {
-      const coincideNombre = !q || a.nombre.toLowerCase().includes(q);
+      const coincideNombre = !q || a.nombre.toLowerCase().includes(q) || (a.codigo && a.codigo.toLowerCase().includes(q));
       const coincideSem = sem === '' || a.semestre === Number(sem);
       return coincideNombre && coincideSem;
     });
@@ -234,29 +244,29 @@ export class AsignaturasAdminComponent implements OnInit {
 
   async guardar() {
     if (this.form.invalid) return;
-    const { nombre, semestre } = this.form.value;
+    const { nombre, codigo, semestre } = this.form.value;
     const id = this.editandoId();
 
     if (id) {
-      await this.http.patch(`${this.api}/asignaturas/${id}`, { nombre, semestre }).toPromise();
+      await this.http.patch(`${this.api}/asignaturas/${id}`, { nombre, codigo: codigo || null, semestre }).toPromise();
       this.ui.exito('Asignatura actualizada.');
       this.cancelarEdicion();
     } else {
-      await this.http.post(`${this.api}/asignaturas`, { nombre, semestre }).toPromise();
+      await this.http.post(`${this.api}/asignaturas`, { nombre, codigo: codigo || null, semestre }).toPromise();
       this.ui.exito('Asignatura creada.');
-      this.form.reset({ nombre: '', semestre: 1 });
+      this.form.reset({ nombre: '', codigo: '', semestre: 1 });
     }
     await this.cargar();
   }
 
   editar(a: Asignatura) {
     this.editandoId.set(a.id);
-    this.form.patchValue({ nombre: a.nombre, semestre: a.semestre });
+    this.form.patchValue({ nombre: a.nombre, codigo: a.codigo || '', semestre: a.semestre });
   }
 
   cancelarEdicion() {
     this.editandoId.set(null);
-    this.form.reset({ nombre: '', semestre: 1 });
+    this.form.reset({ nombre: '', codigo: '', semestre: 1 });
   }
 
   async toggleTodas() {
