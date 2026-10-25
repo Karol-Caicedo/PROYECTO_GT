@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -8,6 +9,7 @@ import { environment } from '../../../environments/environment';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
+import { NotificacionesService } from '../../core/notificaciones.service';
 
 interface Cap {
   id: string;
@@ -26,18 +28,49 @@ interface Cap {
   imports: [CommonModule, MatButtonModule, MatDialogModule, StatusChipComponent],
   styles: [`
     .dialogo-detalle {
-      max-width: 600px;
+      max-width: 680px;
       width: 100%;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
+    .contenedor-img {
+      width: 100%;
+      background: var(--azul-50, #f0f7fc);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      border-bottom: 1px solid var(--borde, #e2e8f0);
+    }
     .detalle-img {
       width: 100%;
-      max-height: 280px;
-      object-fit: cover;
+      height: auto;
+      max-height: 520px;
+      object-fit: contain;
       display: block;
-      background: var(--azul-50);
+      background: var(--fondo-pagina, #f8fafc);
+    }
+    .btn-ver-tamano-completo {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(11, 58, 94, 0.88);
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: var(--radio-pildora, 16px);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      transition: background 0.2s, transform 0.2s;
+    }
+    .btn-ver-tamano-completo:hover {
+      background: var(--azul-900);
+      transform: scale(1.02);
     }
     .cuerpo-detalle {
       padding: var(--esp-5);
@@ -95,7 +128,13 @@ interface Cap {
   template: `
     <div class="dialogo-detalle">
       @if (c.imagenUrl) {
-        <img class="detalle-img" [src]="img(c.imagenUrl)" [alt]="'Imagen de ' + c.titulo" />
+        <div class="contenedor-img">
+          <img class="detalle-img" [src]="img(c.imagenUrl)" [alt]="'Imagen de ' + c.titulo" />
+          <a [href]="img(c.imagenUrl)" target="_blank" rel="noopener noreferrer" class="btn-ver-tamano-completo" title="Ver imagen en tamaño original en una nueva pestaña">
+            <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">zoom_in</span>
+            <span>Ver imagen completa</span>
+          </a>
+        </div>
       }
       <div class="cuerpo-detalle">
         <div class="meta">
@@ -123,14 +162,21 @@ interface Cap {
     </div>
   `
 })
-export class DetalleCapacitacionDialogComponent {
+export class DetalleCapacitacionDialogComponent implements OnInit {
   ref = inject<MatDialogRef<DetalleCapacitacionDialogComponent>>(MatDialogRef);
   data = inject<{ cap: Cap }>(MAT_DIALOG_DATA);
   private http = inject(HttpClient);
+  private notifService = inject(NotificacionesService);
   private api = environment.apiUrl;
   private origen = environment.apiUrl.replace(/\/api\/?$/, '');
 
   get c(): Cap { return this.data.cap; }
+
+  ngOnInit() {
+    if (this.c?.id) {
+      this.notifService.marcarComoVista(this.c.id);
+    }
+  }
 
   img(url: string) {
     return url.startsWith('http') ? url : `${this.origen}${url}`;
@@ -224,13 +270,24 @@ export class DetalleCapacitacionDialogComponent {
 export class MisCapacitacionesComponent implements OnInit {
   private http = inject(HttpClient);
   private dialog = inject(MatDialog);
+  private route = inject(ActivatedRoute);
+  private notifService = inject(NotificacionesService);
   private api = environment.apiUrl;
   private origen = environment.apiUrl.replace(/\/api\/?$/, '');
   caps = signal<Cap[]>([]);
   cargando = signal(true);
   fallo = signal(false);
 
-  async ngOnInit() { await this.cargar(); }
+  async ngOnInit() {
+    await this.cargar();
+    const abrirId = this.route.snapshot.queryParamMap.get('abrir');
+    if (abrirId) {
+      const encontrada = this.caps().find((c) => c.id === abrirId);
+      if (encontrada) {
+        this.verDetalle(encontrada);
+      }
+    }
+  }
 
   async cargar() {
     this.cargando.set(true);
@@ -250,10 +307,12 @@ export class MisCapacitacionesComponent implements OnInit {
   }
 
   verDetalle(c: Cap) {
+    this.notifService.marcarComoVista(c.id);
     this.dialog.open(DetalleCapacitacionDialogComponent, {
       data: { cap: c },
-      width: '600px',
-      maxWidth: '92vw',
+      width: '680px',
+      maxWidth: '95vw',
+      maxHeight: '92vh',
     });
   }
 }

@@ -1,6 +1,5 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,16 +7,9 @@ import { MatIconButton } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
-import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { LayoutService } from './layout.service';
-
-interface CapacitacionNotif {
-  id: string;
-  titulo: string;
-  modalidad: string;
-  fechaEvento?: string | null;
-}
+import { NotificacionesService, CapacitacionNotif } from '../core/notificaciones.service';
 
 /** Encabezado blanco con franja institucional, logo y perfil de usuario alineado a la derecha. */
 @Component({
@@ -58,31 +50,42 @@ interface CapacitacionNotif {
       flex-shrink: 0;
     }
     .btn-notificaciones {
-      position: relative;
+      position: relative !important;
+      width: 40px !important;
+      height: 40px !important;
       color: var(--azul-700);
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       transition: background-color 0.2s, color 0.2s;
     }
     .btn-notificaciones:hover {
       background-color: var(--azul-50);
       color: var(--azul-900);
     }
+    .icono-campana {
+      font-size: 24px !important;
+      line-height: 24px !important;
+      display: block !important;
+    }
     .badge-notif {
       position: absolute;
-      top: 6px;
-      right: 6px;
+      top: 4px;
+      right: 4px;
       background: var(--error);
       color: #ffffff;
       border-radius: 10px;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      min-width: 18px;
-      height: 18px;
-      line-height: 18px;
+      min-width: 15px;
+      height: 15px;
+      line-height: 15px;
       text-align: center;
-      padding: 0 4px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+      padding: 0 3px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       pointer-events: none;
-      border: 2px solid var(--superficie);
+      border: 1.5px solid var(--superficie);
+      z-index: 2;
     }
     ::ng-deep .menu-notif-panel {
       max-width: 360px !important;
@@ -146,6 +149,14 @@ interface CapacitacionNotif {
     .item-notif:hover {
       background-color: var(--azul-50) !important;
     }
+    .item-notif.item-leida {
+      opacity: 0.75;
+      background: #fafbfc !important;
+    }
+    .item-notif.item-leida:hover {
+      opacity: 1;
+      background-color: var(--azul-50) !important;
+    }
     .item-notif-icono {
       width: 34px;
       height: 34px;
@@ -158,10 +169,20 @@ interface CapacitacionNotif {
       flex-shrink: 0;
       margin-top: 2px;
     }
+    .item-notif-icono.icono-leida {
+      background: var(--gris-100, #eef2f5);
+      color: var(--texto-secundario);
+    }
     .item-notif-info {
       flex: 1;
       min-width: 0;
       text-align: left;
+    }
+    .item-notif-etiqueta-fila {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
     }
     .item-notif-etiqueta {
       font-size: 11px;
@@ -169,7 +190,15 @@ interface CapacitacionNotif {
       color: var(--azul-700);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 2px;
+    }
+    .punto-nueva {
+      font-size: 10px;
+      font-weight: 800;
+      color: #ffffff;
+      background: var(--error);
+      padding: 1px 6px;
+      border-radius: 10px;
+      letter-spacing: 0.3px;
     }
     .item-notif-nombre {
       font-size: 13px;
@@ -181,6 +210,10 @@ interface CapacitacionNotif {
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
+    }
+    .item-notif-nombre.texto-atenuado {
+      color: var(--texto-secundario);
+      font-weight: 500;
     }
     .item-notif-meta {
       display: flex;
@@ -254,11 +287,11 @@ interface CapacitacionNotif {
             <!-- Botón de notificaciones -->
             <button mat-icon-button class="btn-notificaciones" [matMenuTriggerFor]="menuNotif"
               aria-label="Notificaciones de capacitaciones disponibles" title="Notificaciones de capacitaciones">
-              <span class="material-symbols-outlined" aria-hidden="true">
-                {{ notificaciones().length > 0 ? 'notifications_active' : 'notifications' }}
+              <span class="material-symbols-outlined icono-campana" aria-hidden="true">
+                {{ notifService.cantidadNoVistas() > 0 ? 'notifications_active' : 'notifications' }}
               </span>
-              @if (notificaciones().length > 0) {
-                <span class="badge-notif">{{ notificaciones().length }}</span>
+              @if (notifService.cantidadNoVistas() > 0) {
+                <span class="badge-notif">{{ notifService.cantidadNoVistas() }}</span>
               }
             </button>
 
@@ -269,18 +302,20 @@ interface CapacitacionNotif {
                   <span class="material-symbols-outlined" style="font-size:20px; color:var(--azul-700)">notifications</span>
                   <span>Notificaciones</span>
                 </div>
-                @if (notificaciones().length > 0) {
-                  <span class="chip-notif-total">{{ notificaciones().length }} {{ notificaciones().length === 1 ? 'disponible' : 'disponibles' }}</span>
+                @if (notifService.cantidadNoVistas() > 0) {
+                  <span class="chip-notif-total">{{ notifService.cantidadNoVistas() }} nueva{{ notifService.cantidadNoVistas() === 1 ? '' : 's' }}</span>
+                } @else if (notifService.capacitaciones().length > 0) {
+                  <span class="chip-notif-total" style="background:var(--verde-100); color:var(--verde-900)">Al día</span>
                 }
               </div>
 
               <mat-divider></mat-divider>
 
-              @if (cargandoNotif()) {
+              @if (notifService.cargando()) {
                 <div class="menu-notif-vacio" (click)="$event.stopPropagation()">
                   <p class="texto-secundario" style="margin:0">Cargando notificaciones...</p>
                 </div>
-              } @else if (notificaciones().length === 0) {
+              } @else if (notifService.capacitaciones().length === 0) {
                 <div class="menu-notif-vacio" (click)="$event.stopPropagation()">
                   <span class="material-symbols-outlined icono-vacio" aria-hidden="true">notifications_paused</span>
                   <p style="margin:0; font-weight:600; color:var(--texto)">No tienes notificaciones</p>
@@ -288,14 +323,19 @@ interface CapacitacionNotif {
                 </div>
               } @else {
                 <div class="menu-notif-lista">
-                  @for (c of notificaciones(); track c.id) {
-                    <button mat-menu-item class="item-notif" (click)="irACapacitaciones()">
-                      <div class="item-notif-icono">
-                        <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                  @for (c of notifService.notificacionesConEstado(); track c.id) {
+                    <button mat-menu-item class="item-notif" [class.item-leida]="c.leida" (click)="entrarACapacitacion(c)">
+                      <div class="item-notif-icono" [class.icono-leida]="c.leida">
+                        <span class="material-symbols-outlined" aria-hidden="true">{{ c.leida ? 'done' : 'school' }}</span>
                       </div>
                       <div class="item-notif-info">
-                        <div class="item-notif-etiqueta">Capacitación disponible</div>
-                        <div class="item-notif-nombre">{{ c.titulo }}</div>
+                        <div class="item-notif-etiqueta-fila">
+                          <span class="item-notif-etiqueta">Capacitación disponible</span>
+                          @if (!c.leida) {
+                            <span class="punto-nueva">NUEVA</span>
+                          }
+                        </div>
+                        <div class="item-notif-nombre" [class.texto-atenuado]="c.leida">{{ c.titulo }}</div>
                         <div class="item-notif-meta">
                           <span class="meta-tag">{{ c.modalidad === 'presencial' ? 'Presencial' : 'Virtual' }}</span>
                           @if (c.fechaEvento) {
@@ -309,7 +349,7 @@ interface CapacitacionNotif {
 
                 <mat-divider></mat-divider>
                 <div class="menu-notif-footer" (click)="$event.stopPropagation()">
-                  <button mat-button (click)="irACapacitaciones()">
+                  <button mat-button (click)="verTodas()">
                     <span>Ver todas las capacitaciones</span>
                     <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_forward</span>
                   </button>
@@ -333,37 +373,24 @@ interface CapacitacionNotif {
 export class HeaderComponent {
   auth = inject(AuthService);
   layout = inject(LayoutService);
+  notifService = inject(NotificacionesService);
   private router = inject(Router);
-  private http = inject(HttpClient);
-  private api = environment.apiUrl;
-
-  notificaciones = signal<CapacitacionNotif[]>([]);
-  cargandoNotif = signal(false);
 
   constructor() {
     effect(() => {
       const u = this.auth.usuario();
       if (u && u.rol === 'ESTUDIANTE') {
-        this.cargarNotificaciones();
-      } else {
-        this.notificaciones.set([]);
+        this.notifService.cargar();
       }
     });
   }
 
-  async cargarNotificaciones() {
-    this.cargandoNotif.set(true);
-    try {
-      const res = await this.http.get<CapacitacionNotif[]>(`${this.api}/capacitaciones/mias`).toPromise();
-      this.notificaciones.set(res || []);
-    } catch {
-      this.notificaciones.set([]);
-    } finally {
-      this.cargandoNotif.set(false);
-    }
+  entrarACapacitacion(c: CapacitacionNotif) {
+    this.notifService.marcarComoVista(c.id);
+    this.router.navigate(['/capacitaciones'], { queryParams: { abrir: c.id } });
   }
 
-  irACapacitaciones() {
+  verTodas() {
     this.router.navigate(['/capacitaciones']);
   }
 
