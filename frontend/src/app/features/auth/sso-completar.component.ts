@@ -49,8 +49,15 @@ export class SsoCompletarComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   error = signal('');
-  temp = this.route.snapshot.queryParamMap.get('temp') || '';
+  private fragmento = new URLSearchParams(this.route.snapshot.fragment ?? '');
+  temp = this.fragmento.get('temp') || this.route.snapshot.queryParamMap.get('temp') || '';
   form = this.fb.group({ semestre: [1, [Validators.required, Validators.min(1), Validators.max(9)]], aceptoDatos: [false, Validators.requiredTrue] });
+
+  constructor() {
+    if (this.fragmento.has('temp')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }
 
   async completar() {
     try {

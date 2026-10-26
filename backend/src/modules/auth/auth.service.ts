@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, MoreThan, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, CompleteSsoDto } from './auth.dto';
@@ -37,10 +37,17 @@ export class AuthService {
     }
   }
 
-  private firmar(user: { id: string; correo: string; rol: string; semestre: number }) {
+  private firmar(user: { id: string; correo: string; rol: string; semestre: number; tokenVersion?: number }) {
+    const { tokenVersion: _tv, ...usuarioPublico } = user;
     return {
-      access_token: this.jwt.sign({ sub: user.id, correo: user.correo, rol: user.rol, semestre: user.semestre }),
-      user,
+      access_token: this.jwt.sign({
+        sub: user.id,
+        correo: user.correo,
+        rol: user.rol,
+        semestre: user.semestre,
+        tokenVersion: user.tokenVersion ?? 0,
+      }),
+      user: usuarioPublico,
     };
   }
 
@@ -54,13 +61,18 @@ export class AuthService {
       correo,
       nombre: dto.nombre,
       passwordHash: hash,
-      passwordPlano: dto.password,
       proveedorAuth: 'local',
       semestre: dto.semestre,
       rol: 'ESTUDIANTE',
       aceptoDatosAt: new Date(),
     });
-    return this.firmar({ id: user.id, correo: user.correo, rol: user.rol, semestre: user.semestre });
+    return this.firmar({
+      id: user.id,
+      correo: user.correo,
+      rol: user.rol,
+      semestre: user.semestre,
+      tokenVersion: user.tokenVersion,
+    });
   }
 
   async login(correo: string, password: string) {
@@ -68,18 +80,26 @@ export class AuthService {
     if (!user || !user.passwordHash) throw new UnauthorizedException('Credenciales inválidas');
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Credenciales inválidas');
-    return this.firmar({ id: user.id, correo: user.correo, rol: user.rol, semestre: user.semestre });
+    return this.firmar({
+      id: user.id,
+      correo: user.correo,
+      rol: user.rol,
+      semestre: user.semestre,
+      tokenVersion: user.tokenVersion,
+    });
   }
 
   async me(userId: string) {
     const u = await this.users.findById(userId);
     if (!u) throw new UnauthorizedException('No autenticado');
-    const { passwordHash: _p, passwordPlano: _pp, ...resto } = u;
+    const { passwordHash: _p, tokenVersion: _tv, ...resto } = u;
     return resto;
   }
 
   async actualizarMiSemestre(userId: string, semestre: number) {
-    if (semestre < 1 || semestre > 9) throw new BadRequestException('Semestre inválido (1-9)');
+    if (!Number.isInteger(semestre) || semestre < 1 || semestre > 9) {
+      throw new BadRequestException('Semestre inválido (1-9)');
+    }
     const u = await this.users.findById(userId);
     if (!u) throw new UnauthorizedException('No autenticado');
     u.semestre = semestre;
@@ -105,7 +125,16 @@ export class AuthService {
       user.proveedorAuth = proveedor;
       await this.users.save(user);
     }
-    return { ...this.firmar({ id: user.id, correo: user.correo, rol: user.rol, semestre: user.semestre }), necesitaCompletar: false };
+    return {
+      ...this.firmar({
+        id: user.id,
+        correo: user.correo,
+        rol: user.rol,
+        semestre: user.semestre,
+        tokenVersion: user.tokenVersion,
+      }),
+      necesitaCompletar: false,
+    };
   }
 
   /**
@@ -151,12 +180,23 @@ export class AuthService {
     }
     const user = await this.users.findById(registro.usuarioId);
     if (!user) throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
+
+    const consumido = await this.resets.update(
+      {
+        id: registro.id,
+        usadoAt: IsNull(),
+        expiraAt: MoreThan(new Date()),
+      },
+      { usadoAt: new Date() },
+    );
+    if (consumido.affected !== 1) {
+      throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
+    }
+
     user.passwordHash = await bcrypt.hash(password, 10);
-    user.passwordPlano = password;
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);
-    registro.usadoAt = new Date();
-    await this.resets.save(registro);
     return { mensaje: 'Contraseña actualizada. Ya puedes ingresar con tu nueva clave.' };
   }
 
@@ -181,6 +221,12 @@ export class AuthService {
       rol: 'ESTUDIANTE',
       aceptoDatosAt: new Date(),
     });
-    return this.firmar({ id: user.id, correo: user.correo, rol: user.rol, semestre: user.semestre });
+    return this.firmar({
+      id: user.id,
+      correo: user.correo,
+      rol: user.rol,
+      semestre: user.semestre,
+      tokenVersion: user.tokenVersion,
+    });
   }
 }

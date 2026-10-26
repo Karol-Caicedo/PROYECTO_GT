@@ -11,6 +11,8 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { MicrosoftStrategy } from './microsoft.strategy';
+import { SsoEnabledGuard } from './sso-enabled.guard';
+import { getJwtSecret } from '../../config/jwt.config';
 
 @Module({
   imports: [
@@ -21,13 +23,13 @@ import { MicrosoftStrategy } from './microsoft.strategy';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (c: ConfigService) => ({
-        secret: c.get('JWT_SECRET', 'dev-secret'),
+        secret: getJwtSecret(c),
         signOptions: { expiresIn: (c.get('JWT_EXPIRES_IN', '12h') as string) as never },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, MicrosoftStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, MicrosoftStrategy, SsoEnabledGuard],
   exports: [AuthService],
 })
 export class AuthModule {}

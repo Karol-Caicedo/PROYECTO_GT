@@ -1,10 +1,10 @@
 /** Validación de entrada (frontend + backend): reglas de DTOs con class-validator. */
 import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { RegisterDto, LoginDto, CompleteSsoDto, SolicitarRecuperacionDto, RestablecerClaveDto } from '../modules/auth/auth.dto';
+import { RegisterDto, LoginDto, CompleteSsoDto, CompletarSsoDto, SolicitarRecuperacionDto, RestablecerClaveDto } from '../modules/auth/auth.dto';
 import { CrearUsuarioDto } from '../modules/users/user.dto';
 import { CrearEncuestaDto } from '../modules/encuestas/encuesta.dto';
-import { CapacitacionDto, FiltroCapDto } from '../modules/capacitaciones/capacitacion.dto';
+import { ActualizarCapacitacionDto, CapacitacionDto, FiltroCapDto } from '../modules/capacitaciones/capacitacion.dto';
 import { CreatePeriodoDto } from '../modules/periodos/periodo.dto';
 import { TemaDto } from '../modules/temas/temas.service';
 
@@ -56,6 +56,13 @@ describe('DTOs: LoginDto y CompleteSsoDto', () => {
     const ok = Object.assign(new CompleteSsoDto(), { semestre: 9, aceptoDatos: true });
     await expect(errores(ok)).resolves.toEqual([]);
     const mal = Object.assign(new CompleteSsoDto(), { semestre: 12, aceptoDatos: false });
+    expect(await errores(mal)).not.toHaveLength(0);
+  });
+
+  test('CompletarSsoDto exige token temporal', async () => {
+    const ok = plainToInstance(CompletarSsoDto, { temp: 'jwt-temporal', semestre: 5, aceptoDatos: true });
+    await expect(errores(ok)).resolves.toEqual([]);
+    const mal = plainToInstance(CompletarSsoDto, { semestre: 5, aceptoDatos: true });
     expect(await errores(mal)).not.toHaveLength(0);
   });
 });
@@ -120,10 +127,24 @@ describe('DTOs: CapacitacionDto (incluye Transform de semestres)', () => {
     await expect(errores(dto)).resolves.toEqual([]);
   });
 
+  test.each([
+    ['fuera de rango', [0, 10]],
+    ['decimales', [2.5]],
+    ['vacíos', []],
+  ])('rechaza semestres %s', async (_c, semestres) => {
+    expect(await errores(plainToInstance(CapacitacionDto, { ...base, semestres }))).not.toHaveLength(0);
+  });
+
   test('FiltroCapDto: semestre 0/10 inválido, 5 válido', async () => {
     await expect(errores(plainToInstance(FiltroCapDto, { semestre: 5 }))).resolves.toEqual([]);
     expect(await errores(plainToInstance(FiltroCapDto, { semestre: 0 }))).not.toHaveLength(0);
     expect(await errores(plainToInstance(FiltroCapDto, { semestre: 10 }))).not.toHaveLength(0);
+  });
+
+  test('ActualizarCapacitacionDto valida los campos enviados en el PATCH', async () => {
+    await expect(errores(plainToInstance(ActualizarCapacitacionDto, { titulo: 'Nuevo' }))).resolves.toEqual([]);
+    expect(await errores(plainToInstance(ActualizarCapacitacionDto, { estado: 'archivada' }))).not.toHaveLength(0);
+    expect(await errores(plainToInstance(ActualizarCapacitacionDto, { semestres: [10] }))).not.toHaveLength(0);
   });
 });
 

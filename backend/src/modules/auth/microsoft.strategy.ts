@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-oauth2';
 import { ConfigService } from '@nestjs/config';
+import { OAuthStateStore } from './oauth-state.store';
+import { getJwtSecret } from '../../config/jwt.config';
 
 @Injectable()
 export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
@@ -14,6 +16,7 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
       clientSecret: config.get<string>('MICROSOFT_CLIENT_SECRET') || 'disabled',
       callbackURL: config.get<string>('MICROSOFT_CALLBACK_URL') || 'http://localhost:3000/api/auth/microsoft/callback',
       scope: ['User.Read'],
+      store: new OAuthStateStore(getJwtSecret(config)),
     } as never);
   }
   async validate(accessToken: string): Promise<unknown> {

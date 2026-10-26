@@ -2,32 +2,40 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tema } from './tema.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class TemaDto {
+  @ApiProperty({ example: 'Salud y bienestar comunitario' })
   @IsString({ message: 'El nombre del tema es obligatorio' })
   nombre: string;
+  @ApiPropertyOptional({ example: 'Acciones de promoción de la salud en la comunidad.' })
   @IsOptional()
   @IsString()
   descripcion?: string;
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
 }
 
 export class ActualizarTemaDto {
+  @ApiPropertyOptional({ example: 'Salud y bienestar comunitario' })
   @IsOptional()
   @IsString({ message: 'El nombre del tema debe ser una cadena de texto' })
   nombre?: string;
+  @ApiPropertyOptional({ example: 'Acciones de promoción de la salud en la comunidad.' })
   @IsOptional()
   @IsString()
   descripcion?: string;
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
 }
 
 export class CambiarEstadoTodosDto {
+  @ApiProperty({ example: true })
   @IsBoolean({ message: 'El estado activo debe ser un valor booleano' })
   activo: boolean;
 }

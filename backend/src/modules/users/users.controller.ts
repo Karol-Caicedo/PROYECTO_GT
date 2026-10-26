@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { Auth } from '../../common/auth.decorator';
 import { UsersService } from './users.service';
-import { CrearUsuarioDto, ActualizarUsuarioDto, CambiarClaveDto } from './user.dto';
+import { CrearUsuarioDto, ActualizarUsuarioDto, CambiarClaveDto, VerificarAdminDto } from './user.dto';
 
 /** Gestión de usuarios por Proyección Social (el registro público está deshabilitado). */
 @ApiTags('usuarios')
@@ -17,7 +17,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Listar usuarios (sin hashes de clave)' })
   async listar() {
     const todos = await this.users.findAll();
-    return todos.map(({ passwordHash: _p, ...resto }) => resto);
+    return todos.map(({ passwordHash: _p, tokenVersion: _tv, ...resto }) => resto);
   }
 
   @Post()
@@ -34,19 +34,18 @@ export class UsersController {
       nombre: dto.nombre,
       numeroIdentificacion: dto.numeroIdentificacion || null,
       passwordHash: await bcrypt.hash(dto.password, 10),
-      passwordPlano: dto.password,
       proveedorAuth: 'local',
       semestre: dto.rol === 'ADMIN' ? (dto.semestre ?? 1) : (dto.semestre ?? 1),
       rol: dto.rol,
       aceptoDatosAt: null,
     });
-    const { passwordHash: _p, ...resto } = user;
+    const { passwordHash: _p, tokenVersion: _tv, ...resto } = user;
     return resto;
   }
 
   @Post('verificar-admin')
   @ApiOperation({ summary: 'Verificar identidad del administrador para acciones de seguridad' })
-  async verificarAdmin(@Req() req: { user?: { id: string } }, @Body() dto: { password?: string }) {
+  async verificarAdmin(@Req() req: { user?: { id: string } }, @Body() dto: VerificarAdminDto) {
     if (!dto.password) throw new BadRequestException('Debes ingresar tu contraseña');
     if (!req.user?.id) throw new BadRequestException('No autenticado');
     const admin = await this.users.findById(req.user.id);
@@ -83,12 +82,12 @@ export class UsersController {
         throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
       }
       user.passwordHash = await bcrypt.hash(dto.password, 10);
-      user.passwordPlano = dto.password.trim();
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     }
 
     await this.users.save(user);
-    const { passwordHash: _p, ...resto } = user;
+    const { passwordHash: _p, tokenVersion: _tv, ...resto } = user;
     return resto;
   }
 
@@ -110,7 +109,7 @@ export class UsersController {
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');
     user.passwordHash = await bcrypt.hash(dto.password, 10);
-    user.passwordPlano = dto.password.trim();
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);
     return { mensaje: 'Contraseña actualizada.' };

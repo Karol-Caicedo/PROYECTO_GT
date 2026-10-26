@@ -10,6 +10,8 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
 import { NotificacionesService } from '../../core/notificaciones.service';
+import { AuthImageDirective } from '../../core/auth-image.directive';
+import { ImagenesService } from '../../core/imagenes.service';
 
 interface Cap {
   id: string;
@@ -25,7 +27,7 @@ interface Cap {
 @Component({
   selector: 'app-detalle-capacitacion-dialog',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatDialogModule],
+  imports: [CommonModule, MatButtonModule, MatDialogModule, AuthImageDirective],
   styles: [`
     .dialogo-detalle {
       width: auto;
@@ -133,11 +135,11 @@ interface Cap {
     <div class="dialogo-detalle">
       @if (c.imagenUrl) {
         <div class="contenedor-img">
-          <img class="detalle-img" [src]="img(c.imagenUrl)" [alt]="'Imagen de ' + c.titulo" />
-          <a [href]="img(c.imagenUrl)" target="_blank" rel="noopener noreferrer" class="btn-ver-tamano-completo" title="Ver imagen en tamaño original en una nueva pestaña">
+          <img class="detalle-img" [appAuthImage]="c.imagenUrl" [alt]="'Imagen de ' + c.titulo" />
+          <button type="button" class="btn-ver-tamano-completo" title="Ver imagen en tamaño original" (click)="abrirImagen(c.imagenUrl)">
             <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">zoom_in</span>
             <span>Ver imagen completa</span>
-          </a>
+          </button>
         </div>
       }
       <div class="cuerpo-detalle">
@@ -170,8 +172,8 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
   data = inject<{ cap: Cap }>(MAT_DIALOG_DATA);
   private http = inject(HttpClient);
   private notifService = inject(NotificacionesService);
+  private imagenes = inject(ImagenesService);
   private api = environment.apiUrl;
-  private origen = environment.apiUrl.replace(/\/api\/?$/, '');
 
   get c(): Cap { return this.data.cap; }
 
@@ -181,8 +183,8 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
     }
   }
 
-  img(url: string) {
-    return url.startsWith('http') ? url : `${this.origen}${url}`;
+  abrirImagen(url: string) {
+    void this.imagenes.abrir(url);
   }
 
   async irAlEnlace() {
@@ -200,7 +202,7 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
 @Component({
   selector: 'app-mis-capacitaciones',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatDialogModule, PageHeaderComponent, EmptyStateComponent],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatDialogModule, PageHeaderComponent, EmptyStateComponent, AuthImageDirective],
   styles: [`
     .grid-caps { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--esp-4); }
     .cap { display: flex; flex-direction: column; overflow: hidden; transition: box-shadow var(--transicion-media), transform var(--transicion-media); }
@@ -242,7 +244,7 @@ export class DetalleCapacitacionDialogComponent implements OnInit {
           @for (c of caps(); track c.id) {
             <mat-card class="cap">
               @if (c.imagenUrl) {
-                <img class="portada" [src]="img(c.imagenUrl)" [alt]="'Imagen de ' + c.titulo" loading="lazy" />
+                <img class="portada" [appAuthImage]="c.imagenUrl" [alt]="'Imagen de ' + c.titulo" loading="lazy" />
               } @else {
                 <div class="portada-placeholder" role="img" [attr.aria-label]="'Sin imagen para ' + c.titulo">
                   <span class="material-symbols-outlined" aria-hidden="true">school</span>
@@ -275,7 +277,6 @@ export class MisCapacitacionesComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private notifService = inject(NotificacionesService);
   private api = environment.apiUrl;
-  private origen = environment.apiUrl.replace(/\/api\/?$/, '');
   caps = signal<Cap[]>([]);
   cargando = signal(true);
   fallo = signal(false);
@@ -302,10 +303,6 @@ export class MisCapacitacionesComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
-  }
-
-  img(url: string) {
-    return url.startsWith('http') ? url : `${this.origen}${url}`;
   }
 
   verDetalle(c: Cap) {

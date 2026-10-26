@@ -67,23 +67,42 @@ export const ASIGNATURAS_INICIALES: { nombre: string; semestre: number }[] = [
   { nombre: 'Seminario de Nuevas Tecnologías', semestre: 9 },
 ];
 
+const CLAVES_DEMO = new Set(['Admin123*', 'Estudiante123*']);
+
+function esProduccion() {
+  return process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
+}
+
+function validarClaveProduccion(nombre: string, valor: string | undefined) {
+  const clave = (valor || '').trim();
+  if (clave.length < 8) {
+    throw new Error(`${nombre} es obligatorio en producción y debe tener al menos 8 caracteres.`);
+  }
+  if (CLAVES_DEMO.has(clave)) {
+    throw new Error(`${nombre} no puede usar una clave de demostración en producción.`);
+  }
+  return clave;
+}
+
 async function main() {
   await AppDataSource.initialize();
   await AppDataSource.runMigrations();
   const users = AppDataSource.getRepository(User);
   const temas = AppDataSource.getRepository(Tema);
+  const produccion = esProduccion();
 
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@unipacifico.edu.co').toLowerCase();
-  const adminPass = process.env.ADMIN_PASSWORD || 'Admin123*';
   let admin = await users.findOne({ where: { correo: adminEmail } });
   const baseYaInicializada = !!admin;
   if (!admin) {
+    const adminPass = produccion
+      ? validarClaveProduccion('ADMIN_PASSWORD', process.env.ADMIN_PASSWORD)
+      : process.env.ADMIN_PASSWORD || 'Admin123*';
     admin = await users.save(
       users.create({
         correo: adminEmail,
         nombre: process.env.ADMIN_NOMBRE || 'Proyección Social',
         passwordHash: await bcrypt.hash(adminPass, 10),
-        passwordPlano: adminPass,
         proveedorAuth: 'local',
         semestre: 1,
         rol: 'ADMIN',
@@ -93,40 +112,39 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Admin creado: ${adminEmail}`);
   } else {
-    if (!admin.passwordPlano) {
-      admin.passwordPlano = adminPass;
-      await users.save(admin);
-    }
     // eslint-disable-next-line no-console
     console.log(`Admin ya existe: ${adminEmail}`);
   }
 
-  const estEmail = (process.env.ESTUDIANTE_EMAIL || 'estudiante@unipacifico.edu.co').toLowerCase();
-  const estPass = process.env.ESTUDIANTE_PASSWORD || 'Estudiante123*';
-  const estSemestre = Math.min(9, Math.max(1, Number(process.env.ESTUDIANTE_SEMESTRE || 5)));
-  const existeEst = await users.findOne({ where: { correo: estEmail } });
-  if (!existeEst) {
-    await users.save(
-      users.create({
-        correo: estEmail,
-        nombre: process.env.ESTUDIANTE_NOMBRE || 'Estudiante Demo',
-        passwordHash: await bcrypt.hash(estPass, 10),
-        passwordPlano: estPass,
-        proveedorAuth: 'local',
-        semestre: estSemestre,
-        rol: 'ESTUDIANTE',
-        aceptoDatosAt: new Date(),
-      }),
-    );
-    // eslint-disable-next-line no-console
-    console.log(`Estudiante demo creado: ${estEmail} (semestre ${estSemestre})`);
-  } else {
-    if (!existeEst.passwordPlano) {
-      existeEst.passwordPlano = estPass;
-      await users.save(existeEst);
+  const crearDemo = !produccion || process.env.SEED_DEMO_STUDENT === 'true';
+  if (crearDemo) {
+    const estEmail = (process.env.ESTUDIANTE_EMAIL || 'estudiante@unipacifico.edu.co').toLowerCase();
+    const estPass = produccion
+      ? validarClaveProduccion('ESTUDIANTE_PASSWORD', process.env.ESTUDIANTE_PASSWORD)
+      : process.env.ESTUDIANTE_PASSWORD || 'Estudiante123*';
+    const estSemestre = Math.min(9, Math.max(1, Number(process.env.ESTUDIANTE_SEMESTRE || 5)));
+    const existeEst = await users.findOne({ where: { correo: estEmail } });
+    if (!existeEst) {
+      await users.save(
+        users.create({
+          correo: estEmail,
+          nombre: process.env.ESTUDIANTE_NOMBRE || 'Estudiante Demo',
+          passwordHash: await bcrypt.hash(estPass, 10),
+          proveedorAuth: 'local',
+          semestre: estSemestre,
+          rol: 'ESTUDIANTE',
+          aceptoDatosAt: new Date(),
+        }),
+      );
+      // eslint-disable-next-line no-console
+      console.log(`Estudiante demo creado: ${estEmail} (semestre ${estSemestre})`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(`Estudiante demo ya existe: ${estEmail}`);
     }
+  } else {
     // eslint-disable-next-line no-console
-    console.log(`Estudiante demo ya existe: ${estEmail}`);
+    console.log('Seed de producción: estudiante demo omitido (SEED_DEMO_STUDENT=false).');
   }
 
   if (!baseYaInicializada) {

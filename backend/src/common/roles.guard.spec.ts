@@ -5,6 +5,7 @@ function ctxWith(rolesMeta: string[] | undefined, user?: { rol: string }) {
   const reflector = { getAllAndOverride: jest.fn().mockReturnValue(rolesMeta) } as unknown as Reflector;
   const guard = new RolesGuard(reflector);
   const ctx = {
+    getType: () => 'http',
     getHandler: jest.fn(),
     getClass: jest.fn(),
     switchToHttp: () => ({ getRequest: () => ({ user }) }),

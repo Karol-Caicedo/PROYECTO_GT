@@ -4,6 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AccessGuard } from './common/access.guard';
+import { AccessLogService } from './common/access-log.service';
+import { AccessPolicyService } from './common/access-policy.service';
+import { HealthController } from './common/health.controller';
+import { JwtAuthGuard } from './common/jwt-auth.guard';
+import { RolesGuard } from './common/roles.guard';
 import { User } from './modules/users/user.entity';
 import { Periodo } from './modules/periodos/periodo.entity';
 import { Tema } from './modules/temas/tema.entity';
@@ -26,6 +32,8 @@ import { RecordatoriosModule } from './modules/recordatorios/recordatorios.modul
 import { MailModule } from './modules/mail/mail.module';
 import { AsignaturasModule } from './modules/asignaturas/asignaturas.module';
 import { EncuestasAsignaturasModule } from './modules/encuestas-asignaturas/encuestas-asignaturas.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { UnknownRouteModule } from './common/unknown-route.module';
 
 @Module({
   imports: [
@@ -63,7 +71,17 @@ import { EncuestasAsignaturasModule } from './modules/encuestas-asignaturas/encu
     RecordatoriosModule,
     AsignaturasModule,
     EncuestasAsignaturasModule,
+    UploadsModule,
+    UnknownRouteModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [HealthController],
+  providers: [
+    AccessPolicyService,
+    AccessLogService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AccessGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule {}

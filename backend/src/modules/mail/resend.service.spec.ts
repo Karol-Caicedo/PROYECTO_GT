@@ -33,9 +33,12 @@ describe('ResendService', () => {
   });
 
   test('sin API key → simulación sin red', async () => {
+    const loggerLog = jest.spyOn(require('@nestjs/common').Logger.prototype, 'log').mockImplementation(() => undefined);
     const svc = new ResendService(new ConfigService({}));
     expect(svc.simulacion).toBe(true);
     await expect(svc.enviarRecuperacion('a@gmail.com', 'Ana', URL)).resolves.toEqual({ simulado: true });
+    expect(loggerLog).toHaveBeenCalled();
+    expect(JSON.stringify(loggerLog.mock.calls)).not.toContain('abc123');
   });
 
   test('con API key → POST a Resend con html+text y retorna el id', async () => {

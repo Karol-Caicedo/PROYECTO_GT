@@ -154,15 +154,17 @@ export class LoginComponent implements OnInit {
       const guardado = sessionStorage.getItem('sigice_login_draft');
       if (guardado) {
         const datos = JSON.parse(guardado);
-        if (datos.correo || datos.password) {
-          this.form.patchValue({ correo: datos.correo || '', password: datos.password || '' });
+        if (datos.correo) {
+          this.form.patchValue({ correo: datos.correo || '' });
         }
+        // Limpia contraseñas guardadas por versiones anteriores.
+        sessionStorage.setItem('sigice_login_draft', JSON.stringify({ correo: datos.correo || '' }));
       }
     } catch { /* ignorar error de parseo */ }
 
     this.form.valueChanges.subscribe((val) => {
       try {
-        sessionStorage.setItem('sigice_login_draft', JSON.stringify({ correo: val.correo || '', password: val.password || '' }));
+        sessionStorage.setItem('sigice_login_draft', JSON.stringify({ correo: val.correo || '' }));
       } catch { /* almacenamiento no disponible */ }
     });
 

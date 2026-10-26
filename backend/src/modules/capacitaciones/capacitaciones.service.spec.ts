@@ -16,6 +16,9 @@ const DTO_BASE = {
   enlace: 'https://ejemplo.com/nube',
 };
 
+const ALUMNO = { id: 'u-7', rol: 'ESTUDIANTE', semestre: 4 };
+const ADMIN = { id: 'admin-1', rol: 'ADMIN', semestre: 1 };
+
 describe('CapacitacionesService', () => {
   describe('esVigente (fronteras)', () => {
     const ahora = new Date('2026-09-01T12:00:00Z');
@@ -93,6 +96,41 @@ describe('CapacitacionesService', () => {
     });
   });
 
+  describe('detallePara (control de acceso por recurso)', () => {
+    const publicada = {
+      id: 'c-1',
+      estado: 'publicado',
+      visibleDesde: null,
+      visibleHasta: null,
+      semestres: [{ semestre: 4 }],
+    };
+
+    test('estudiante del semestre destino ve una capacitación publicada', async () => {
+      const { svc, cap, clic } = buildService();
+      cap.findOne.mockResolvedValue(publicada);
+      clic.count.mockResolvedValue(2);
+      await expect(svc.detallePara('c-1', ALUMNO)).resolves.toMatchObject({ id: 'c-1', clics: 2 });
+    });
+
+    test.each([
+      ['borrador', { ...publicada, estado: 'borrador' }],
+      ['vencida', { ...publicada, visibleHasta: '2020-01-01T00:00:00Z' }],
+      ['otro semestre', { ...publicada, semestres: [{ semestre: 5 }] }],
+      ['sin semestres', { ...publicada, semestres: [] }],
+    ])('estudiante no ve %s → 404', async (_caso, capData) => {
+      const { svc, cap } = buildService();
+      cap.findOne.mockResolvedValue(capData);
+      await expect(svc.detallePara('c-1', ALUMNO)).rejects.toThrow(NotFoundException);
+    });
+
+    test('admin ve borradores', async () => {
+      const { svc, cap, clic } = buildService();
+      cap.findOne.mockResolvedValue({ ...publicada, estado: 'borrador' });
+      clic.count.mockResolvedValue(0);
+      await expect(svc.detallePara('c-1', ADMIN)).resolves.toMatchObject({ id: 'c-1', estado: 'borrador' });
+    });
+  });
+
   describe('actualizar', () => {
     test('inexistente → 404', async () => {
       const { svc, cap } = buildService();
@@ -144,13 +182,30 @@ describe('CapacitacionesService', () => {
     test('registrarClic en inexistente → 404', async () => {
       const { svc, cap } = buildService();
       cap.findOne.mockResolvedValue(null);
-      await expect(svc.registrarClic('x', 'u-1')).rejects.toThrow(NotFoundException);
+      await expect(svc.registrarClic('x', ALUMNO)).rejects.toThrow(NotFoundException);
+    });
+
+    test('registrarClic no permite una capacitación no visible para el estudiante', async () => {
+      const { svc, cap, clic } = buildService();
+      cap.findOne.mockResolvedValue({
+        id: 'c-1',
+        enlace: 'https://destino.co',
+        estado: 'borrador',
+        semestres: [{ semestre: 4 }],
+      });
+      await expect(svc.registrarClic('c-1', ALUMNO)).rejects.toThrow(NotFoundException);
+      expect(clic.save).not.toHaveBeenCalled();
     });
 
     test('registrarClic guarda y devuelve el enlace para redirigir', async () => {
       const { svc, cap, clic } = buildService();
-      cap.findOne.mockResolvedValue({ id: 'c-1', enlace: 'https://destino.co' });
-      await expect(svc.registrarClic('c-1', 'u-7')).resolves.toEqual({ enlace: 'https://destino.co' });
+      cap.findOne.mockResolvedValue({
+        id: 'c-1',
+        enlace: 'https://destino.co',
+        estado: 'publicado',
+        semestres: [{ semestre: 4 }],
+      });
+      await expect(svc.registrarClic('c-1', ALUMNO)).resolves.toEqual({ enlace: 'https://destino.co' });
       expect(clic.create).toHaveBeenCalledWith({ capacitacionId: 'c-1', usuarioId: 'u-7' });
       expect(clic.save).toHaveBeenCalledTimes(1);
     });

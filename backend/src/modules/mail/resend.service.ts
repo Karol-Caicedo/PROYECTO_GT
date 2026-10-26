@@ -93,7 +93,7 @@ export class ResendService {
   async enviarRecuperacion(para: string, nombre: string, url: string): Promise<ResendResultado> {
     const { asunto, html, texto } = plantillaRecuperacion(nombre, url);
     if (!this.apiKey) {
-      this.log.log(`[Resend simulación] Para: ${para} | Asunto: ${asunto} | URL: ${url}`);
+      this.log.log(`[Resend simulación] Para: ${para} | Asunto: ${asunto} | Enlace omitido del log`);
       return { simulado: true };
     }
     const res = await fetch('https://api.resend.com/emails', {

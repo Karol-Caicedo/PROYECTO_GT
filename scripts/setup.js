@@ -10,6 +10,7 @@
  * Uso: npm run setup
  */
 const { execSync } = require('child_process');
+const { randomBytes } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -30,7 +31,11 @@ try {
   const env = path.join(ROOT, '.env');
   if (!fs.existsSync(env)) {
     fs.copyFileSync(path.join(ROOT, '.env.example'), env);
-    console.log('Creado .env desde .env.example (revísalo: JWT_SECRET, ADMIN_*, dominio).');
+    const contenido = fs
+      .readFileSync(env, 'utf8')
+      .replace(/^JWT_SECRET=.*$/m, `JWT_SECRET=${randomBytes(32).toString('hex')}`);
+    fs.writeFileSync(env, contenido);
+    console.log('Creado .env desde .env.example con un JWT_SECRET aleatorio.');
   } else {
     console.log('.env ya existe, no se toca.');
   }

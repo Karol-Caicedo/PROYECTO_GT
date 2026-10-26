@@ -34,6 +34,7 @@ const baseUser = {
   proveedorId: null,
   semestre: 4,
   rol: 'ESTUDIANTE',
+  tokenVersion: 0,
   aceptoDatosAt: new Date(),
 };
 
@@ -92,9 +93,16 @@ describe('AuthService', () => {
       expect(creado.aceptoDatosAt).toBeInstanceOf(Date);
       expect(creado.passwordHash).not.toBe('Clave1234');
       expect(await bcrypt.compare('Clave1234', creado.passwordHash)).toBe(true);
+      expect(creado).not.toHaveProperty('passwordPlano');
       expect(r.access_token).toBeTruthy();
-      expect(jwt.verify(r.access_token)).toMatchObject({ correo: 'nuevo@unipacifico.edu.co', rol: 'ESTUDIANTE', semestre: 3 });
+      expect(jwt.verify(r.access_token)).toMatchObject({
+        correo: 'nuevo@unipacifico.edu.co',
+        rol: 'ESTUDIANTE',
+        semestre: 3,
+        tokenVersion: 0,
+      });
       expect(r.user).not.toHaveProperty('passwordHash');
+      expect(r.user).not.toHaveProperty('tokenVersion');
     });
 
     test('acepta mayúsculas en el dominio institucional', async () => {
@@ -110,8 +118,9 @@ describe('AuthService', () => {
       const { svc, users, jwt } = buildService();
       users.findByCorreo.mockResolvedValue(baseUser);
       const r = await svc.login(baseUser.correo, 'Clave1234');
-      expect(jwt.verify(r.access_token).sub).toBe('u-1');
+      expect(jwt.verify(r.access_token)).toMatchObject({ sub: 'u-1', tokenVersion: 0 });
       expect(r.user.rol).toBe('ESTUDIANTE');
+      expect(r.user).not.toHaveProperty('tokenVersion');
     });
 
     test.each([
@@ -131,6 +140,7 @@ describe('AuthService', () => {
       users.findById.mockResolvedValue(baseUser);
       const me = await svc.me('u-1');
       expect(me).not.toHaveProperty('passwordHash');
+      expect(me).not.toHaveProperty('tokenVersion');
       expect(me).toHaveProperty('correo', baseUser.correo);
     });
 
@@ -275,15 +285,31 @@ describe('AuthService recuperación de contraseña', () => {
   test('restablecer con token válido fija la clave y marca uso único', async () => {
     const { svc, users, resets } = buildService();
     const user = { ...baseUser, passwordHash: 'viejo' };
-    const registro = { usuarioId: 'u-1', usadoAt: null, expiraAt: new Date(Date.now() + 60000) };
+    const registro = { id: 'r-1', usuarioId: 'u-1', usadoAt: null, expiraAt: new Date(Date.now() + 60000) };
     resets.findOne.mockResolvedValue(registro);
     users.findById.mockResolvedValue(user);
     await expect(svc.restablecerClave('tokencualquiera1234567890', 'NuevaClave1')).resolves.toHaveProperty('mensaje');
     expect(user.passwordHash).not.toBe('viejo');
     expect(await bcrypt.compare('NuevaClave1', user.passwordHash)).toBe(true);
-    expect(registro.usadoAt).toBeInstanceOf(Date);
+    expect(user.tokenVersion).toBe(1);
+    expect(user).not.toHaveProperty('passwordPlano');
     expect(users.save).toHaveBeenCalledWith(user);
-    expect(resets.save).toHaveBeenCalledWith(registro);
+    expect(resets.update).toHaveBeenCalledWith(
+      { id: 'r-1', usadoAt: expect.anything(), expiraAt: expect.anything() },
+      expect.objectContaining({ usadoAt: expect.any(Date) }),
+    );
+    expect(resets.save).not.toHaveBeenCalled();
+  });
+
+  test('si otro proceso ya consumió el token, no cambia la clave', async () => {
+    const { svc, users, resets } = buildService();
+    const user = { ...baseUser, passwordHash: 'viejo' };
+    resets.findOne.mockResolvedValue({ id: 'r-1', usuarioId: 'u-1', usadoAt: null, expiraAt: new Date(Date.now() + 60000) });
+    users.findById.mockResolvedValue(user);
+    resets.update.mockResolvedValueOnce({ affected: 0 });
+    await expect(svc.restablecerClave('tokencualquiera1234567890', 'NuevaClave1')).rejects.toThrow(/inválido o ya venció/);
+    expect(user.passwordHash).toBe('viejo');
+    expect(users.save).not.toHaveBeenCalled();
   });
 
   test.each([

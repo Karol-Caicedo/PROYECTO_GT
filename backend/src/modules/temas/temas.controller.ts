@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
+import { Public } from '../../common/public.decorator';
 import { TemasService, TemaDto, ActualizarTemaDto, CambiarEstadoTodosDto } from './temas.service';
 
 @ApiTags('temas')
@@ -9,6 +10,7 @@ export class TemasController {
   constructor(private svc: TemasService) {}
 
   @Get()
+  @Public()
   activos() {
     return this.svc.activos();
   }

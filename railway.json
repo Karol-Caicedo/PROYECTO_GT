@@ -6,7 +6,7 @@
   },
   "deploy": {
     "startCommand": "npm --prefix backend run seed:prod && npm --prefix backend run start:prod",
-    "healthcheckPath": "/",
+    "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }

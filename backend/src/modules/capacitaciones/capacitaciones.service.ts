@@ -1,9 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Capacitacion, CapacitacionSemestre } from './capacitacion.entity';
 import { ClicCapacitacion } from './clic.entity';
-import { CapacitacionDto } from './capacitacion.dto';
+import { ActualizarCapacitacionDto, CapacitacionDto } from './capacitacion.dto';
+
+export interface CapacitacionViewer {
+  id: string;
+  rol: string;
+  semestre: number;
+}
 
 @Injectable()
 export class CapacitacionesService {
@@ -69,14 +75,33 @@ export class CapacitacionesService {
     return this.detalle(c.id);
   }
 
-  async detalle(id: string) {
-    const c = await this.cap.findOne({ where: { id }, relations: ['semestres'] });
-    if (!c) throw new NotFoundException('Capacitación no encontrada');
-    const clics = await this.clic.count({ where: { capacitacionId: id } });
+  async puedeVer(c: Capacitacion, viewer: CapacitacionViewer) {
+    if (viewer.rol === 'ADMIN') return true;
+    if (!CapacitacionesService.esVigente(c)) return false;
+    const semestres = c.semestres ?? await this.sem.find({ where: { capacitacionId: c.id } });
+    return semestres.some((s) => Number(s.semestre) === Number(viewer.semestre));
+  }
+
+  private async conClics(c: Capacitacion) {
+    const clics = await this.clic.count({ where: { capacitacionId: c.id } });
     return { ...c, clics };
   }
 
-  async actualizar(id: string, dto: CapacitacionDto, imagenUrl?: string | null) {
+  async detalle(id: string) {
+    const c = await this.cap.findOne({ where: { id }, relations: ['semestres'] });
+    if (!c) throw new NotFoundException('Capacitación no encontrada');
+    return this.conClics(c);
+  }
+
+  async detallePara(id: string, viewer: CapacitacionViewer) {
+    const c = await this.cap.findOne({ where: { id }, relations: ['semestres'] });
+    if (!c || !(await this.puedeVer(c, viewer))) {
+      throw new NotFoundException('Capacitación no encontrada');
+    }
+    return this.conClics(c);
+  }
+
+  async actualizar(id: string, dto: ActualizarCapacitacionDto, imagenUrl?: string | null) {
     const c = await this.cap.findOne({ where: { id } });
     if (!c) throw new NotFoundException('Capacitación no encontrada');
     Object.assign(c, {
@@ -106,10 +131,12 @@ export class CapacitacionesService {
     return { ok: true };
   }
 
-  async registrarClic(capacitacionId: string, usuarioId: string) {
-    const c = await this.cap.findOne({ where: { id: capacitacionId } });
-    if (!c) throw new NotFoundException('Capacitación no encontrada');
-    await this.clic.save(this.clic.create({ capacitacionId, usuarioId }));
+  async registrarClic(capacitacionId: string, viewer: CapacitacionViewer) {
+    const c = await this.cap.findOne({ where: { id: capacitacionId }, relations: ['semestres'] });
+    if (!c || !(await this.puedeVer(c, viewer))) {
+      throw new NotFoundException('Capacitación no encontrada');
+    }
+    await this.clic.save(this.clic.create({ capacitacionId, usuarioId: viewer.id }));
     return { enlace: c.enlace };
   }
 

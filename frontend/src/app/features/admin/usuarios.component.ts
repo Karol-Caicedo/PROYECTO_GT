@@ -23,7 +23,6 @@ interface Usuario {
   semestre: number;
   rol: 'ESTUDIANTE' | 'ADMIN';
   proveedorAuth: string;
-  passwordPlano?: string | null;
 }
 
 @Component({
@@ -126,8 +125,8 @@ interface Usuario {
         }
 
         <mat-form-field class="full-width">
-          <mat-label>Contraseña</mat-label>
-          <input matInput [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" placeholder="Contraseña del usuario" />
+          <mat-label>Nueva contraseña (opcional)</mat-label>
+          <input matInput [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" placeholder="Déjala vacía para conservar la actual" />
           <button mat-icon-button matSuffix type="button" (click)="mostrarPassword.set(!mostrarPassword())" [attr.aria-label]="mostrarPassword() ? 'Ocultar contraseña' : 'Ver contraseña'" [title]="mostrarPassword() ? 'Ocultar contraseña' : 'Ver contraseña'">
             <span class="material-symbols-outlined" aria-hidden="true">{{ mostrarPassword() ? 'visibility_off' : 'visibility' }}</span>
           </button>
@@ -157,7 +156,7 @@ export class EditarUsuarioDialogComponent {
 
   error = signal('');
   cargando = signal(false);
-  mostrarPassword = signal(true);
+  mostrarPassword = signal(false);
 
   form = this.fb.group({
     numeroIdentificacion: [this.datos.usuario.numeroIdentificacion || '', Validators.required],
@@ -165,7 +164,7 @@ export class EditarUsuarioDialogComponent {
     correo: [this.datos.usuario.correo, [Validators.required, Validators.email]],
     semestre: [this.datos.usuario.semestre || 1],
     rol: [this.datos.usuario.rol, Validators.required],
-    password: [this.datos.usuario.passwordPlano || '', [Validators.minLength(8)]],
+    password: ['', [Validators.minLength(8)]],
   });
 
   constructor() {
@@ -443,7 +442,8 @@ export class UsuariosAdminComponent implements OnInit {
 
   private guardarBorrador() {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.form.value));
+      const { password: _password, ...seguro } = this.form.value;
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(seguro));
     } catch { /* noop */ }
   }
 
@@ -456,10 +456,11 @@ export class UsuariosAdminComponent implements OnInit {
         numeroIdentificacion: data.numeroIdentificacion || '',
         nombre: data.nombre || '',
         correo: data.correo || '',
-        password: data.password || '',
         semestre: data.semestre || 1,
         rol: data.rol || 'ESTUDIANTE',
       });
+      // Reescribe el borrador sin la contraseña de versiones anteriores.
+      this.guardarBorrador();
     } catch { /* noop */ }
   }
 

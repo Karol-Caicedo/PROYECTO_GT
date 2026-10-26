@@ -229,8 +229,8 @@ describe('Dashboard E2E (agregados reales)', () => {
       null,
       a.user.id,
     );
-    await caps.registrarClic(cap.id, a.user.id);
-    await caps.registrarClic(cap.id, b.user.id);
+    await caps.registrarClic(cap.id, { id: a.user.id, rol: 'ESTUDIANTE', semestre: 4 });
+    await caps.registrarClic(cap.id, { id: b.user.id, rol: 'ESTUDIANTE', semestre: 4 });
     const dvr = await dash.declaradoVsReal(p1.id);
     expect(dvr.items.find((i) => i.nombre === 'IA')).toMatchObject({ declarado: 2, clics: 2 });
     expect(dvr.items.find((i) => i.nombre === 'Datos')).toMatchObject({ declarado: 0, clics: 0 });
@@ -272,14 +272,19 @@ describe('Capacitaciones E2E (filtrado por semestre y vigencia)', () => {
     const mias9 = await caps.mias(9);
     expect(mias9.map((c) => c.titulo)).toEqual(['Otra sem']);
 
-    const clic = await caps.registrarClic(ok.id, creadorId);
+    const dest = await caps.destinatarios(ok.id);
+    expect(dest).toEqual([]);
+
+    const alumno4 = await registrar('alumno4@unipacifico.edu.co', 4);
+    const clic = await caps.registrarClic(ok.id, { id: alumno4.user.id, rol: 'ESTUDIANTE', semestre: 4 });
     expect(clic).toEqual({ enlace: 'https://x.co' });
     await expect(caps.detalle(ok.id)).resolves.toMatchObject({ clics: 1 });
 
-    const dest = await caps.destinatarios(ok.id);
-    expect(dest).toEqual([]);
     const { user } = await registrar('dest@unipacifico.edu.co', 5);
-    expect(await caps.destinatarios(ok.id)).toEqual(['dest@unipacifico.edu.co']);
+    expect(await caps.destinatarios(ok.id)).toEqual([
+      'alumno4@unipacifico.edu.co',
+      'dest@unipacifico.edu.co',
+    ]);
     void user;
   });
 });

@@ -1,5 +1,3 @@
-# PROYECTO_GT
-
 # SIGICE · Ingeniería de Sistemas (Colombia)
 
 Sistema web para el área de Proyección Social: encuesta semestral de intereses
@@ -28,8 +26,8 @@ Puertos usados: `5432` Postgres · `8081` Adminer · `3000` backend ·
 
 ```bash
 npm install        # 1. instala el orquestador raíz (concurrently)
-npm run setup      # 2. crea .env, instala backend+frontend, levanta Postgres,
-                   #    corre migraciones y seed (admin + estudiante + 20 temas)
+npm run setup      # 2. crea .env (con JWT_SECRET aleatorio), instala backend+frontend,
+                   #    levanta Postgres, corre migraciones y seed (admin + estudiante + 20 temas)
 npm run dev        # 3. levanta backend y frontend juntos
 ```
 
@@ -116,9 +114,15 @@ configuración; `Root Directory` en la raíz del repo):
 - Agrega un plugin **Postgres** y define estas variables (usa los valores de
   referencia del plugin, ej. `DB_HOST=${{Postgres.PGHOST}}`):
   `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,
-  más `JWT_SECRET` (secreto largo propio), `ALLOWED_EMAIL_DOMAIN`,
-  `FRONTEND_URL` (la URL pública del servicio), `RESEND_API_KEY` y
-  `RESEND_FROM`. `PORT` lo inyecta Railway solo.
+  más `JWT_SECRET` (mínimo 32 caracteres, distinto de `dev-secret`),
+  `ALLOWED_EMAIL_DOMAIN`, `FRONTEND_URL` (la URL pública del servicio),
+  `RESEND_API_KEY` y `RESEND_FROM`. `PORT` lo inyecta Railway solo.
+- El healthcheck de Railway es `GET /api/health`. Mantén
+  `ACCESS_POLICY_MODE=enforce` en producción; `TRUST_PROXY=1` es el valor
+  esperado detrás del proxy de Railway.
+- En producción el seed exige `ADMIN_PASSWORD` si aún no existe el admin, omite
+  el estudiante demo por defecto (`SEED_DEMO_STUDENT=false`) y rechaza claves de
+  demostración.
 - Para que los logos/imágenes de capacitaciones sobrevivan a despliegues,
   agrega un **Volume** montado en `/app/uploads` y define
   `UPLOADS_DIR=/app/uploads`.
@@ -139,15 +143,20 @@ cp -n .env.example .env
 | `JWT_SECRET`, `JWT_EXPIRES_IN`                  | Firma y vigencia del JWT                                 |
 | `ALLOWED_EMAIL_DOMAIN`                          | Dominio del correo permitido (`@gmail.com`) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOMBRE` | Admin creado por el seed                                 |
-| `FRONTEND_URL`, `UPLOADS_DIR`                   | CORS y carpeta de imágenes                               |
+| `FRONTEND_URL`, `UPLOADS_DIR`                   | CORS, origen permitido y carpeta de imágenes             |
+| `ACCESS_POLICY_MODE`                            | `enforce` (por defecto) o `audit` solo en staging        |
+| `TRUST_PROXY`                                   | Proxies de confianza para `req.ip` (Railway: `1`)        |
+| `ENABLE_SWAGGER`                                | Expone `/api/docs`; por defecto solo fuera de producción |
 | `AUTH_SSO_ENABLED`, `GOOGLE_*`, `MICROSOFT_*`   | SSO opcional (apagado por defecto)                       |
 | `SMTP_*`, `MAIL_FROM`                           | Correo opcional; sin esto hay modo simulación (log)      |
 | `RESEND_API_KEY`, `RESEND_FROM`                 | Recuperación de clave por Resend (ver abajo)             |
 
 SSO (opcional): crea las credenciales OAuth en Google Cloud / Azure AD con
 las callback del `.env`, pon `AUTH_SSO_ENABLED=true` y reinicia el backend.
-Los usuarios nuevos de SSO completan semestre + Ley 1581 en
-`/auth/sso-completar`.
+Con el SSO apagado las rutas OAuth responden 404. El `state` OAuth se valida
+con una cookie HttpOnly firmada y los tokens de sesión viajan en el fragmento
+de la URL (`#token=`), no en el query string. Los usuarios nuevos de SSO
+completan semestre + Ley 1581 en `/auth/sso-completar`.
 
 SMTP (opcional): sin `SMTP_HOST`, notificaciones y recordatorios solo se
 escriben en el log. El cron corre a diario 08:00 (día 7 y día 14 del periodo,
@@ -158,8 +167,10 @@ Recuperación de contraseña (Resend): define `RESEND_API_KEY` y `RESEND_FROM`
 en el `.env`. El flujo es: `POST /api/auth/recuperar` (respuesta siempre
 genérica, con límite de 5 intentos/min) → correo con enlace a
 `/auth/restablecer?token=…` → `POST /api/auth/restablecer`. El token es de un
-solo uso y vence en 1 hora (solo se guarda su hash en `recuperacion_claves`).
-Sin `RESEND_API_KEY` el enlace se escribe en el log (modo simulación).
+solo uso, se consume de forma atómica y vence en 1 hora (solo se guarda su hash
+en `recuperacion_claves`).
+Sin `RESEND_API_KEY` el envío se simula y el token **no** se escribe en el log;
+configura Resend o SMTP para probar el flujo completo.
 Importante: el remitente debe ser un dominio verificado en
 https://resend.com/domains; en modo prueba de Resend el correo solo le llega
 al propietario de la cuenta. Nunca publiques la API key: si se expuso,
@@ -173,7 +184,10 @@ regenérala en el panel de Resend.
 2. Temas en orden aleatorio determinista por usuario (semilla
    usuario+periodo): distinto por usuario, estable entre recargas.
 3. Dashboard y exportación solo con datos agregados (privacidad).
-4. Imágenes jpg/png/webp de máx. 2 MB en `/uploads` (volumen Docker).
+4. Imágenes jpg/png/webp de máx. 2 MB en el volumen de uploads, validadas por
+   contenido real y guardadas con nombre aleatorio. Se sirven solo por
+   `GET /api/uploads/:nombre` con JWT y autorización por capacitación; `/uploads/*`
+   está bloqueado.
 5. Esquema solo vía migraciones (`synchronize: false`).
 
 ---

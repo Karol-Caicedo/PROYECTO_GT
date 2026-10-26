@@ -15,7 +15,11 @@ export class SsoCallbackComponent implements OnInit {
   private auth = inject(AuthService);
 
   async ngOnInit() {
-    const token = this.route.snapshot.queryParamMap.get('token');
+    const fragment = new URLSearchParams(this.route.snapshot.fragment ?? '');
+    const token = fragment.get('token') ?? this.route.snapshot.queryParamMap.get('token');
+    if (fragment.has('token')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
     if (token) {
       this.auth.guardarSesion(token);
       await this.auth.cargarPerfil();

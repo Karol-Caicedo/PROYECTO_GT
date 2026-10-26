@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
+import { Public } from '../../common/public.decorator';
 import { PeriodosService } from './periodos.service';
-import { CreatePeriodoDto } from './periodo.dto';
+import { ConfigurarEncuestaAsignaturasDto, CreatePeriodoDto } from './periodo.dto';
 
 @ApiTags('periodos')
 @Controller('periodos')
@@ -10,6 +11,7 @@ export class PeriodosController {
   constructor(private svc: PeriodosService) {}
 
   @Get('activo')
+  @Public()
   @ApiOperation({ summary: 'Periodo académico activo' })
   activo() {
     return this.svc.activo();
@@ -44,7 +46,7 @@ export class PeriodosController {
   @ApiOperation({ summary: 'Configurar o activar encuesta de asignaturas para el periodo' })
   configurarEncuestaAsignaturas(
     @Param('id') id: string,
-    @Body() dto: { encuestaAsignaturasActiva: boolean; fechaInicioAsignaturas?: string | null; fechaFinAsignaturas?: string | null },
+    @Body() dto: ConfigurarEncuestaAsignaturasDto,
   ) {
     return this.svc.configurarEncuestaAsignaturas(id, dto);
   }

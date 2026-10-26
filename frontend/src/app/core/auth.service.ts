@@ -79,7 +79,7 @@ export class AuthService {
 
   completarSso(temp: string, semestre: number, aceptoDatos: boolean) {
     return this.http
-      .post<{ access_token: string }>(`${this.base}/sso/completar?temp=${encodeURIComponent(temp)}`, { semestre, aceptoDatos })
+      .post<{ access_token: string }>(`${this.base}/sso/completar`, { temp, semestre, aceptoDatos })
       .toPromise()
       .then((r) => {
         this.guardarSesion(r!.access_token);
