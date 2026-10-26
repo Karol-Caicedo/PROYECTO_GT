@@ -110,7 +110,10 @@ El backend compila y sirve también el frontend (`railway.json` ya trae la
 configuración; `Root Directory` en la raíz del repo):
 
 - **Build Command:** `npm run install:all && npm run build`
-- **Start Command:** `npm --prefix backend run seed:prod && npm --prefix backend run start:prod`
+- **Start Command:** `npm --prefix backend run start:prod`
+- El seed **no** se ejecuta en cada despliegue. En el primer aprovisionamiento,
+  ejecuta una vez `npm --prefix backend run seed:prod` desde la consola de Railway
+  con `ADMIN_PASSWORD` definido y seguro.
 - Agrega un plugin **Postgres** y define estas variables (usa los valores de
   referencia del plugin, ej. `DB_HOST=${{Postgres.PGHOST}}`):
   `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,

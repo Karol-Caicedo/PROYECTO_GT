@@ -26,7 +26,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `intereses-postgres` / `intereses-adminer`). `npm run docker:full` adds backend
   `:3000` and frontend `:4201`.
 - Deploy target is Railway (`railway.json`): build `npm run install:all && npm run
-  build`, start runs `seed:prod` on every deploy (idempotent) then `node dist/main`.
+  build`, start runs `node dist/main` without seeding. The seed is a manual
+  provisioning step (`seed:prod`) and is never executed on every deploy.
   Healthcheck: `GET /api/health`. There are no CI workflows.
 
 ## Tests
@@ -117,9 +118,9 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `capacitaciones`, `capacitacion_semestres`, `clics_capacitacion`,
   `recordatorios_enviados`, `recuperacion_claves`.
 - `backend/src/seed.ts` is idempotent: it skips recreating themes once an admin
-  exists, so admin-deleted themes stay deleted. `seed:prod` runs with `--prod`:
-  exige `ADMIN_PASSWORD` si no existe el admin, rechaza claves demo y omite el
-  estudiante demo salvo `SEED_DEMO_STUDENT=true`.
+  exists, so admin-deleted themes stay deleted. `seed:prod` runs with `--prod`
+  como aprovisionamiento manual: exige `ADMIN_PASSWORD` si no existe el admin,
+  rechaza claves demo y omite el estudiante demo salvo `SEED_DEMO_STUDENT=true`.
 
 ## Conventions and gotchas
 
