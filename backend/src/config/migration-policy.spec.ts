@@ -48,6 +48,7 @@ describe('C-04 política de migraciones', () => {
     const packageJson = JSON.parse(readFileSync(join(BACKEND_SRC, '..', 'package.json'), 'utf8'));
     expect(packageJson.scripts['migration:run:guarded']).toContain('migrate-guarded');
     expect(packageJson.scripts.start).not.toContain('migrate');
+    expect(packageJson.scripts['start:prod']).toContain('NODE_ENV=production');
     expect(packageJson.scripts['start:prod']).not.toContain('migrate');
   });
 });

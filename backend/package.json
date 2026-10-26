@@ -6,7 +6,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "NODE_ENV=production node dist/main",
     "seed": "ts-node src/seed.ts",
     "seed:prod": "node dist/seed.js --prod",
     "password:migration-status": "node scripts/password-migration-status.js",
