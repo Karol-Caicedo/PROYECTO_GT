@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Respuesta, RespuestaTema } from './respuesta.entity';
 import { Tema } from '../temas/tema.entity';
 import { Periodo } from '../periodos/periodo.entity';
@@ -15,6 +15,7 @@ export class EncuestasService {
     @InjectRepository(Tema) private temas: Repository<Tema>,
     @InjectRepository(Periodo) private periodos: Repository<Periodo>,
     @InjectRepository(User) private users: Repository<User>,
+    private dataSource: DataSource,
   ) {}
 
   /** Valida reglas críticas: una respuesta por periodo, máx 5 en selección, 1-5 en calificación. */
@@ -74,29 +75,44 @@ export class EncuestasService {
   }
 
   async responder(userId: string, dto: CrearEncuestaDto) {
-    const periodo = await this.periodoActivoOrFail();
-    this.validar(dto.items, periodo.modoEncuesta);
-    const ya = await this.resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
-    if (ya) throw new BadRequestException('Ya respondiste la encuesta de este periodo (no se puede modificar)');
-    const user = await this.users.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
-    const activos = await this.temas.find({ where: { activo: true } });
-    const idsActivos = new Set(activos.map((t) => t.id));
-    for (const i of dto.items) if (!idsActivos.has(i.temaId)) throw new BadRequestException('Uno de los temas no está activo');
+    const periodoId = await this.dataSource.transaction(async (manager) => {
+      const periodos = manager.getRepository(Periodo);
+      const resp = manager.getRepository(Respuesta);
+      const rt = manager.getRepository(RespuestaTema);
+      const users = manager.getRepository(User);
+      const temas = manager.getRepository(Tema);
 
-    const r = await this.resp.save(
-      this.resp.create({ usuarioId: userId, periodoId: periodo.id, semestreAlResponder: user.semestre }),
-    );
-    await this.rt.save(
-      dto.items.map((i) =>
-        this.rt.create({
-          respuestaId: r.id,
-          temaId: i.temaId,
-          puntaje: periodo.modoEncuesta === 'calificacion' ? (i.puntaje as number) : null,
-        }),
-      ),
-    );
-    return this.miRespuesta(userId, periodo.id);
+      const periodo = await periodos.findOne({ where: { activo: true } });
+      if (!periodo) throw new BadRequestException('No hay periodo académico activo con encuesta abierta');
+      this.validar(dto.items, periodo.modoEncuesta);
+
+      const ya = await resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
+      if (ya) throw new BadRequestException('Ya respondiste la encuesta de este periodo (no se puede modificar)');
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('Usuario no encontrado');
+
+      const activos = await temas.find({ where: { activo: true } });
+      const idsActivos = new Set(activos.map((t) => t.id));
+      for (const i of dto.items) {
+        if (!idsActivos.has(i.temaId)) throw new BadRequestException('Uno de los temas no está activo');
+      }
+
+      const r = await resp.save(
+        resp.create({ usuarioId: userId, periodoId: periodo.id, semestreAlResponder: user.semestre }),
+      );
+      await rt.save(
+        dto.items.map((i) =>
+          rt.create({
+            respuestaId: r.id,
+            temaId: i.temaId,
+            puntaje: periodo.modoEncuesta === 'calificacion' ? (i.puntaje as number) : null,
+          }),
+        ),
+      );
+      return periodo.id;
+    });
+    return this.miRespuesta(userId, periodoId);
   }
 
   async editar(userId: string, dto: CrearEncuestaDto) {

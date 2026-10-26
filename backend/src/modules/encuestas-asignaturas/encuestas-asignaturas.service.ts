@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './respuesta-asignatura.entity';
 import { InscripcionAsignatura } from './inscripcion-asignatura.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
@@ -19,6 +19,7 @@ export class EncuestasAsignaturasService {
     @InjectRepository(Periodo) private periodosRepo: Repository<Periodo>,
     @InjectRepository(User) private usersRepo: Repository<User>,
     private periodosService: PeriodosService,
+    private dataSource: DataSource,
   ) {}
 
   async obtenerEstadoParaEstudiante(userId: string) {
@@ -76,40 +77,43 @@ export class EncuestasAsignaturasService {
   }
 
   async guardarInscripciones(userId: string, dto: GuardarInscripcionesDto) {
-    const periodo = await this.periodosService.activo();
-    if (!periodo) {
-      throw new BadRequestException('No hay periodo académico activo');
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const periodos = manager.getRepository(Periodo);
+      const resp = manager.getRepository(RespuestaAsignatura);
+      const asignaturas = manager.getRepository(Asignatura);
+      const inscripciones = manager.getRepository(InscripcionAsignatura);
 
-    const ya = await this.resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
-    if (ya) {
-      throw new BadRequestException('Ya enviaste tu encuesta para este periodo y no puedes modificar tus materias');
-    }
+      const periodo = await periodos.findOne({ where: { activo: true } });
+      if (!periodo) throw new BadRequestException('No hay periodo académico activo');
 
-    const uniqueIds = Array.from(new Set(dto.asignaturaIds || []));
-    if (uniqueIds.length === 0) {
-      throw new BadRequestException('Debes seleccionar al menos una materia que estés cursando');
-    }
+      const ya = await resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
+      if (ya) {
+        throw new BadRequestException('Ya enviaste tu encuesta para este periodo y no puedes modificar tus materias');
+      }
 
-    const asignaturasValidas = await this.asignaturasRepo.find({
-      where: { id: In(uniqueIds), activo: true },
+      const uniqueIds = Array.from(new Set(dto.asignaturaIds || []));
+      if (uniqueIds.length === 0) {
+        throw new BadRequestException('Debes seleccionar al menos una materia que estés cursando');
+      }
+
+      const asignaturasValidas = await asignaturas.find({
+        where: { id: In(uniqueIds), activo: true },
+      });
+      if (asignaturasValidas.length !== uniqueIds.length) {
+        throw new BadRequestException('Algunas de las materias seleccionadas no existen o están inactivas');
+      }
+
+      await inscripciones.delete({ usuarioId: userId, periodoId: periodo.id });
+      await inscripciones.save(
+        uniqueIds.map((asigId) =>
+          inscripciones.create({
+            usuarioId: userId,
+            periodoId: periodo.id,
+            asignaturaId: asigId,
+          }),
+        ),
+      );
     });
-
-    if (asignaturasValidas.length !== uniqueIds.length) {
-      throw new BadRequestException('Algunas de las materias seleccionadas no existen o están inactivas');
-    }
-
-    // Limpiar inscripciones previas de este estudiante en este periodo y guardar las nuevas
-    await this.inscripcionesRepo.delete({ usuarioId: userId, periodoId: periodo.id });
-
-    const nuevas = uniqueIds.map((asigId) =>
-      this.inscripcionesRepo.create({
-        usuarioId: userId,
-        periodoId: periodo.id,
-        asignaturaId: asigId,
-      }),
-    );
-    await this.inscripcionesRepo.save(nuevas);
 
     return this.obtenerEstadoParaEstudiante(userId);
   }
@@ -142,87 +146,92 @@ export class EncuestasAsignaturasService {
   }
 
   async responder(userId: string, dto: ResponderEncuestaAsignaturaDto) {
-    const periodo = await this.periodosService.activo();
-    if (!periodo) {
-      throw new BadRequestException('No hay periodo académico activo');
-    }
-    if (!this.periodosService.esEncuestaAsignaturasVigente(periodo)) {
-      throw new BadRequestException('La encuesta de asignaturas no está habilitada en este momento');
-    }
+    const periodoId = await this.dataSource.transaction(async (manager) => {
+      const periodos = manager.getRepository(Periodo);
+      const resp = manager.getRepository(RespuestaAsignatura);
+      const respItems = manager.getRepository(RespuestaAsignaturaItem);
+      const inscripciones = manager.getRepository(InscripcionAsignatura);
+      const asignaturas = manager.getRepository(Asignatura);
+      const users = manager.getRepository(User);
 
-    const ya = await this.resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
-    if (ya) {
-      throw new BadRequestException('Ya enviaste tu respuesta para este periodo y no se puede modificar');
-    }
-
-    const user = await this.usersRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
-
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Debes evaluar las asignaturas que estás cursando');
-    }
-
-    const dificultades = dto.items.filter((i) => i.tieneDificultad);
-    if (dificultades.length > 4) {
-      throw new BadRequestException('Solo puedes seleccionar un máximo de 4 asignaturas con dificultad');
-    }
-
-    for (const item of dto.items) {
-      if (item.nivelSatisfaccion < 1 || item.nivelSatisfaccion > 5) {
-        throw new BadRequestException('El nivel de satisfacción debe ser entre 1 y 5');
+      const periodo = await periodos.findOne({ where: { activo: true } });
+      if (!periodo) throw new BadRequestException('No hay periodo académico activo');
+      if (!this.periodosService.esEncuestaAsignaturasVigente(periodo)) {
+        throw new BadRequestException('La encuesta de asignaturas no está habilitada en este momento');
       }
-    }
 
-    const ids = dto.items.map((i) => i.asignaturaId);
-    if (new Set(ids).size !== ids.length) {
-      throw new BadRequestException('Hay asignaturas duplicadas en la respuesta');
-    }
+      const ya = await resp.findOne({ where: { usuarioId: userId, periodoId: periodo.id } });
+      if (ya) throw new BadRequestException('Ya enviaste tu respuesta para este periodo y no se puede modificar');
 
-    // Verificar que las materias existan y estén activas
-    const asigsValidas = await this.asignaturasRepo.find({
-      where: { id: In(ids), activo: true },
-    });
-    if (asigsValidas.length !== ids.length) {
-      throw new BadRequestException('Algunas asignaturas seleccionadas no están activas en el periodo');
-    }
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    // Asegurar que las inscripciones existan para cada materia evaluada
-    const inscripcionesActuales = await this.inscripcionesRepo.find({
-      where: { usuarioId: userId, periodoId: periodo.id },
-    });
-    const idsInscritos = new Set(inscripcionesActuales.map((i) => i.asignaturaId));
+      if (!dto.items || dto.items.length === 0) {
+        throw new BadRequestException('Debes evaluar las asignaturas que estás cursando');
+      }
 
-    const inscripcionesFaltantes = ids.filter((id) => !idsInscritos.has(id));
-    if (inscripcionesFaltantes.length > 0) {
-      const nuevasInscripciones = inscripcionesFaltantes.map((asigId) =>
-        this.inscripcionesRepo.create({
+      const dificultades = dto.items.filter((i) => i.tieneDificultad);
+      if (dificultades.length > 4) {
+        throw new BadRequestException('Solo puedes seleccionar un máximo de 4 asignaturas con dificultad');
+      }
+
+      for (const item of dto.items) {
+        if (item.nivelSatisfaccion < 1 || item.nivelSatisfaccion > 5) {
+          throw new BadRequestException('El nivel de satisfacción debe ser entre 1 y 5');
+        }
+      }
+
+      const ids = dto.items.map((i) => i.asignaturaId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('Hay asignaturas duplicadas en la respuesta');
+      }
+
+      const asigsValidas = await asignaturas.find({
+        where: { id: In(ids), activo: true },
+      });
+      if (asigsValidas.length !== ids.length) {
+        throw new BadRequestException('Algunas asignaturas seleccionadas no están activas en el periodo');
+      }
+
+      const inscripcionesActuales = await inscripciones.find({
+        where: { usuarioId: userId, periodoId: periodo.id },
+      });
+      const idsInscritos = new Set(inscripcionesActuales.map((i) => i.asignaturaId));
+      const inscripcionesFaltantes = ids.filter((id) => !idsInscritos.has(id));
+      if (inscripcionesFaltantes.length > 0) {
+        await inscripciones.save(
+          inscripcionesFaltantes.map((asigId) =>
+            inscripciones.create({
+              usuarioId: userId,
+              periodoId: periodo.id,
+              asignaturaId: asigId,
+            }),
+          ),
+        );
+      }
+
+      const r = await resp.save(
+        resp.create({
           usuarioId: userId,
           periodoId: periodo.id,
-          asignaturaId: asigId,
+          semestreAlResponder: user.semestre || 1,
         }),
       );
-      await this.inscripcionesRepo.save(nuevasInscripciones);
-    }
 
-    const r = await this.resp.save(
-      this.resp.create({
-        usuarioId: userId,
-        periodoId: periodo.id,
-        semestreAlResponder: user.semestre || 1,
-      }),
-    );
+      await respItems.save(
+        dto.items.map((i) =>
+          respItems.create({
+            respuestaAsignaturaId: r.id,
+            asignaturaId: i.asignaturaId,
+            tieneDificultad: !!i.tieneDificultad,
+            nivelSatisfaccion: i.nivelSatisfaccion,
+          }),
+        ),
+      );
 
-    await this.respItems.save(
-      dto.items.map((i) =>
-        this.respItems.create({
-          respuestaAsignaturaId: r.id,
-          asignaturaId: i.asignaturaId,
-          tieneDificultad: !!i.tieneDificultad,
-          nivelSatisfaccion: i.nivelSatisfaccion,
-        }),
-      ),
-    );
+      return periodo.id;
+    });
 
-    return this.miRespuesta(userId, periodo.id);
+    return this.miRespuesta(userId, periodoId);
   }
 }

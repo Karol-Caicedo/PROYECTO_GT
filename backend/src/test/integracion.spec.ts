@@ -7,7 +7,7 @@
 import { DataSource, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ensureTestDatabase, createTestDataSource, truncateAll } from './test-db';
+import { ensureTestDatabase, createTestDataSource, assertTestDatabase, truncateAll } from './test-db';
 import { User } from '../modules/users/user.entity';
 import { Periodo } from '../modules/periodos/periodo.entity';
 import { Tema } from '../modules/temas/tema.entity';
@@ -26,6 +26,10 @@ import { CapacitacionesService } from '../modules/capacitaciones/capacitaciones.
 import { DashboardService } from '../modules/dashboard/dashboard.service';
 import { RecordatoriosService } from '../modules/recordatorios/recordatorios.service';
 import { PeriodosService } from '../modules/periodos/periodos.service';
+import { EncuestasAsignaturasService } from '../modules/encuestas-asignaturas/encuestas-asignaturas.service';
+import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
+import { InscripcionAsignatura } from '../modules/encuestas-asignaturas/inscripcion-asignatura.entity';
+import { Asignatura } from '../modules/asignaturas/asignatura.entity';
 import { TemasService } from '../modules/temas/temas.service';
 import { MailService } from '../modules/mail/mail.service';
 
@@ -44,6 +48,10 @@ let R: {
   rec: Repository<RecordatorioEnviado>;
   resets: Repository<PasswordReset>;
   sso: Repository<SsoCode>;
+  respAsig: Repository<RespuestaAsignatura>;
+  respItems: Repository<RespuestaAsignaturaItem>;
+  inscripciones: Repository<InscripcionAsignatura>;
+  asig: Repository<Asignatura>;
 };
 let auth: AuthService;
 let enc: EncuestasService;
@@ -52,6 +60,7 @@ let dash: DashboardService;
 let recs: RecordatoriosService;
 let periodos: PeriodosService;
 let temasSvc: TemasService;
+let asigSvc: EncuestasAsignaturasService;
 
 const hace = (dias: number) => new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
 
@@ -60,6 +69,8 @@ beforeAll(async () => {
   await ensureTestDatabase();
   ds = createTestDataSource();
   await ds.initialize();
+  await assertTestDatabase(ds);
+  await ds.synchronize();
   R = {
     user: ds.getRepository(User),
     periodo: ds.getRepository(Periodo),
@@ -72,18 +83,32 @@ beforeAll(async () => {
     rec: ds.getRepository(RecordatorioEnviado),
     resets: ds.getRepository(PasswordReset),
     sso: ds.getRepository(SsoCode),
+    respAsig: ds.getRepository(RespuestaAsignatura),
+    respItems: ds.getRepository(RespuestaAsignaturaItem),
+    inscripciones: ds.getRepository(InscripcionAsignatura),
+    asig: ds.getRepository(Asignatura),
   };
   const config = new ConfigService({ ALLOWED_EMAIL_DOMAIN: '@unipacifico.edu.co', AUTH_SSO_ENABLED: 'false' });
   const jwt = new JwtService({ secret: 'test-secret' });
   const usersSvc = new UsersService(R.user);
   const resetsRepo = ds.getRepository(PasswordReset);
   auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, R.sso as never, new ResendService(new ConfigService({})));
-  enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never);
+  enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, ds);
   caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
   periodos = new PeriodosService(R.periodo as never);
   temasSvc = new TemasService(R.tema as never);
+  asigSvc = new EncuestasAsignaturasService(
+    R.respAsig as never,
+    R.respItems as never,
+    R.inscripciones as never,
+    R.asig as never,
+    R.periodo as never,
+    R.user as never,
+    periodos,
+    ds,
+  );
 });
 
 afterAll(async () => {
@@ -97,6 +122,35 @@ beforeEach(async () => {
 
 async function crearTemas(nombres: string[]) {
   return Promise.all(nombres.map((nombre) => temasSvc.crear({ nombre })));
+}
+
+/** DataSource real con fallo inyectado al guardar una entidad concreta. */
+function dataSourceConFallo(ds: DataSource, entidad: unknown): DataSource {
+  const transaction = ((cb: (manager: unknown) => unknown) =>
+    ds.transaction(async (manager) => {
+      const original = manager.getRepository.bind(manager);
+      const managerConFallo = new Proxy(manager, {
+        get(target, prop) {
+          if (prop === 'getRepository') {
+            return (e: unknown) => {
+              const repo = original(e as never);
+              if (e !== entidad) return repo;
+              return new Proxy(repo, {
+                get(r, p) {
+                  if (p === 'save') return async () => { throw new Error('fallo inyectado'); };
+                  const valor = Reflect.get(r, p, r);
+                  return typeof valor === 'function' ? valor.bind(r) : valor;
+                },
+              });
+            };
+          }
+          const valor = Reflect.get(target, prop, target);
+          return typeof valor === 'function' ? valor.bind(target) : valor;
+        },
+      });
+      return cb(managerConFallo);
+    })) as DataSource['transaction'];
+  return { transaction } as unknown as DataSource;
 }
 
 async function registrar(correo: string, semestre = 4) {
@@ -208,6 +262,98 @@ describe('Encuesta E2E (modo calificación)', () => {
     expect(top.modo).toBe('calificacion');
     expect(top.items.find((i) => i.nombre === 'A')).toMatchObject({ valor: 1 });
     expect(top.items.find((i) => i.nombre === 'B')).toMatchObject({ valor: 5 });
+  });
+});
+
+describe('Atomicidad E2E (rollback real)', () => {
+  test('si falla respuesta_temas no queda una respuesta huérfana', async () => {
+    await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true, modoEncuesta: 'seleccion' });
+    const [tema] = await crearTemas(['Tema atómico']);
+    const { user } = await registrar('rollback-enc@unipacifico.edu.co', 4);
+    const encFallido = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, dataSourceConFallo(ds, RespuestaTema));
+
+    await expect(encFallido.responder(user.id, { items: [{ temaId: tema.id }] })).rejects.toThrow('fallo inyectado');
+
+    await expect(R.resp.count()).resolves.toBe(0);
+    await expect(R.rt.count()).resolves.toBe(0);
+  });
+});
+
+describe('Encuesta de asignaturas E2E (transacciones)', () => {
+  async function contexto(correo: string) {
+    const periodo = await periodos.create({
+      nombre: '2026-1',
+      fechaInicio: hace(10),
+      fechaFin: hace(-100),
+      activo: true,
+      encuestaAsignaturasActiva: true,
+      fechaInicioAsignaturas: hace(1),
+      fechaFinAsignaturas: hace(-10),
+    });
+    const [a1, a2] = await Promise.all([
+      R.asig.save(R.asig.create({ nombre: 'Asignatura A', semestre: 4, activo: true })),
+      R.asig.save(R.asig.create({ nombre: 'Asignatura B', semestre: 4, activo: true })),
+    ]);
+    const { user } = await registrar(correo, 4);
+    return { periodo, a1, a2, user };
+  }
+
+  test('guardarInscripciones reemplaza el conjunto completo', async () => {
+    const { periodo, a1, a2, user } = await contexto('asig-ok@unipacifico.edu.co');
+    await R.inscripciones.save(R.inscripciones.create({ usuarioId: user.id, periodoId: periodo.id, asignaturaId: a1.id }));
+
+    const estado = await asigSvc.guardarInscripciones(user.id, { asignaturaIds: [a2.id] });
+
+    expect(estado.inscripcionIds).toEqual([a2.id]);
+    const filas = await R.inscripciones.find();
+    expect(filas).toHaveLength(1);
+    expect(filas[0].asignaturaId).toBe(a2.id);
+  });
+
+  test('si falla el guardado de inscripciones se restauran las anteriores', async () => {
+    const { periodo, a1, a2, user } = await contexto('asig-rollback@unipacifico.edu.co');
+    await R.inscripciones.save(R.inscripciones.create({ usuarioId: user.id, periodoId: periodo.id, asignaturaId: a1.id }));
+    const svcFallido = new EncuestasAsignaturasService(
+      R.respAsig as never, R.respItems as never, R.inscripciones as never, R.asig as never,
+      R.periodo as never, R.user as never, periodos, dataSourceConFallo(ds, InscripcionAsignatura),
+    );
+
+    await expect(svcFallido.guardarInscripciones(user.id, { asignaturaIds: [a2.id] })).rejects.toThrow('fallo inyectado');
+
+    const filas = await R.inscripciones.find();
+    expect(filas).toHaveLength(1);
+    expect(filas[0].asignaturaId).toBe(a1.id);
+  });
+
+  test('responder guarda inscripciones faltantes, respuesta e ítems', async () => {
+    const { a1, user } = await contexto('asig-resp@unipacifico.edu.co');
+
+    const r = await asigSvc.responder(user.id, {
+      items: [{ asignaturaId: a1.id, tieneDificultad: true, nivelSatisfaccion: 3 }],
+    });
+
+    expect(r).toMatchObject({ semestreAlResponder: 4 });
+    expect(r?.items).toHaveLength(1);
+    expect(r?.items[0]).toMatchObject({ asignaturaId: a1.id, nivelSatisfaccion: 3 });
+    expect(await R.inscripciones.count()).toBe(1);
+    expect(await R.respAsig.count()).toBe(1);
+    expect(await R.respItems.count()).toBe(1);
+  });
+
+  test('si fallan los ítems se revierten inscripción, respuesta e ítems', async () => {
+    const { a1, user } = await contexto('asig-resp-rollback@unipacifico.edu.co');
+    const svcFallido = new EncuestasAsignaturasService(
+      R.respAsig as never, R.respItems as never, R.inscripciones as never, R.asig as never,
+      R.periodo as never, R.user as never, periodos, dataSourceConFallo(ds, RespuestaAsignaturaItem),
+    );
+
+    await expect(svcFallido.responder(user.id, {
+      items: [{ asignaturaId: a1.id, tieneDificultad: false, nivelSatisfaccion: 5 }],
+    })).rejects.toThrow('fallo inyectado');
+
+    expect(await R.inscripciones.count()).toBe(0);
+    expect(await R.respAsig.count()).toBe(0);
+    expect(await R.respItems.count()).toBe(0);
   });
 });
 
