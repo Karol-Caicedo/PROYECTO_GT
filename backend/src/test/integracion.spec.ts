@@ -80,7 +80,7 @@ beforeAll(async () => {
   const usersSvc = new UsersService(R.user);
   const resetsRepo = ds.getRepository(PasswordReset);
   auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, R.sso as never, new ResendService(new ConfigService({})));
-  enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never);
+  enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, ds);
   caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
@@ -99,6 +99,35 @@ beforeEach(async () => {
 
 async function crearTemas(nombres: string[]) {
   return Promise.all(nombres.map((nombre) => temasSvc.crear({ nombre })));
+}
+
+/** DataSource real con fallo inyectado al guardar una entidad concreta. */
+function dataSourceConFallo(ds: DataSource, entidad: unknown): DataSource {
+  const transaction = ((cb: (manager: unknown) => unknown) =>
+    ds.transaction(async (manager) => {
+      const original = manager.getRepository.bind(manager);
+      const managerConFallo = new Proxy(manager, {
+        get(target, prop) {
+          if (prop === 'getRepository') {
+            return (e: unknown) => {
+              const repo = original(e as never);
+              if (e !== entidad) return repo;
+              return new Proxy(repo, {
+                get(r, p) {
+                  if (p === 'save') return async () => { throw new Error('fallo inyectado'); };
+                  const valor = Reflect.get(r, p, r);
+                  return typeof valor === 'function' ? valor.bind(r) : valor;
+                },
+              });
+            };
+          }
+          const valor = Reflect.get(target, prop, target);
+          return typeof valor === 'function' ? valor.bind(target) : valor;
+        },
+      });
+      return cb(managerConFallo);
+    })) as DataSource['transaction'];
+  return { transaction } as unknown as DataSource;
 }
 
 async function registrar(correo: string, semestre = 4) {
@@ -210,6 +239,20 @@ describe('Encuesta E2E (modo calificación)', () => {
     expect(top.modo).toBe('calificacion');
     expect(top.items.find((i) => i.nombre === 'A')).toMatchObject({ valor: 1 });
     expect(top.items.find((i) => i.nombre === 'B')).toMatchObject({ valor: 5 });
+  });
+});
+
+describe('Atomicidad E2E (rollback real)', () => {
+  test('si falla respuesta_temas no queda una respuesta huérfana', async () => {
+    await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true, modoEncuesta: 'seleccion' });
+    const [tema] = await crearTemas(['Tema atómico']);
+    const { user } = await registrar('rollback-enc@unipacifico.edu.co', 4);
+    const encFallido = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, dataSourceConFallo(ds, RespuestaTema));
+
+    await expect(encFallido.responder(user.id, { items: [{ temaId: tema.id }] })).rejects.toThrow('fallo inyectado');
+
+    await expect(R.resp.count()).resolves.toBe(0);
+    await expect(R.rt.count()).resolves.toBe(0);
   });
 });
 

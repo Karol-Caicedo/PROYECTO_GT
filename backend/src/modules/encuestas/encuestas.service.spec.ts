@@ -1,6 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EncuestasService } from './encuestas.service';
 import { mockRepository } from '../../test/test-utils';
+import { Respuesta, RespuestaTema } from './respuesta.entity';
+import { Tema } from '../temas/tema.entity';
+import { Periodo } from '../periodos/periodo.entity';
+import { User } from '../users/user.entity';
 
 function buildService() {
   const resp = mockRepository();
@@ -8,8 +12,24 @@ function buildService() {
   const temas = mockRepository();
   const periodos = mockRepository();
   const users = mockRepository();
-  const svc = new EncuestasService(resp as never, rt as never, temas as never, periodos as never, users as never);
-  return { svc, resp, rt, temas, periodos, users };
+  const repos = new Map<unknown, unknown>([
+    [Respuesta, resp],
+    [RespuestaTema, rt],
+    [Tema, temas],
+    [Periodo, periodos],
+    [User, users],
+  ]);
+  const manager = { getRepository: jest.fn((entidad: unknown) => repos.get(entidad)) };
+  const dataSource = { transaction: jest.fn((cb: (m: unknown) => unknown) => cb(manager)) };
+  const svc = new EncuestasService(
+    resp as never,
+    rt as never,
+    temas as never,
+    periodos as never,
+    users as never,
+    dataSource as never,
+  );
+  return { svc, resp, rt, temas, periodos, users, dataSource, manager };
 }
 
 const PERIODO_SEL = { id: 'p-1', nombre: '2026-1', modoEncuesta: 'seleccion', activo: true };
