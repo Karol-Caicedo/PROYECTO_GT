@@ -7,7 +7,7 @@ import { CapacitacionesService } from './capacitaciones.service';
 import { ActualizarCapacitacionDto, CapacitacionDto, FiltroCapDto } from './capacitacion.dto';
 import { MailService } from '../mail/mail.service';
 import { escaparHtml } from '../mail/resend.service';
-import { guardarImagen } from './imagen.util';
+import { eliminarImagen, guardarImagen } from './imagen.util';
 
 function fileFilter(_req: unknown, file: Express.Multer.File, cb: (e: Error | null, ok: boolean) => void) {
   const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.mimetype.toLowerCase());
@@ -58,7 +58,12 @@ export class CapacitacionesController {
     @Req() req: { user: { id: string } },
   ) {
     const url = file ? await guardarImagen(file) : null;
-    return this.svc.crear(dto, url, req.user.id);
+    try {
+      return await this.svc.crear(dto, url, req.user.id);
+    } catch (e) {
+      await eliminarImagen(url).catch(() => undefined);
+      throw e;
+    }
   }
 
   @Patch(':id')
@@ -71,7 +76,12 @@ export class CapacitacionesController {
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     const url = file ? await guardarImagen(file) : undefined;
-    return this.svc.actualizar(id, dto, url);
+    try {
+      return await this.svc.actualizar(id, dto, url);
+    } catch (e) {
+      await eliminarImagen(url).catch(() => undefined);
+      throw e;
+    }
   }
 
   @Delete(':id')

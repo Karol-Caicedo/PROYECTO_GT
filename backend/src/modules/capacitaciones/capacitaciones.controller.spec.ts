@@ -4,10 +4,14 @@ import { AllExceptionsFilter } from '../../common/all-exceptions.filter';
 import { CapacitacionesController } from './capacitaciones.controller';
 import { CapacitacionesService } from './capacitaciones.service';
 import { MailService } from '../mail/mail.service';
+import { mkdtemp, readdir, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 const servicio = {
   detallePara: jest.fn().mockResolvedValue({ id: 'mock' }),
   registrarClic: jest.fn().mockResolvedValue({ enlace: 'https://x.co' }),
+  crear: jest.fn().mockResolvedValue({ id: 'mock' }),
   actualizar: jest.fn().mockResolvedValue({ id: 'mock' }),
   eliminar: jest.fn().mockResolvedValue({ ok: true }),
   detalle: jest.fn().mockResolvedValue({ id: 'mock', titulo: 'T', descripcion: 'D', modalidad: 'virtual', enlace: 'https://x.co' }),
@@ -76,5 +80,38 @@ describe('H-04 capacitaciones: IDs inválidos', () => {
     });
     expect(res.status).toBe(400);
     expect(servicio.actualizar).not.toHaveBeenCalled();
+  });
+});
+
+describe('H-01 limpieza de imagen si falla la transacción', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const archivo = { buffer: PNG, mimetype: 'image/png', originalname: 'foto.png' } as Express.Multer.File;
+  let dir = '';
+  let anterior = '';
+  let ctrl: CapacitacionesController;
+
+  beforeEach(async () => {
+    anterior = process.env.UPLOADS_DIR ?? '';
+    dir = await mkdtemp(join(tmpdir(), 'sigice-cap-'));
+    process.env.UPLOADS_DIR = dir;
+    ctrl = new CapacitacionesController(servicio as unknown as CapacitacionesService, { enviar: jest.fn() } as unknown as MailService);
+  });
+
+  afterEach(async () => {
+    if (anterior) process.env.UPLOADS_DIR = anterior;
+    else delete process.env.UPLOADS_DIR;
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test('crear: borra el archivo recién guardado si el servicio falla', async () => {
+    servicio.crear.mockRejectedValueOnce(new Error('fallo BD'));
+    await expect(ctrl.crear({ titulo: 'T' } as never, archivo, { user: { id: 'admin-1' } })).rejects.toThrow('fallo BD');
+    await expect(readdir(dir)).resolves.toEqual([]);
+  });
+
+  test('actualizar: borra el archivo recién guardado si el servicio falla', async () => {
+    servicio.actualizar.mockRejectedValueOnce(new Error('fallo BD'));
+    await expect(ctrl.actualizar('123e4567-e89b-42d3-a456-426614174000', { titulo: 'T' } as never, archivo)).rejects.toThrow('fallo BD');
+    await expect(readdir(dir)).resolves.toEqual([]);
   });
 });

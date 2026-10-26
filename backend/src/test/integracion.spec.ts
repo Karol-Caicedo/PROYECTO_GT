@@ -94,7 +94,7 @@ beforeAll(async () => {
   const resetsRepo = ds.getRepository(PasswordReset);
   auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, R.sso as never, new ResendService(new ConfigService({})));
   enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, ds);
-  caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never);
+  caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never, ds);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
   periodos = new PeriodosService(R.periodo as never);
@@ -354,6 +354,43 @@ describe('Encuesta de asignaturas E2E (transacciones)', () => {
     expect(await R.inscripciones.count()).toBe(0);
     expect(await R.respAsig.count()).toBe(0);
     expect(await R.respItems.count()).toBe(0);
+  });
+});
+
+describe('Capacitaciones E2E (transacciones)', () => {
+  test('si fallan los semestres no queda una capacitación huérfana', async () => {
+    const creador = await registrar('cap-rollback@unipacifico.edu.co', 1);
+    const svcFallido = new CapacitacionesService(
+      R.cap as never, R.sem as never, R.clic as never, dataSourceConFallo(ds, CapacitacionSemestre),
+    );
+
+    await expect(svcFallido.crear(
+      { titulo: 'Fallida', descripcion: 'D', enlace: 'https://x.co', estado: 'publicado', semestres: [4] },
+      null,
+      creador.user.id,
+    )).rejects.toThrow('fallo inyectado');
+
+    expect(await R.cap.count()).toBe(0);
+    expect(await R.sem.count()).toBe(0);
+  });
+
+  test('si fallan los semestres se revierten la edición y el borrado previo', async () => {
+    const creador = await registrar('cap-edit-rollback@unipacifico.edu.co', 1);
+    const original = await caps.crear(
+      { titulo: 'Original', descripcion: 'D', enlace: 'https://x.co', estado: 'publicado', semestres: [4] },
+      null,
+      creador.user.id,
+    );
+    const svcFallido = new CapacitacionesService(
+      R.cap as never, R.sem as never, R.clic as never, dataSourceConFallo(ds, CapacitacionSemestre),
+    );
+
+    await expect(svcFallido.actualizar(original.id, { titulo: 'Nuevo', semestres: [5] } as never)).rejects.toThrow('fallo inyectado');
+
+    const cap = await R.cap.findOneByOrFail({ id: original.id });
+    const sems = await R.sem.find({ where: { capacitacionId: original.id } });
+    expect(cap.titulo).toBe('Original');
+    expect(sems.map((s) => s.semestre)).toEqual([4]);
   });
 });
 
