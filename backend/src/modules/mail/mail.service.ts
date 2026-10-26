@@ -27,7 +27,7 @@ export class MailService {
   async enviar(para: string[], asunto: string, html: string) {
     if (!this.transporter) {
       // eslint-disable-next-line no-console
-      console.log(`[MAIL simulación] Para: ${para.length} destinatarios | Asunto: ${asunto}\n${html.slice(0, 400)}`);
+      console.log(`[MAIL simulación] ${para.length} destinatarios | Asunto: ${asunto}`);
       return { simulado: true, destinatarios: para.length };
     }
     const from = this.config.get('MAIL_FROM', 'no-reply@unipacifico.edu.co');

@@ -343,6 +343,9 @@ describe('AuthService recuperación ante fallo de envío', () => {
     });
     expect(resets.save).toHaveBeenCalledTimes(1);
     expect(loggerError).toHaveBeenCalled();
+    const log = JSON.stringify(loggerError.mock.calls);
+    expect(log).not.toContain('est@universidad.edu.co');
+    expect(log).not.toContain('token=');
     loggerError.mockRestore();
   });
 });

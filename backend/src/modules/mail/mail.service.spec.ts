@@ -2,11 +2,17 @@ import { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
 
 describe('MailService (modo simulación vs SMTP)', () => {
-  test('sin SMTP_HOST → simulación: no envía y reporta conteo', async () => {
+  test('sin SMTP_HOST → simulación: no envía y reporta conteo sin loguear PII', async () => {
     const svc = new MailService(new ConfigService({}));
+    const logger = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     expect(svc.simulacion).toBe(true);
-    const r = await svc.enviar(['a@u.edu.co', 'b@u.edu.co'], 'Hola', '<p>x</p>');
+    const r = await svc.enviar(['a@u.edu.co', 'b@u.edu.co'], 'Hola', '<p>Ana Pérez</p>');
     expect(r).toEqual({ simulado: true, destinatarios: 2 });
+    const log = JSON.stringify(logger.mock.calls);
+    expect(log).not.toContain('a@u.edu.co');
+    expect(log).not.toContain('Ana Pérez');
+    expect(log).not.toContain('<p>');
+    logger.mockRestore();
   });
 
   test('con SMTP_HOST → crea transporte y envía en lotes (sin red real)', async () => {

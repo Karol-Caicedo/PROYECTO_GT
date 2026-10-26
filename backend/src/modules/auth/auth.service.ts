@@ -174,7 +174,8 @@ export class AuthService {
         // (si fallara solo aquí, un atacante distinguiría cuentas registradas).
         // El detalle queda en el log para el administrador (ver ResendService).
         const logger = new Logger(AuthService.name);
-        logger.error(`No se pudo enviar recuperación a ${user.correo}: ${(error as Error).message}`);
+        // Sin correo, nombre, URL ni token: los logs no deben permitir tomar la cuenta.
+        logger.error('No se pudo enviar el correo de recuperación; revisa el proveedor de correo.');
       }
     }
     return { mensaje: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };

@@ -38,7 +38,9 @@ describe('ResendService', () => {
     expect(svc.simulacion).toBe(true);
     await expect(svc.enviarRecuperacion('a@gmail.com', 'Ana', URL)).resolves.toEqual({ simulado: true });
     expect(loggerLog).toHaveBeenCalled();
-    expect(JSON.stringify(loggerLog.mock.calls)).not.toContain('abc123');
+    const log = JSON.stringify(loggerLog.mock.calls);
+    expect(log).not.toContain('abc123');
+    expect(log).not.toContain('a@gmail.com');
   });
 
   test('con API key → POST a Resend con html+text y retorna el id', async () => {
@@ -63,5 +65,6 @@ describe('ResendService', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403, text: async () => 'dominio no verificado' }) as never;
     await expect(svc.enviarRecuperacion('a@gmail.com', 'Ana', URL)).rejects.toThrow(/Resend 403/);
     expect(loggerError).toHaveBeenCalled();
+    expect(JSON.stringify(loggerError.mock.calls)).not.toContain('dominio no verificado');
   });
 });
