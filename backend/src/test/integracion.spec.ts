@@ -5,6 +5,7 @@
  * capacitaciones por semestre/vigencia y el cron de recordatorios E2E.
  */
 import { DataSource, Repository } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ensureTestDatabase, createTestDataSource, assertTestDatabase, truncateAll } from './test-db';
@@ -97,7 +98,7 @@ beforeAll(async () => {
   caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never, ds);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
-  periodos = new PeriodosService(R.periodo as never);
+  periodos = new PeriodosService(R.periodo as never, ds);
   temasSvc = new TemasService(R.tema as never);
   asigSvc = new EncuestasAsignaturasService(
     R.respAsig as never,
@@ -391,6 +392,67 @@ describe('Capacitaciones E2E (transacciones)', () => {
     const sems = await R.sem.find({ where: { capacitacionId: original.id } });
     expect(cap.titulo).toBe('Original');
     expect(sems.map((s) => s.semestre)).toEqual([4]);
+  });
+});
+
+describe('Periodo activo único E2E', () => {
+  test('crear un periodo activo desactiva el anterior', async () => {
+    const p1 = await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true });
+    const p2 = await periodos.create({ nombre: '2026-2', fechaInicio: hace(5), fechaFin: hace(-80), activo: true });
+
+    expect((await R.periodo.findOneByOrFail({ id: p1.id })).activo).toBe(false);
+    expect((await R.periodo.findOneByOrFail({ id: p2.id })).activo).toBe(true);
+    expect(await R.periodo.count({ where: { activo: true } })).toBe(1);
+  });
+
+  test('editar un periodo para activarlo desactiva el anterior', async () => {
+    const p1 = await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true });
+    const p2 = await periodos.create({ nombre: '2026-2', fechaInicio: hace(5), fechaFin: hace(-80), activo: false });
+
+    const editado = await periodos.update(p2.id, {
+      nombre: '2026-2', fechaInicio: hace(5), fechaFin: hace(-80), activo: true,
+    });
+
+    expect(editado.activo).toBe(true);
+    expect((await R.periodo.findOneByOrFail({ id: p1.id })).activo).toBe(false);
+    expect(await R.periodo.count({ where: { activo: true } })).toBe(1);
+  });
+
+  test('la BD rechaza un segundo activo aunque se salte el servicio', async () => {
+    await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true });
+
+    await expect(R.periodo.save(R.periodo.create({
+      nombre: '2026-2', fechaInicio: hace(5), fechaFin: hace(-80), activo: true,
+    }))).rejects.toThrow();
+
+    expect(await R.periodo.count({ where: { activo: true } })).toBe(1);
+  });
+
+  test('un activador concurrente recibe 409 y no deja cero activos', async () => {
+    const p1 = await periodos.create({ nombre: '2026-1', fechaInicio: hace(10), fechaFin: hace(-100), activo: true });
+    const p2 = await periodos.create({ nombre: '2026-2', fechaInicio: hace(5), fechaFin: hace(-80), activo: false });
+
+    let liberar!: () => void;
+    let tomado!: () => void;
+    const soltar = new Promise<void>((r) => { liberar = r; });
+    const bloqueado = new Promise<void>((r) => { tomado = r; });
+    const holder = ds.transaction(async (manager) => {
+      await manager.query('SELECT id FROM periodos FOR UPDATE');
+      tomado();
+      await soltar;
+    });
+    await bloqueado;
+
+    try {
+      await expect(periodos.activar(p2.id)).rejects.toThrow(ConflictException);
+    } finally {
+      liberar();
+      await holder;
+    }
+
+    expect((await R.periodo.findOneByOrFail({ id: p1.id })).activo).toBe(true);
+    expect((await R.periodo.findOneByOrFail({ id: p2.id })).activo).toBe(false);
+    expect(await R.periodo.count({ where: { activo: true } })).toBe(1);
   });
 });
 

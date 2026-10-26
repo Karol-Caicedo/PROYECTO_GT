@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
 export type ModoEncuesta = 'seleccion' | 'calificacion';
 
 @Entity('periodos')
+@Index('uq_periodo_activo', ['activo'], { unique: true, where: '"activo" = true' })
 export class Periodo {
   @PrimaryGeneratedColumn('uuid')
   id: string;
