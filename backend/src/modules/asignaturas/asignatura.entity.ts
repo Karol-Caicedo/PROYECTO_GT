@@ -10,7 +10,7 @@ export class Asignatura {
   @Column()
   nombre: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   codigo?: string;
 
   @Column({ type: 'int' })
@@ -19,6 +19,6 @@ export class Asignatura {
   @Column({ default: true })
   activo: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

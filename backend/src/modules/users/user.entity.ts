@@ -10,7 +10,7 @@ export class User {
   id: string;
 
   @Column({ unique: true })
-  @Index('idx_usuarios_correo', { unique: true })
+  @Index('idx_usuarios_correo')
   correo: string;
 
   @Column()
@@ -41,6 +41,6 @@ export class User {
   @Column({ name: 'proveedor_id', nullable: true, type: 'varchar' })
   proveedorId: string | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

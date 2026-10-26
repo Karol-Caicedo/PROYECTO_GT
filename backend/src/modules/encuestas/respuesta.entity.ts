@@ -23,18 +23,18 @@ export class Respuesta {
   @Column({ name: 'semestre_al_responder', type: 'int' })
   semestreAlResponder: number;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'usuario_id' })
+  @JoinColumn({ name: 'usuario_id', foreignKeyConstraintName: 'respuestas_usuario_id_fkey' })
   usuario: User;
 
   @ManyToOne(() => Periodo, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'periodo_id' })
+  @JoinColumn({ name: 'periodo_id', foreignKeyConstraintName: 'respuestas_periodo_id_fkey' })
   periodo: Periodo;
 
   @OneToMany(() => RespuestaTema, (rt) => rt.respuesta, { cascade: true })
@@ -57,10 +57,10 @@ export class RespuestaTema {
   puntaje: number | null;
 
   @ManyToOne(() => Respuesta, (r) => r.temas, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'respuesta_id' })
+  @JoinColumn({ name: 'respuesta_id', foreignKeyConstraintName: 'respuesta_temas_respuesta_id_fkey' })
   respuesta: Respuesta;
 
   @ManyToOne(() => Tema, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'tema_id' })
+  @JoinColumn({ name: 'tema_id', foreignKeyConstraintName: 'respuesta_temas_tema_id_fkey' })
   tema: Tema;
 }

@@ -15,14 +15,14 @@ export class ClicCapacitacion {
   @Column({ name: 'usuario_id' })
   usuarioId: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @ManyToOne(() => Capacitacion, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'capacitacion_id' })
+  @JoinColumn({ name: 'capacitacion_id', foreignKeyConstraintName: 'clics_capacitacion_capacitacion_id_fkey' })
   capacitacion: Capacitacion;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'usuario_id' })
+  @JoinColumn({ name: 'usuario_id', foreignKeyConstraintName: 'clics_capacitacion_usuario_id_fkey' })
   usuario: User;
 }

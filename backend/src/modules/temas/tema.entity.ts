@@ -6,7 +6,7 @@ export class Tema {
   id: string;
 
   @Column({ unique: true })
-  @Index('idx_temas_nombre', { unique: true })
+  @Index('idx_temas_nombre')
   nombre: string;
 
   @Column({ type: 'text', nullable: true })
@@ -16,6 +16,6 @@ export class Tema {
   @Index('idx_temas_activo')
   activo: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

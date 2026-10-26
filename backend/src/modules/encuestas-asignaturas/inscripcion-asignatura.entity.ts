@@ -24,18 +24,18 @@ export class InscripcionAsignatura {
   @Column({ name: 'asignatura_id' })
   asignaturaId: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'usuario_id' })
+  @JoinColumn({ name: 'usuario_id', foreignKeyConstraintName: 'inscripciones_asignaturas_usuario_id_fkey' })
   usuario: User;
 
   @ManyToOne(() => Periodo, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'periodo_id' })
+  @JoinColumn({ name: 'periodo_id', foreignKeyConstraintName: 'inscripciones_asignaturas_periodo_id_fkey' })
   periodo: Periodo;
 
   @ManyToOne(() => Asignatura, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'asignatura_id' })
+  @JoinColumn({ name: 'asignatura_id', foreignKeyConstraintName: 'inscripciones_asignaturas_asignatura_id_fkey' })
   asignatura: Asignatura;
 }

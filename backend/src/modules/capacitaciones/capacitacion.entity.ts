@@ -31,7 +31,7 @@ export class Capacitacion {
   temaId: string | null;
 
   @ManyToOne(() => Tema, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'tema_id' })
+  @JoinColumn({ name: 'tema_id', foreignKeyConstraintName: 'capacitaciones_tema_id_fkey' })
   tema: Tema | null;
 
   @Column({ name: 'fecha_evento', type: 'timestamptz', nullable: true })
@@ -52,7 +52,7 @@ export class Capacitacion {
   @Column({ name: 'created_by', nullable: true, type: 'uuid' })
   createdBy: string | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @OneToMany(() => CapacitacionSemestre, (s) => s.capacitacion, { cascade: true })
@@ -72,6 +72,6 @@ export class CapacitacionSemestre {
   semestre: number;
 
   @ManyToOne(() => Capacitacion, (c) => c.semestres, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'capacitacion_id' })
+  @JoinColumn({ name: 'capacitacion_id', foreignKeyConstraintName: 'capacitacion_semestres_capacitacion_id_fkey' })
   capacitacion: Capacitacion;
 }

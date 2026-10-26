@@ -21,10 +21,10 @@ export class PasswordReset {
   @Column({ name: 'usado_at', type: 'timestamptz', nullable: true })
   usadoAt: Date | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'usuario_id' })
+  @JoinColumn({ name: 'usuario_id', foreignKeyConstraintName: 'recuperacion_claves_usuario_id_fkey' })
   usuario: User;
 }
