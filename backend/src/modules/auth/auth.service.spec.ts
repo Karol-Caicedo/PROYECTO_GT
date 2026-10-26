@@ -1,6 +1,7 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import * as argon2 from 'argon2';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { mockUsersService, mockRepository } from '../../test/test-utils';
@@ -92,7 +93,7 @@ describe('AuthService', () => {
       expect(creado.proveedorAuth).toBe('local');
       expect(creado.aceptoDatosAt).toBeInstanceOf(Date);
       expect(creado.passwordHash).not.toBe('Clave1234');
-      expect(await bcrypt.compare('Clave1234', creado.passwordHash)).toBe(true);
+      expect(await argon2.verify(creado.passwordHash, 'Clave1234')).toBe(true);
       expect(creado).not.toHaveProperty('passwordPlano');
       expect(r.access_token).toBeTruthy();
       expect(jwt.verify(r.access_token)).toMatchObject({
@@ -290,7 +291,7 @@ describe('AuthService recuperación de contraseña', () => {
     users.findById.mockResolvedValue(user);
     await expect(svc.restablecerClave('tokencualquiera1234567890', 'NuevaClave1')).resolves.toHaveProperty('mensaje');
     expect(user.passwordHash).not.toBe('viejo');
-    expect(await bcrypt.compare('NuevaClave1', user.passwordHash)).toBe(true);
+    expect(await argon2.verify(user.passwordHash, 'NuevaClave1')).toBe(true);
     expect(user.tokenVersion).toBe(1);
     expect(user).not.toHaveProperty('passwordPlano');
     expect(users.save).toHaveBeenCalledWith(user);

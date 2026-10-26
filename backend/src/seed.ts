@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './common/password.util';
 import AppDataSource from './data-source';
 import { User } from './modules/users/user.entity';
 import { Tema } from './modules/temas/tema.entity';
@@ -102,7 +102,7 @@ async function main() {
       users.create({
         correo: adminEmail,
         nombre: process.env.ADMIN_NOMBRE || 'Proyección Social',
-        passwordHash: await bcrypt.hash(adminPass, 10),
+        passwordHash: await hashPassword(adminPass),
         proveedorAuth: 'local',
         semestre: 1,
         rol: 'ADMIN',
@@ -129,7 +129,7 @@ async function main() {
         users.create({
           correo: estEmail,
           nombre: process.env.ESTUDIANTE_NOMBRE || 'Estudiante Demo',
-          passwordHash: await bcrypt.hash(estPass, 10),
+          passwordHash: await hashPassword(estPass),
           proveedorAuth: 'local',
           semestre: estSemestre,
           rol: 'ESTUDIANTE',

@@ -3,9 +3,10 @@ import { inject } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
+import { leerToken, limpiarToken } from './token-storage';
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem('token');
+  const token = leerToken();
   if (token && req.url.includes('/api/')) {
     req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
   }
@@ -14,7 +15,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       const status = error?.status;
       if (status === 401 && token && !req.url.includes('/auth/login')) {
-        localStorage.removeItem('token');
+        limpiarToken();
         const router = inject(Router);
         if (!router.url.startsWith('/auth')) void router.navigate(['/auth/login']);
       }

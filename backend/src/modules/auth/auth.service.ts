@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, MoreThan, Repository } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '../../common/password.util';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, CompleteSsoDto } from './auth.dto';
 import { PasswordReset } from './password-reset.entity';
@@ -28,6 +28,10 @@ export class AuthService {
 
   ssoEnabled() {
     return (this.config.get('AUTH_SSO_ENABLED', 'false') + '').trim().toLowerCase() === 'true';
+  }
+
+  private rehashEnLoginHabilitado() {
+    return (this.config.get('PASSWORD_REHASH_ON_LOGIN', 'false') + '').trim().toLowerCase() === 'true';
   }
 
   private validarDominio(correo: string) {
@@ -56,7 +60,7 @@ export class AuthService {
     const correo = dto.correo.toLowerCase();
     const existe = await this.users.findByCorreo(correo);
     if (existe) throw new BadRequestException('Este correo ya está registrado');
-    const hash = await bcrypt.hash(dto.password, 10);
+    const hash = await hashPassword(dto.password);
     const user = await this.users.create({
       correo,
       nombre: dto.nombre,
@@ -78,8 +82,15 @@ export class AuthService {
   async login(correo: string, password: string) {
     const user = await this.users.findByCorreo(correo);
     if (!user || !user.passwordHash) throw new UnauthorizedException('Credenciales inválidas');
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException('Credenciales inválidas');
+    const { valida, requiereRehash } = await verifyPassword(user.passwordHash, password);
+    if (!valida) throw new UnauthorizedException('Credenciales inválidas');
+
+    // Migración gradual y reversible: solo se rehashea si se habilita por entorno.
+    if (requiereRehash && this.rehashEnLoginHabilitado()) {
+      user.passwordHash = await hashPassword(password);
+      await this.users.save(user);
+    }
+
     return this.firmar({
       id: user.id,
       correo: user.correo,
@@ -193,7 +204,7 @@ export class AuthService {
       throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
     }
 
-    user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = await hashPassword(password);
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);
