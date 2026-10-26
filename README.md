@@ -43,8 +43,8 @@ Usuarios de prueba (los crea el seed, configurables en `.env`):
 
 | Rol                       | Correo                          | Clave            | Detalle                                                    |
 | ------------------------- | ------------------------------- | ---------------- | ---------------------------------------------------------- |
-| Admin (Proyección Social) | `admin@unipacifico.edu.co`      | `Admin123*`      | Gestiona periodos, temas, capacitaciones y ve el dashboard |
-| Estudiante demo           | `estudiante@unipacifico.edu.co` | `Estudiante123*` | Semestre 5; responde la encuesta y ve sus capacitaciones   |
+| Admin (Proyección Social) | `admin@unipacifico.edu.co`      | `C0{ABX3Yk4qxs`      | Gestiona periodos, temas, capacitaciones y ve el dashboard |
+| Estudiante demo           | `estudiante@unipacifico.edu.co` | `55W922^+nlXS` | Semestre 5; responde la encuesta y ve sus capacitaciones   |
 
 > Cambia las claves en producción con `ADMIN_PASSWORD` y
 > `ESTUDIANTE_PASSWORD` en el `.env` antes del primer `npm run seed`.
