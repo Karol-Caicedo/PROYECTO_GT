@@ -16,6 +16,8 @@ import { Capacitacion, CapacitacionSemestre } from '../modules/capacitaciones/ca
 import { ClicCapacitacion } from '../modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entity';
 import { PasswordReset } from '../modules/auth/password-reset.entity';
+import { SsoCode } from '../modules/auth/sso-code.entity';
+import { hashSsoCode } from '../modules/auth/sso-code.util';
 import { ResendService } from '../modules/mail/resend.service';
 import { UsersService } from '../modules/users/users.service';
 import { AuthService } from '../modules/auth/auth.service';
@@ -41,6 +43,7 @@ let R: {
   clic: Repository<ClicCapacitacion>;
   rec: Repository<RecordatorioEnviado>;
   resets: Repository<PasswordReset>;
+  sso: Repository<SsoCode>;
 };
 let auth: AuthService;
 let enc: EncuestasService;
@@ -68,12 +71,13 @@ beforeAll(async () => {
     clic: ds.getRepository(ClicCapacitacion),
     rec: ds.getRepository(RecordatorioEnviado),
     resets: ds.getRepository(PasswordReset),
+    sso: ds.getRepository(SsoCode),
   };
   const config = new ConfigService({ ALLOWED_EMAIL_DOMAIN: '@unipacifico.edu.co', AUTH_SSO_ENABLED: 'false' });
   const jwt = new JwtService({ secret: 'test-secret' });
   const usersSvc = new UsersService(R.user);
   const resetsRepo = ds.getRepository(PasswordReset);
-  auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, new ResendService(new ConfigService({})));
+  auth = new AuthService(usersSvc as never, jwt, config, resetsRepo as never, R.sso as never, new ResendService(new ConfigService({})));
   enc = new EncuestasService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never);
   caps = new CapacitacionesService(R.cap as never, R.sem as never, R.clic as never);
   dash = new DashboardService(R.resp as never, R.rt as never, R.tema as never, R.periodo as never, R.user as never, caps);
@@ -128,6 +132,31 @@ describe('Auth E2E', () => {
     await expect(auth.login('sso@unipacifico.edu.co', 'cualquiera')).rejects.toThrow('Credenciales inválidas');
     const r2 = await auth.loginSso({ correo: 'sso@unipacifico.edu.co', nombre: 'SSO', proveedorId: 'g-1' }, 'google');
     expect(r2.necesitaCompletar).toBe(false);
+  });
+
+  test('SSO H-01: código hasheado, un solo uso, vencimiento y sesión emitida en exchange', async () => {
+    const perfil = { correo: 'sso-code@unipacifico.edu.co', nombre: 'SSO Code', proveedorId: 'g-9' };
+    const codigo = await auth.crearCodigoSso(perfil, 'google');
+    const fila = await R.sso.findOneByOrFail({ codigoHash: hashSsoCode(codigo) });
+    expect(fila.codigoHash).toHaveLength(64);
+    expect(fila.codigoHash).not.toBe(codigo);
+    expect(fila.datos).toMatchObject({ correo: perfil.correo, proveedor: 'google' });
+
+    const r = await auth.intercambiarCodigoSso(codigo);
+    expect(r.necesitaCompletar).toBe(true);
+    await expect(auth.intercambiarCodigoSso(codigo)).rejects.toThrow(/inválido/);
+    await auth.completarSso((r as { temp: string }).temp, { semestre: 2, aceptoDatos: true });
+
+    const codigoExistente = await auth.crearCodigoSso(perfil, 'google');
+    const sesion = await auth.intercambiarCodigoSso(codigoExistente);
+    expect(sesion.necesitaCompletar).toBe(false);
+    expect((sesion as { access_token: string }).access_token).toBeTruthy();
+    expect((sesion as { user: { correo: string } }).user.correo).toBe(perfil.correo);
+
+    const vencido = await auth.crearCodigoSso({ ...perfil, correo: 'sso-vencido@unipacifico.edu.co' }, 'google');
+    const filaVencida = await R.sso.findOneByOrFail({ codigoHash: hashSsoCode(vencido) });
+    await R.sso.update({ id: filaVencida.id }, { expiraAt: new Date(Date.now() - 1000) });
+    await expect(auth.intercambiarCodigoSso(vencido)).rejects.toThrow(/inválido/);
   });
 });
 

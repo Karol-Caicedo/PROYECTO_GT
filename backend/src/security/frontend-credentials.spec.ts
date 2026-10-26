@@ -21,3 +21,17 @@ describe('C-01 credenciales en el navegador', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+describe('H-01 SSO sin credenciales en la URL', () => {
+  test('los componentes SSO no leen token ni temp desde fragment/query', () => {
+    const archivos = [
+      join(FRONTEND_SRC, 'app', 'features', 'auth', 'sso-callback.component.ts'),
+      join(FRONTEND_SRC, 'app', 'features', 'auth', 'sso-completar.component.ts'),
+    ];
+    const infractores = archivos
+      .filter((ruta) => /fragment|queryParamMap|#token=|#temp=/i.test(readFileSync(ruta, 'utf8')))
+      .map((ruta) => relative(FRONTEND_SRC, ruta));
+
+    expect(infractores).toEqual([]);
+  });
+});

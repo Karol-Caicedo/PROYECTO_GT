@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 import { PasswordReset } from './password-reset.entity';
+import { SsoCode } from './sso-code.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
@@ -18,7 +19,7 @@ import { getJwtSecret } from '../../config/jwt.config';
   imports: [
     UsersModule,
     MailModule,
-    TypeOrmModule.forFeature([PasswordReset]),
+    TypeOrmModule.forFeature([PasswordReset, SsoCode]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

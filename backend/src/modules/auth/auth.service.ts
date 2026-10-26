@@ -8,6 +8,8 @@ import { hashPassword, verifyPassword } from '../../common/password.util';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, CompleteSsoDto } from './auth.dto';
 import { PasswordReset } from './password-reset.entity';
+import { SsoCode } from './sso-code.entity';
+import { hashSsoCode, SSO_CODE_TTL_MS } from './sso-code.util';
 import { ResendService } from '../mail/resend.service';
 
 export const RECUPERACION_TTL_MS = 60 * 60 * 1000; // 1 hora
@@ -19,6 +21,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     @InjectRepository(PasswordReset) private resets: Repository<PasswordReset>,
+    @InjectRepository(SsoCode) private ssoCodes: Repository<SsoCode>,
     private resend: ResendService,
   ) { }
 
@@ -146,6 +149,93 @@ export class AuthService {
       }),
       necesitaCompletar: false,
     };
+  }
+
+  /**
+   * H-01: emite un código de un solo uso que viaja en cookie HttpOnly, nunca en
+   * la URL. Solo se persiste su hash; el token de acceso se emite en el exchange.
+   */
+  async crearCodigoSso(perfil: { correo: string; nombre: string; proveedorId: string }, proveedor: string) {
+    if (!perfil.correo) throw new BadRequestException('La cuenta SSO no devolvió un correo válido');
+    this.validarDominio(perfil.correo);
+    const user = await this.users.findByCorreo(perfil.correo);
+    let usuarioId: string | null = null;
+    let datos: Record<string, unknown> | null = null;
+
+    if (user) {
+      if (!user.proveedorId) {
+        user.proveedorId = perfil.proveedorId;
+        user.proveedorAuth = proveedor;
+        await this.users.save(user);
+      }
+      usuarioId = user.id;
+    } else {
+      datos = {
+        correo: perfil.correo,
+        nombre: perfil.nombre,
+        proveedorId: perfil.proveedorId,
+        proveedor,
+      };
+    }
+
+    const codigo = randomBytes(32).toString('base64url');
+    await this.ssoCodes.save(
+      this.ssoCodes.create({
+        codigoHash: hashSsoCode(codigo),
+        usuarioId,
+        datos,
+        expiraAt: new Date(Date.now() + SSO_CODE_TTL_MS),
+        usadoAt: null,
+      }),
+    );
+    return codigo;
+  }
+
+  /** Consume el código de forma atómica y emite la sesión o el token temporal. */
+  async intercambiarCodigoSso(codigo: string) {
+    if (!codigo) throw new BadRequestException('Código SSO ausente, inválido o vencido');
+    const resultado = await this.ssoCodes
+      .createQueryBuilder()
+      .update(SsoCode)
+      .set({ usadoAt: new Date() })
+      .where('"codigo_hash" = :hash AND "usado_at" IS NULL AND "expira_at" > now()', {
+        hash: hashSsoCode(codigo),
+      })
+      .returning('*')
+      .execute();
+
+    if (!resultado.affected || !resultado.raw?.length) {
+      throw new BadRequestException('El código SSO es inválido, ya fue usado o venció');
+    }
+
+    const fila = resultado.raw[0] as { usuario_id: string | null; datos: Record<string, unknown> | null };
+    if (fila.usuario_id) {
+      const user = await this.users.findById(fila.usuario_id);
+      if (!user) throw new BadRequestException('El código SSO es inválido, ya fue usado o venció');
+      return {
+        ...this.firmar({
+          id: user.id,
+          correo: user.correo,
+          rol: user.rol,
+          semestre: user.semestre,
+          tokenVersion: user.tokenVersion,
+        }),
+        necesitaCompletar: false,
+      };
+    }
+
+    const datos = fila.datos || {};
+    const temp = this.jwt.sign(
+      {
+        correo: datos.correo,
+        nombre: datos.nombre,
+        proveedorId: datos.proveedorId,
+        proveedor: datos.proveedor,
+        ssoPending: true,
+      },
+      { expiresIn: '15m' },
+    );
+    return { necesitaCompletar: true, temp, correo: datos.correo, nombre: datos.nombre };
   }
 
   /**

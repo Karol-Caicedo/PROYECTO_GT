@@ -21,9 +21,10 @@ function buildService(env: Record<string, string> = {}) {
     ...env,
   });
   const resets = mockRepository();
+  const ssoCodes = mockRepository();
   const resend = mockResend();
-  const svc = new AuthService(users as never, jwt, config, resets as never, resend as never);
-  return { svc, users, jwt, resets, resend };
+  const svc = new AuthService(users as never, jwt, config, resets as never, ssoCodes as never, resend as never);
+  return { svc, users, jwt, resets, ssoCodes, resend };
 }
 
 const baseUser = {
@@ -54,7 +55,7 @@ describe('AuthService', () => {
 
     test('sin variable → deshabilitado', () => {
       const users = mockUsersService();
-      const svc = new AuthService(users as never, new JwtService({ secret: 'x' }), new ConfigService({}), mockRepository() as never, mockResend() as never);
+      const svc = new AuthService(users as never, new JwtService({ secret: 'x' }), new ConfigService({}), mockRepository() as never, mockRepository() as never, mockResend() as never);
       expect(svc.ssoEnabled()).toBe(false);
     });
   });

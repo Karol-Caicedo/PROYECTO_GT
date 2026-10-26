@@ -4,6 +4,15 @@ import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { guardarToken, leerToken, limpiarToken, limpiarTokenLegado } from './token-storage';
 
+export interface SsoExchange {
+  necesitaCompletar: boolean;
+  access_token?: string;
+  user?: Usuario;
+  temp?: string;
+  correo?: string;
+  nombre?: string;
+}
+
 export interface Usuario {
   id: string;
   correo: string;
@@ -24,6 +33,7 @@ export class AuthService {
   esAdmin = computed(() => this.usuario()?.rol === 'ADMIN');
 
   private perfilEnCurso: Promise<void> | null = null;
+  private tempSso: string | null = null;
 
   constructor() {
     limpiarTokenLegado();
@@ -68,7 +78,27 @@ export class AuthService {
     limpiarToken();
     this.token.set(null);
     this.usuario.set(null);
+    this.tempSso = null;
     if (redirigir) this.router.navigate(['/auth/login']);
+  }
+
+  intercambiarSso() {
+    return this.http
+      .post<SsoExchange>(`${this.base}/sso/exchange`, {}, { withCredentials: true })
+      .toPromise()
+      .then((r) => r!);
+  }
+
+  guardarTempSso(temp: string) {
+    this.tempSso = temp;
+  }
+
+  leerTempSso() {
+    return this.tempSso;
+  }
+
+  limpiarTempSso() {
+    this.tempSso = null;
   }
 
   ssoStatus() {
@@ -88,6 +118,7 @@ export class AuthService {
       .toPromise()
       .then((r) => {
         this.guardarSesion(r!.access_token);
+        this.limpiarTempSso();
         return this.cargarPerfil();
       });
   }

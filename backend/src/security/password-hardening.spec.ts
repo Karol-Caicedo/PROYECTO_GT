@@ -16,7 +16,7 @@ function buildService(env: Record<string, string> = {}) {
   });
   const resets = mockRepository();
   const resend = { enviarRecuperacion: jest.fn().mockResolvedValue({ simulado: true }) };
-  const svc = new AuthService(users as never, jwt, config, resets as never, resend as never);
+  const svc = new AuthService(users as never, jwt, config, resets as never, mockRepository() as never, resend as never);
   return { svc, users };
 }
 
