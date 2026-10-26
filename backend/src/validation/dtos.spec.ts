@@ -146,6 +146,11 @@ describe('DTOs: CapacitacionDto (incluye Transform de semestres)', () => {
     expect(await errores(plainToInstance(ActualizarCapacitacionDto, { estado: 'archivada' }))).not.toHaveLength(0);
     expect(await errores(plainToInstance(ActualizarCapacitacionDto, { semestres: [10] }))).not.toHaveLength(0);
   });
+
+  test('rechaza semestres duplicados en crear y actualizar', async () => {
+    expect(await errores(plainToInstance(CapacitacionDto, { ...base, semestres: [4, 4] }))).not.toHaveLength(0);
+    expect(await errores(plainToInstance(ActualizarCapacitacionDto, { semestres: [4, 4] }))).not.toHaveLength(0);
+  });
 });
 
 describe('DTOs: CreatePeriodoDto y TemaDto', () => {

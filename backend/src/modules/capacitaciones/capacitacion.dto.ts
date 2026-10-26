@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUrl, ArrayMinSize, Min, Max, IsUUID } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUrl, ArrayMinSize, ArrayUnique, Min, Max, IsUUID } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class CapacitacionDto {
@@ -57,6 +57,7 @@ export class CapacitacionDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayUnique({ message: 'Los semestres no deben repetirse' })
   @IsInt({ each: true, message: 'Cada semestre debe ser un número entero' })
   @Min(1, { each: true, message: 'Los semestres deben estar entre 1 y 9' })
   @Max(9, { each: true, message: 'Los semestres deben estar entre 1 y 9' })
