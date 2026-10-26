@@ -7,7 +7,7 @@
 import { DataSource, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ensureTestDatabase, createTestDataSource, truncateAll } from './test-db';
+import { ensureTestDatabase, createTestDataSource, assertTestDatabase, truncateAll } from './test-db';
 import { User } from '../modules/users/user.entity';
 import { Periodo } from '../modules/periodos/periodo.entity';
 import { Tema } from '../modules/temas/tema.entity';
@@ -60,6 +60,8 @@ beforeAll(async () => {
   await ensureTestDatabase();
   ds = createTestDataSource();
   await ds.initialize();
+  await assertTestDatabase(ds);
+  await ds.synchronize();
   R = {
     user: ds.getRepository(User),
     periodo: ds.getRepository(Periodo),

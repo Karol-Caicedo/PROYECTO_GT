@@ -34,6 +34,13 @@ export const ENTIDADES_TEST = [
 
 const TEST_DB = process.env.TEST_DB_NAME || 'intereses_db_test';
 
+/** Evita apuntar por error la suite destructiva a una base real. */
+export function validarNombreTestDb(nombre: string): void {
+  if (!/^[a-zA-Z0-9_]+_test$/i.test(nombre)) {
+    throw new Error(`TEST_DB_NAME="${nombre}" no parece una base de pruebas; debe terminar en _test`);
+  }
+}
+
 function pgBase() {
   return {
     host: process.env.DB_HOST || 'localhost',
@@ -44,6 +51,7 @@ function pgBase() {
 }
 
 export async function ensureTestDatabase() {
+  validarNombreTestDb(TEST_DB);
   const client = new Client({ ...pgBase(), database: 'postgres' });
   await client.connect();
   try {
@@ -61,8 +69,17 @@ export function createTestDataSource() {
     username: pgBase().user,
     database: TEST_DB,
     entities: ENTIDADES_TEST,
-    synchronize: true,
+    synchronize: false,
   });
+}
+
+export async function assertTestDatabase(ds: DataSource): Promise<void> {
+  const filas = (await ds.query('SELECT current_database() AS db')) as { db: string }[];
+  const actual = filas[0]?.db ?? '';
+  validarNombreTestDb(actual);
+  if (actual !== TEST_DB) {
+    throw new Error(`Conexión de pruebas inesperada: se esperaba "${TEST_DB}" y se obtuvo "${actual}"`);
+  }
 }
 
 const TABLAS = [
@@ -84,5 +101,6 @@ const TABLAS = [
 ];
 
 export async function truncateAll(ds: DataSource) {
+  await assertTestDatabase(ds);
   await ds.query(`TRUNCATE ${TABLAS.join(', ')} RESTART IDENTITY CASCADE`);
 }
