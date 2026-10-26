@@ -74,19 +74,23 @@ Entidades principales: `User`, `Periodo`, `Tema`, `Respuesta`, `RespuestaTema`,
 
 Reglas de dominio relevantes:
 
-- Solo puede existir un periodo activo; sin periodo activo no se habilita la
-  encuesta.
+- Como máximo puede existir un periodo activo; puede no haber ninguno. Sin
+  periodo activo no se habilita la encuesta. La BD lo impone con el índice único
+  parcial `uq_periodo_activo`.
 - `modoEncuesta` es `seleccion` (hasta 5 temas, sin puntajes) o `calificacion`
   (puntaje 1–5).
 - El orden de temas se mezcla de forma determinista por usuario y periodo.
 - Los tokens de recuperación se guardan hasheados, duran 1 hora, son de un solo
   uso y se consumen de forma atómica.
-- Las respuestas y asignaciones deben ser consistentes; varias operaciones
-  multi-tabla requieren transacción.
+- Las respuestas, inscripciones, respuestas de asignaturas, capacitaciones y
+  activación de periodo se ejecutan en transacciones. La activación usa bloqueo
+  pesimista `NOWAIT`; la contención se traduce a 409.
 
 ### Seguridad
 
-- Contraseñas con bcrypt; nunca se devuelven hashes por la API.
+- Contraseñas nuevas con Argon2id; los hashes bcrypt existentes se verifican y
+  solo se rehashean con `PASSWORD_REHASH_ON_LOGIN=true`. Nunca se devuelven
+  hashes por la API.
 - JWT en `Authorization: Bearer`; roles `ADMIN` y `ESTUDIANTE`.
 - `JWT_SECRET` es obligatorio, con al menos 32 caracteres y sin fallback.
 - `token_version` permite invalidar JWT al cambiar la contraseña o al aplicar la
@@ -102,8 +106,9 @@ Reglas de dominio relevantes:
 - Capacitaciones: estudiantes solo acceden a publicadas, vigentes y de su semestre;
   el detalle, el registro de clics y la imagen aplican autorización por recurso.
 - SSO: rutas ocultas si `AUTH_SSO_ENABLED=false`, `state` OAuth firmado en cookie
-  HttpOnly, tokens en el fragmento de la URL y Google exige correo no marcado como
-  no verificado.
+  HttpOnly y código de un solo uso entregado en cookie `HttpOnly` para canjear en
+  `POST /api/auth/sso/exchange`; nunca se ponen tokens en la URL. Google exige
+  correo no marcado como no verificado.
 - Pendientes conocidos: PKCE en OAuth, MFA y rotación de secretos.
 
 ## Frontend
@@ -121,7 +126,7 @@ src/app/
 - Componentes standalone; rutas lazy en `app.routes.ts`.
 - `authGuard` protege rutas autenticadas; `roleGuard` restringe `/admin` a
   `ADMIN`.
-- El JWT vive en `localStorage.token`; el interceptor lo adjunta solo a `/api/`,
+- El JWT vive en `sessionStorage.token`; el interceptor lo adjunta solo a `/api/`,
   limpia la sesión ante 401 y avisa ante 403.
 - Las imágenes de capacitaciones se cargan como blob autenticado con
   `core/auth-image.directive.ts`; nunca se usan URLs públicas.
@@ -146,7 +151,9 @@ src/app/
 
 - Lógica de negocio y validación en controladores.
 - Consultas N+1 y agregaciones duplicadas en dashboard/recordatorios.
-- Escrituras multi-tabla sin transacción.
+- La imagen de capacitación se escribe antes de la transacción; si la BD falla se
+  elimina, pero un cierre abrupto del proceso puede dejar archivos huérfanos.
 - Duplicación de layouts y acceso HTTP directo desde componentes.
-- Cobertura de pruebas limitada a servicios; falta validar migraciones reales y
-  contratos HTTP.
+- La suite backend cubre unitarias, integración PostgreSQL y contratos HTTP; no
+  hay pruebas frontend ni E2E de navegador. La migración `up/down` se valida
+  manualmente, no en CI.

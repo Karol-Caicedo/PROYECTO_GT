@@ -91,18 +91,23 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `4200`; everywhere else `apiUrl` is `/api` (same-origin).
 - In production the Nest app serves the built Angular app with an SPA fallback; there
   is no nginx in the Railway path. `frontend/nginx.conf` is only for the Docker image.
-- Domain rules: exactly one active `periodos` row; no active period blocks the survey.
+- Domain rules: at most one active `periodos` row; no active period blocks the survey.
+  A partial unique index `uq_periodo_activo` enforces it at the DB level.
   `modoEncuesta` is `seleccion` (up to 5 themes, no scores) or `calificacion` (1–5).
   Theme order is deterministically shuffled per user+period.
+- Multi-table writes (survey response, inscriptions, subject answers, capacitaciones
+  and period activation) run in transactions. Period activation locks with
+  `FOR UPDATE NOWAIT` and returns 409 on contention.
 - Password reset tokens are stored hashed in `recuperacion_claves`, valid 1 hour and
   consumed atomically (single-use). Reminders run daily at 08:00 (`@Cron('0 8 * * *')`),
   days 7 and 14.
 - Students only see capacitaciones that are published, inside their visibility window
   and targeted to their semester; `GET /capacitaciones/:id`, the click endpoint and
   the image endpoint enforce this. Admins can see drafts and any semester.
-- SSO redirects put the temporary/access token in the URL **fragment**, never the
-  query string. OAuth `state` is a signed HttpOnly cookie; Google accounts must not
-  report `email_verified: false`.
+- SSO redirects deliver a one-time code in an `HttpOnly` cookie; the frontend
+  exchanges it in `POST /api/auth/sso/exchange`. Never put `token` or `temp` in a
+  URL fragment or query string. OAuth `state` is a signed HttpOnly cookie; Google
+  accounts must not report `email_verified: false`.
 
 ## Database
 

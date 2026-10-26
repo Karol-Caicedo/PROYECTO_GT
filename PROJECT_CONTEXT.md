@@ -43,8 +43,12 @@ Sin periodo activo, la encuesta no está disponible.
 
 ## Reglas de negocio
 
-- Exactamente un periodo puede estar activo.
+- Como máximo un periodo puede estar activo; puede no haber ninguno. La base de
+  datos lo impone con un índice único parcial.
 - La encuesta solo se habilita con periodo activo.
+- Las respuestas, inscripciones, respuestas de asignaturas, capacitaciones y
+  activación de periodo se guardan en transacciones. Una activación concurrente
+  falla con 409 y conserva el periodo activo anterior.
 - Una respuesta pertenece a un usuario y periodo; los temas respondidos se
   registran en `respuesta_temas`.
 - Las capacitaciones se filtran por semestre y vigencia.
@@ -85,6 +89,9 @@ Sin periodo activo, la encuesta no está disponible.
   lo canjea en `POST /api/auth/sso/exchange`; no se aceptan tokens ni temporales
   en fragment/query.
 - El acceso es deny-by-default: toda ruta requiere `@Public()` o `@Auth(...)`.
+- Las operaciones multitabla usan transacciones; la activación de periodos usa
+  bloqueo `NOWAIT` y devuelve 409 ante contención. Si falla la BD tras guardar una
+  imagen de capacitación, el archivo recién escrito se elimina.
 - Las migraciones y el seed no se ejecutan automáticamente en producción; el
   arranque fuerza `NODE_ENV=production` y la migración exige
   `MIGRATE_CONFIRM=YES`.
