@@ -19,7 +19,8 @@ usuarios desde `/admin/usuarios`. El dominio de correo permitido se controla con
 
 ## Flujo principal del estudiante
 
-1. Ingresa con correo y contraseña (o SSO si está habilitado).
+1. Ingresa con correo y contraseña (o SSO si está habilitado). El SSO canjea un
+   código de un solo uso, nunca un token en la URL.
 2. Si hay un periodo activo, responde la encuesta:
    - `seleccion`: elige hasta 5 temas, sin puntajes.
    - `calificacion`: asigna 1–5 a cada tema.
@@ -50,6 +51,7 @@ Sin periodo activo, la encuesta no está disponible.
 - Los recordatorios son idempotentes por usuario/periodo/día.
 - Los enlaces de recuperación son de un solo uso y vencen en 1 hora.
 - Los correos de recuperación no revelan si la cuenta existe.
+- Los códigos SSO son de un solo uso, vencen en 60 segundos y se guardan hasheados.
 
 ## Glosario
 
@@ -72,6 +74,22 @@ Sin periodo activo, la encuesta no está disponible.
 - Sin SMTP o Resend configurados, los correos se simulan en el log.
 - El sistema maneja datos personales; aplican Ley 1581 de 2012 y normas
   colombianas de protección de datos.
+
+## Seguridad y operación
+
+- Las contraseñas nuevas se almacenan con Argon2id (parámetros OWASP); los hashes
+  bcrypt existentes se verifican y solo se rehashean si
+  `PASSWORD_REHASH_ON_LOGIN=true`.
+- El JWT de sesión vive en `sessionStorage`, nunca en `localStorage`.
+- El callback SSO entrega un código aleatorio en cookie `HttpOnly` y el frontend
+  lo canjea en `POST /api/auth/sso/exchange`; no se aceptan tokens ni temporales
+  en fragment/query.
+- El acceso es deny-by-default: toda ruta requiere `@Public()` o `@Auth(...)`.
+- Las migraciones y el seed no se ejecutan automáticamente en producción; el
+  arranque fuerza `NODE_ENV=production` y la migración exige
+  `MIGRATE_CONFIRM=YES`.
+- Los logs no incluyen contraseñas, tokens, códigos SSO, correos ni HTML de
+  correos; las auditorías de dependencias de producción deben quedar en cero.
 
 ## Estado de documentación
 

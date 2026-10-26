@@ -81,7 +81,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   origins get 403. Every response carries `X-Correlation-Id`; 403s are logged as structured
   JSON without bodies or tokens.
 - Frontend uses standalone components and lazy `loadComponent` routes. The JWT lives
-  in `localStorage.token`; `core/jwt.interceptor.ts` only attaches it to URLs
+  in `sessionStorage.token` via `core/token-storage.ts`; `core/jwt.interceptor.ts`
+  only attaches it to URLs
   containing `/api/`, clears the session on 401 and shows a permission message on 403
   (except image loads). Route protection: `authGuard` + `roleGuard` (`/admin` requires
   `ADMIN`). Students land on `/encuesta` and `/capacitaciones`.
@@ -126,9 +127,12 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
 
 ## Conventions and gotchas
 
-- Las contraseñas se guardan solo como hash bcrypt. No reintroduzcas columnas ni
+- Las contraseñas nuevas usan Argon2id; los hashes bcrypt existentes se verifican y
+  solo se rehashean con `PASSWORD_REHASH_ON_LOGIN=true`. No reintroduzcas columnas ni
   respuestas con contraseñas en texto plano. El formulario admin de edición deja la
   contraseña vacía y solo la cambia si se escribe una nueva.
+- SSO usa un código de un solo uso en cookie `HttpOnly` y `POST /api/auth/sso/exchange`.
+  No vuelvas a poner `token` ni `temp` en fragmentos o query strings.
 - `token_version` invalida sesiones JWT cuando cambia la contraseña o al aplicar la
   migración de revocación. No elimines esa comprobación del `JwtStrategy`.
 - Colors must come from `frontend/src/styles/_tokens.scss` via `var(--...)`; no
