@@ -1,9 +1,10 @@
 import 'reflect-metadata';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './common/password.util';
 import AppDataSource from './data-source';
 import { User } from './modules/users/user.entity';
 import { Tema } from './modules/temas/tema.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
+import { debeCrearEstudianteDemo, esProduccion, validarClaveProduccion } from './seed-policy';
 
 export const TEMAS_INICIALES = [
   ['IA generativa y prompt engineering', 'Modelos generativos, prompting y aplicaciones'],
@@ -67,26 +68,8 @@ export const ASIGNATURAS_INICIALES: { nombre: string; semestre: number }[] = [
   { nombre: 'Seminario de Nuevas Tecnologías', semestre: 9 },
 ];
 
-const CLAVES_DEMO = new Set(['Admin123*', 'Estudiante123*']);
-
-function esProduccion() {
-  return process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
-}
-
-function validarClaveProduccion(nombre: string, valor: string | undefined) {
-  const clave = (valor || '').trim();
-  if (clave.length < 8) {
-    throw new Error(`${nombre} es obligatorio en producción y debe tener al menos 8 caracteres.`);
-  }
-  if (CLAVES_DEMO.has(clave)) {
-    throw new Error(`${nombre} no puede usar una clave de demostración en producción.`);
-  }
-  return clave;
-}
-
 async function main() {
   await AppDataSource.initialize();
-  await AppDataSource.runMigrations();
   const users = AppDataSource.getRepository(User);
   const temas = AppDataSource.getRepository(Tema);
   const produccion = esProduccion();
@@ -102,7 +85,7 @@ async function main() {
       users.create({
         correo: adminEmail,
         nombre: process.env.ADMIN_NOMBRE || 'Proyección Social',
-        passwordHash: await bcrypt.hash(adminPass, 10),
+        passwordHash: await hashPassword(adminPass),
         proveedorAuth: 'local',
         semestre: 1,
         rol: 'ADMIN',
@@ -116,7 +99,7 @@ async function main() {
     console.log(`Admin ya existe: ${adminEmail}`);
   }
 
-  const crearDemo = !produccion || process.env.SEED_DEMO_STUDENT === 'true';
+  const crearDemo = debeCrearEstudianteDemo(produccion, process.env.SEED_DEMO_STUDENT);
   if (crearDemo) {
     const estEmail = (process.env.ESTUDIANTE_EMAIL || 'estudiante@unipacifico.edu.co').toLowerCase();
     const estPass = produccion
@@ -129,7 +112,7 @@ async function main() {
         users.create({
           correo: estEmail,
           nombre: process.env.ESTUDIANTE_NOMBRE || 'Estudiante Demo',
-          passwordHash: await bcrypt.hash(estPass, 10),
+          passwordHash: await hashPassword(estPass),
           proveedorAuth: 'local',
           semestre: estSemestre,
           rol: 'ESTUDIANTE',

@@ -4,10 +4,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, MoreThan, Repository } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '../../common/password.util';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, CompleteSsoDto } from './auth.dto';
 import { PasswordReset } from './password-reset.entity';
+import { SsoCode } from './sso-code.entity';
+import { hashSsoCode, SSO_CODE_TTL_MS } from './sso-code.util';
 import { ResendService } from '../mail/resend.service';
 
 export const RECUPERACION_TTL_MS = 60 * 60 * 1000; // 1 hora
@@ -19,6 +21,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     @InjectRepository(PasswordReset) private resets: Repository<PasswordReset>,
+    @InjectRepository(SsoCode) private ssoCodes: Repository<SsoCode>,
     private resend: ResendService,
   ) { }
 
@@ -28,6 +31,10 @@ export class AuthService {
 
   ssoEnabled() {
     return (this.config.get('AUTH_SSO_ENABLED', 'false') + '').trim().toLowerCase() === 'true';
+  }
+
+  private rehashEnLoginHabilitado() {
+    return (this.config.get('PASSWORD_REHASH_ON_LOGIN', 'false') + '').trim().toLowerCase() === 'true';
   }
 
   private validarDominio(correo: string) {
@@ -56,7 +63,7 @@ export class AuthService {
     const correo = dto.correo.toLowerCase();
     const existe = await this.users.findByCorreo(correo);
     if (existe) throw new BadRequestException('Este correo ya está registrado');
-    const hash = await bcrypt.hash(dto.password, 10);
+    const hash = await hashPassword(dto.password);
     const user = await this.users.create({
       correo,
       nombre: dto.nombre,
@@ -78,8 +85,15 @@ export class AuthService {
   async login(correo: string, password: string) {
     const user = await this.users.findByCorreo(correo);
     if (!user || !user.passwordHash) throw new UnauthorizedException('Credenciales inválidas');
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException('Credenciales inválidas');
+    const { valida, requiereRehash } = await verifyPassword(user.passwordHash, password);
+    if (!valida) throw new UnauthorizedException('Credenciales inválidas');
+
+    // Migración gradual y reversible: solo se rehashea si se habilita por entorno.
+    if (requiereRehash && this.rehashEnLoginHabilitado()) {
+      user.passwordHash = await hashPassword(password);
+      await this.users.save(user);
+    }
+
     return this.firmar({
       id: user.id,
       correo: user.correo,
@@ -138,6 +152,93 @@ export class AuthService {
   }
 
   /**
+   * H-01: emite un código de un solo uso que viaja en cookie HttpOnly, nunca en
+   * la URL. Solo se persiste su hash; el token de acceso se emite en el exchange.
+   */
+  async crearCodigoSso(perfil: { correo: string; nombre: string; proveedorId: string }, proveedor: string) {
+    if (!perfil.correo) throw new BadRequestException('La cuenta SSO no devolvió un correo válido');
+    this.validarDominio(perfil.correo);
+    const user = await this.users.findByCorreo(perfil.correo);
+    let usuarioId: string | null = null;
+    let datos: Record<string, unknown> | null = null;
+
+    if (user) {
+      if (!user.proveedorId) {
+        user.proveedorId = perfil.proveedorId;
+        user.proveedorAuth = proveedor;
+        await this.users.save(user);
+      }
+      usuarioId = user.id;
+    } else {
+      datos = {
+        correo: perfil.correo,
+        nombre: perfil.nombre,
+        proveedorId: perfil.proveedorId,
+        proveedor,
+      };
+    }
+
+    const codigo = randomBytes(32).toString('base64url');
+    await this.ssoCodes.save(
+      this.ssoCodes.create({
+        codigoHash: hashSsoCode(codigo),
+        usuarioId,
+        datos,
+        expiraAt: new Date(Date.now() + SSO_CODE_TTL_MS),
+        usadoAt: null,
+      }),
+    );
+    return codigo;
+  }
+
+  /** Consume el código de forma atómica y emite la sesión o el token temporal. */
+  async intercambiarCodigoSso(codigo: string) {
+    if (!codigo) throw new BadRequestException('Código SSO ausente, inválido o vencido');
+    const resultado = await this.ssoCodes
+      .createQueryBuilder()
+      .update(SsoCode)
+      .set({ usadoAt: new Date() })
+      .where('"codigo_hash" = :hash AND "usado_at" IS NULL AND "expira_at" > now()', {
+        hash: hashSsoCode(codigo),
+      })
+      .returning('*')
+      .execute();
+
+    if (!resultado.affected || !resultado.raw?.length) {
+      throw new BadRequestException('El código SSO es inválido, ya fue usado o venció');
+    }
+
+    const fila = resultado.raw[0] as { usuario_id: string | null; datos: Record<string, unknown> | null };
+    if (fila.usuario_id) {
+      const user = await this.users.findById(fila.usuario_id);
+      if (!user) throw new BadRequestException('El código SSO es inválido, ya fue usado o venció');
+      return {
+        ...this.firmar({
+          id: user.id,
+          correo: user.correo,
+          rol: user.rol,
+          semestre: user.semestre,
+          tokenVersion: user.tokenVersion,
+        }),
+        necesitaCompletar: false,
+      };
+    }
+
+    const datos = fila.datos || {};
+    const temp = this.jwt.sign(
+      {
+        correo: datos.correo,
+        nombre: datos.nombre,
+        proveedorId: datos.proveedorId,
+        proveedor: datos.proveedor,
+        ssoPending: true,
+      },
+      { expiresIn: '15m' },
+    );
+    return { necesitaCompletar: true, temp, correo: datos.correo, nombre: datos.nombre };
+  }
+
+  /**
    * Solicita recuperación de contraseña. Respuesta siempre genérica para no
    * revelar si el correo existe. Solo usuarios con clave local la reciben por correo.
    */
@@ -163,7 +264,8 @@ export class AuthService {
         // (si fallara solo aquí, un atacante distinguiría cuentas registradas).
         // El detalle queda en el log para el administrador (ver ResendService).
         const logger = new Logger(AuthService.name);
-        logger.error(`No se pudo enviar recuperación a ${user.correo}: ${(error as Error).message}`);
+        // Sin correo, nombre, URL ni token: los logs no deben permitir tomar la cuenta.
+        logger.error('No se pudo enviar el correo de recuperación; revisa el proveedor de correo.');
       }
     }
     return { mensaje: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };
@@ -193,7 +295,7 @@ export class AuthService {
       throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
     }
 
-    user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = await hashPassword(password);
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);

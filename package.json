@@ -13,6 +13,7 @@
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "migrate": "npm --prefix backend run migration:run",
+  "migrate:prod": "npm --prefix backend run migration:run:guarded:prod",
     "seed": "npm --prefix backend run seed",
     "seed:prod": "npm --prefix backend run seed:prod",
     "test": "npm --prefix backend test",

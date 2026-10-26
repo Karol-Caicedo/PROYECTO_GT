@@ -6,7 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
@@ -46,17 +46,13 @@ import { AuthService } from '../../core/auth.service';
 export class SsoCompletarComponent {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
-  private route = inject(ActivatedRoute);
   private router = inject(Router);
   error = signal('');
-  private fragmento = new URLSearchParams(this.route.snapshot.fragment ?? '');
-  temp = this.fragmento.get('temp') || this.route.snapshot.queryParamMap.get('temp') || '';
+  temp = this.auth.leerTempSso() ?? '';
   form = this.fb.group({ semestre: [1, [Validators.required, Validators.min(1), Validators.max(9)]], aceptoDatos: [false, Validators.requiredTrue] });
 
   constructor() {
-    if (this.fragmento.has('temp')) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
+    if (!this.temp) this.router.navigate(['/auth/login']);
   }
 
   async completar() {

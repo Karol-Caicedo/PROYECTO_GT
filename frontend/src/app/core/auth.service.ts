@@ -2,6 +2,16 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
+import { guardarToken, leerToken, limpiarToken, limpiarTokenLegado } from './token-storage';
+
+export interface SsoExchange {
+  necesitaCompletar: boolean;
+  access_token?: string;
+  user?: Usuario;
+  temp?: string;
+  correo?: string;
+  nombre?: string;
+}
 
 export interface Usuario {
   id: string;
@@ -17,12 +27,17 @@ export class AuthService {
   private router = inject(Router);
   private base = `${environment.apiUrl}/auth`;
 
-  token = signal<string | null>(localStorage.getItem('token'));
+  token = signal<string | null>(leerToken());
   usuario = signal<Usuario | null>(null);
   logueado = computed(() => !!this.token());
   esAdmin = computed(() => this.usuario()?.rol === 'ADMIN');
 
   private perfilEnCurso: Promise<void> | null = null;
+  private tempSso: string | null = null;
+
+  constructor() {
+    limpiarTokenLegado();
+  }
 
   cargarPerfil(): Promise<void> {
     if (!this.token()) return Promise.resolve();
@@ -41,7 +56,7 @@ export class AuthService {
   }
 
   guardarSesion(access_token: string) {
-    localStorage.setItem('token', access_token);
+    guardarToken(access_token);
     this.token.set(access_token);
   }
 
@@ -60,10 +75,30 @@ export class AuthService {
   }
 
   salir(redirigir = true) {
-    localStorage.removeItem('token');
+    limpiarToken();
     this.token.set(null);
     this.usuario.set(null);
+    this.tempSso = null;
     if (redirigir) this.router.navigate(['/auth/login']);
+  }
+
+  intercambiarSso() {
+    return this.http
+      .post<SsoExchange>(`${this.base}/sso/exchange`, {}, { withCredentials: true })
+      .toPromise()
+      .then((r) => r!);
+  }
+
+  guardarTempSso(temp: string) {
+    this.tempSso = temp;
+  }
+
+  leerTempSso() {
+    return this.tempSso;
+  }
+
+  limpiarTempSso() {
+    this.tempSso = null;
   }
 
   ssoStatus() {
@@ -83,6 +118,7 @@ export class AuthService {
       .toPromise()
       .then((r) => {
         this.guardarSesion(r!.access_token);
+        this.limpiarTempSso();
         return this.cargarPerfil();
       });
   }

@@ -93,7 +93,7 @@ export class ResendService {
   async enviarRecuperacion(para: string, nombre: string, url: string): Promise<ResendResultado> {
     const { asunto, html, texto } = plantillaRecuperacion(nombre, url);
     if (!this.apiKey) {
-      this.log.log(`[Resend simulación] Para: ${para} | Asunto: ${asunto} | Enlace omitido del log`);
+      this.log.log('[Resend simulación] Correo de recuperación omitido del log (sin RESEND_API_KEY)');
       return { simulado: true };
     }
     const res = await fetch('https://api.resend.com/emails', {
@@ -102,8 +102,7 @@ export class ResendService {
       body: JSON.stringify({ from: this.remitente, to: [para], subject: asunto, html, text: texto }),
     });
     if (!res.ok) {
-      const detalle = await res.text().catch(() => '');
-      this.log.error(`Resend respondió ${res.status}: ${detalle.slice(0, 300)}`);
+      this.log.error(`Resend respondió ${res.status}`);
       throw new Error(`No se pudo enviar el correo de recuperación (Resend ${res.status})`);
     }
     const cuerpo = (await res.json().catch(() => ({}))) as { id?: string };

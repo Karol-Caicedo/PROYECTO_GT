@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '../../common/password.util';
 import { Auth } from '../../common/auth.decorator';
 import { UsersService } from './users.service';
 import { CrearUsuarioDto, ActualizarUsuarioDto, CambiarClaveDto, VerificarAdminDto } from './user.dto';
@@ -33,7 +33,7 @@ export class UsersController {
       correo: dto.correo,
       nombre: dto.nombre,
       numeroIdentificacion: dto.numeroIdentificacion || null,
-      passwordHash: await bcrypt.hash(dto.password, 10),
+      passwordHash: await hashPassword(dto.password),
       proveedorAuth: 'local',
       semestre: dto.rol === 'ADMIN' ? (dto.semestre ?? 1) : (dto.semestre ?? 1),
       rol: dto.rol,
@@ -50,8 +50,8 @@ export class UsersController {
     if (!req.user?.id) throw new BadRequestException('No autenticado');
     const admin = await this.users.findById(req.user.id);
     if (!admin || !admin.passwordHash) throw new BadRequestException('No se pudo verificar la cuenta');
-    const ok = await bcrypt.compare(dto.password, admin.passwordHash);
-    if (!ok) throw new BadRequestException('Contraseña incorrecta');
+    const { valida } = await verifyPassword(admin.passwordHash, dto.password);
+    if (!valida) throw new BadRequestException('Contraseña incorrecta');
     return { verificado: true };
   }
 
@@ -81,7 +81,7 @@ export class UsersController {
       if (dto.password.trim().length < 8) {
         throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
       }
-      user.passwordHash = await bcrypt.hash(dto.password, 10);
+      user.passwordHash = await hashPassword(dto.password);
       user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     }
@@ -108,7 +108,7 @@ export class UsersController {
   async cambiarClave(@Param('id') id: string, @Body() dto: CambiarClaveDto) {
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');
-    user.passwordHash = await bcrypt.hash(dto.password, 10);
+    user.passwordHash = await hashPassword(dto.password);
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     if (user.proveedorAuth !== 'local') user.proveedorAuth = 'local';
     await this.users.save(user);

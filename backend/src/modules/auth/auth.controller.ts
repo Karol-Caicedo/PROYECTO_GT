@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { ActualizarSemestreDto, CompletarSsoDto, LoginDto, SolicitarRecuperacionDto, RestablecerClaveDto } from './auth.dto';
 import { SsoEnabledGuard } from './sso-enabled.guard';
+import { leerCookie, opcionesCookieSso, SSO_CODE_COOKIE, SSO_CODE_PATH } from './sso-code.util';
 import { Auth } from '../../common/auth.decorator';
 import { Public } from '../../common/public.decorator';
 
@@ -73,8 +74,8 @@ export class AuthController {
   @Public()
   @UseGuards(SsoEnabledGuard, AuthGuard('google'))
   async googleCb(@Req() req: { user: { correo: string; nombre: string; proveedorId: string } }, @Res() res: Response) {
-    const r = await this.auth.loginSso(req.user, 'google');
-    return this.redirigirSso(res, r);
+    const codigo = await this.auth.crearCodigoSso(req.user, 'google');
+    return this.redirigirSso(res, codigo);
   }
 
   // ---- Microsoft OAuth ----
@@ -90,8 +91,21 @@ export class AuthController {
   @Public()
   @UseGuards(SsoEnabledGuard, AuthGuard('microsoft'))
   async microsoftCb(@Req() req: { user: { correo: string; nombre: string; proveedorId: string } }, @Res() res: Response) {
-    const r = await this.auth.loginSso(req.user, 'microsoft');
-    return this.redirigirSso(res, r);
+    const codigo = await this.auth.crearCodigoSso(req.user, 'microsoft');
+    return this.redirigirSso(res, codigo);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('sso/exchange')
+  @Public()
+  @UseGuards(SsoEnabledGuard)
+  @ApiOperation({ summary: 'Canjear el código SSO de un solo uso por una sesión' })
+  exchange(@Req() req: Pick<Request, 'headers'>, @Res({ passthrough: true }) res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    const codigo = leerCookie(req, SSO_CODE_COOKIE);
+    res.clearCookie(SSO_CODE_COOKIE, { path: SSO_CODE_PATH });
+    if (!codigo) throw new BadRequestException('Código SSO ausente o vencido');
+    return this.auth.intercambiarCodigoSso(codigo);
   }
 
   @Post('sso/completar')
@@ -102,16 +116,11 @@ export class AuthController {
     return this.auth.completarSso(dto.temp, { semestre: dto.semestre, aceptoDatos: dto.aceptoDatos });
   }
 
-  private redirigirSso(
-    res: Response,
-    r: { necesitaCompletar?: boolean; temp?: string; access_token?: string },
-  ) {
+  private redirigirSso(res: Response, codigo: string) {
     const frontend = this.config.get('FRONTEND_URL', 'http://localhost:4200');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
-    if (r.necesitaCompletar) {
-      return res.redirect(`${frontend}/auth/sso-completar#temp=${encodeURIComponent(String(r.temp))}`);
-    }
-    return res.redirect(`${frontend}/auth/sso-callback#token=${encodeURIComponent(String(r.access_token))}`);
+    res.cookie(SSO_CODE_COOKIE, codigo, opcionesCookieSso());
+    return res.redirect(`${frontend}/auth/sso-callback`);
   }
 }

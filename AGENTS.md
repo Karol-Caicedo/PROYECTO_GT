@@ -26,7 +26,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `intereses-postgres` / `intereses-adminer`). `npm run docker:full` adds backend
   `:3000` and frontend `:4201`.
 - Deploy target is Railway (`railway.json`): build `npm run install:all && npm run
-  build`, start runs `seed:prod` on every deploy (idempotent) then `node dist/main`.
+  build`, start runs `node dist/main` without seeding. The seed is a manual
+  provisioning step (`seed:prod`) and is never executed on every deploy.
   Healthcheck: `GET /api/health`. There are no CI workflows.
 
 ## Tests
@@ -80,7 +81,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   origins get 403. Every response carries `X-Correlation-Id`; 403s are logged as structured
   JSON without bodies or tokens.
 - Frontend uses standalone components and lazy `loadComponent` routes. The JWT lives
-  in `localStorage.token`; `core/jwt.interceptor.ts` only attaches it to URLs
+  in `sessionStorage.token` via `core/token-storage.ts`; `core/jwt.interceptor.ts`
+  only attaches it to URLs
   containing `/api/`, clears the session on 401 and shows a permission message on 403
   (except image loads). Route protection: `authGuard` + `roleGuard` (`/admin` requires
   `ADMIN`). Students land on `/encuesta` and `/capacitaciones`.
@@ -104,11 +106,13 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
 
 ## Database
 
-- `synchronize: false`; schema changes go through migrations. `migrationsRun: true`
-  means the backend applies pending migrations on bootstrap; seed also runs them.
+- `synchronize: false`; schema changes go through migrations. `migrationsRun` is
+  enabled only outside production (`DB_MIGRATIONS_RUN=false` disables it in dev).
+  Production migrations are manual: `npm run migrate:prod` requires
+  `MIGRATE_CONFIRM=YES`. The seed never runs migrations.
 - **New migration** must be created in `backend/src/migrations/` and added to the
   explicit array in `backend/src/data-source.ts`. `AppModule` uses a glob; the CLI
-  and seed use that array.
+  and guarded runner use that array.
 - **New entity** must be registered in three places: `app.module.ts` `entities`,
   `data-source.ts` `entities`, and `backend/src/test/test-db.ts` (`ENTIDADES_TEST`).
   Missing the last one breaks the integration suite.
@@ -117,15 +121,18 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `capacitaciones`, `capacitacion_semestres`, `clics_capacitacion`,
   `recordatorios_enviados`, `recuperacion_claves`.
 - `backend/src/seed.ts` is idempotent: it skips recreating themes once an admin
-  exists, so admin-deleted themes stay deleted. `seed:prod` runs with `--prod`:
-  exige `ADMIN_PASSWORD` si no existe el admin, rechaza claves demo y omite el
-  estudiante demo salvo `SEED_DEMO_STUDENT=true`.
+  exists, so admin-deleted themes stay deleted. `seed:prod` runs with `--prod`
+  como aprovisionamiento manual: exige `ADMIN_PASSWORD` si no existe el admin,
+  rechaza claves demo y omite el estudiante demo salvo `SEED_DEMO_STUDENT=true`.
 
 ## Conventions and gotchas
 
-- Las contraseñas se guardan solo como hash bcrypt. No reintroduzcas columnas ni
+- Las contraseñas nuevas usan Argon2id; los hashes bcrypt existentes se verifican y
+  solo se rehashean con `PASSWORD_REHASH_ON_LOGIN=true`. No reintroduzcas columnas ni
   respuestas con contraseñas en texto plano. El formulario admin de edición deja la
   contraseña vacía y solo la cambia si se escribe una nueva.
+- SSO usa un código de un solo uso en cookie `HttpOnly` y `POST /api/auth/sso/exchange`.
+  No vuelvas a poner `token` ni `temp` en fragmentos o query strings.
 - `token_version` invalida sesiones JWT cuando cambia la contraseña o al aplicar la
   migración de revocación. No elimines esa comprobación del `JwtStrategy`.
 - Colors must come from `frontend/src/styles/_tokens.scss` via `var(--...)`; no

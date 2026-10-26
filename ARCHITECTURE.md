@@ -134,8 +134,9 @@ src/app/
 - Pruebas backend: unitarias con mocks y una suite de integración contra
   PostgreSQL real.
 - No hay lint/formateo configurado ni pruebas frontend.
-- Las migraciones se aplican al arrancar (`migrationsRun: true`); el seed de
-  producción corre en cada despliegue y debe ser idempotente.
+- Las migraciones se aplican al arrancar solo fuera de producción. En producción
+  se ejecutan manualmente con `MIGRATE_CONFIRM=YES`; el seed es aprovisionamiento
+  manual y nunca corre en cada despliegue.
 - Los cambios de esquema se crean en `backend/src/migrations/` y se registran en
   `backend/src/data-source.ts`.
 - Las entidades nuevas se registran en `app.module.ts`, `data-source.ts` y

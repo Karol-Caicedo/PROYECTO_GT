@@ -115,6 +115,7 @@ describe('CapacitacionesService', () => {
     test.each([
       ['borrador', { ...publicada, estado: 'borrador' }],
       ['vencida', { ...publicada, visibleHasta: '2020-01-01T00:00:00Z' }],
+      ['futura', { ...publicada, visibleDesde: '2999-01-01T00:00:00Z' }],
       ['otro semestre', { ...publicada, semestres: [{ semestre: 5 }] }],
       ['sin semestres', { ...publicada, semestres: [] }],
     ])('estudiante no ve %s → 404', async (_caso, capData) => {
@@ -185,13 +186,21 @@ describe('CapacitacionesService', () => {
       await expect(svc.registrarClic('x', ALUMNO)).rejects.toThrow(NotFoundException);
     });
 
-    test('registrarClic no permite una capacitación no visible para el estudiante', async () => {
+    test.each([
+      ['borrador', { estado: 'borrador' }],
+      ['vencida', { estado: 'publicado', visibleHasta: '2020-01-01T00:00:00Z' }],
+      ['futura', { estado: 'publicado', visibleDesde: '2999-01-01T00:00:00Z' }],
+      ['otro semestre', { estado: 'publicado', semestres: [{ semestre: 5 }] }],
+      ['sin semestres', { estado: 'publicado', semestres: [] }],
+    ])('registrarClic no permite una capacitación %s', async (_caso, extra) => {
       const { svc, cap, clic } = buildService();
       cap.findOne.mockResolvedValue({
         id: 'c-1',
         enlace: 'https://destino.co',
-        estado: 'borrador',
+        visibleDesde: null,
+        visibleHasta: null,
         semestres: [{ semestre: 4 }],
+        ...extra,
       });
       await expect(svc.registrarClic('c-1', ALUMNO)).rejects.toThrow(NotFoundException);
       expect(clic.save).not.toHaveBeenCalled();
