@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { TemasService } from './temas.service';
+import { Tema } from './tema.entity';
 import { mockRepository } from '../../test/test-utils';
 
 function buildService() {
@@ -42,4 +43,20 @@ describe('TemasService', () => {
     expect(repo.save).toHaveBeenCalledWith({ id: 't-1', nombre: 'Nuevo', activo: true });
     await expect(svc.eliminar('t-1')).resolves.toEqual({ ok: true });
   });
+
+  test('cambiarEstadoTodos actualiza todos los registros', async () => {
+    const { svc, repo } = buildService();
+    const qb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 5 }),
+    };
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    const res = await svc.cambiarEstadoTodos(false);
+    expect(qb.update).toHaveBeenCalledWith(Tema);
+    expect(qb.set).toHaveBeenCalledWith({ activo: false });
+    expect(qb.execute).toHaveBeenCalled();
+    expect(res).toEqual({ ok: true, activo: false });
+  });
 });
+

@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
-import { TemasService, TemaDto } from './temas.service';
+import { TemasService, TemaDto, ActualizarTemaDto, CambiarEstadoTodosDto } from './temas.service';
 
 @ApiTags('temas')
 @Controller('temas')
@@ -25,9 +25,24 @@ export class TemasController {
     return this.svc.crear(dto);
   }
 
+  @Patch('admin/cambiar-estado-todos')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Activar o inactivar todos los temas' })
+  cambiarEstadoTodos(@Body() dto: CambiarEstadoTodosDto) {
+    return this.svc.cambiarEstadoTodos(dto.activo);
+  }
+
+  @Patch('admin/cambiar-estado-todas')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Activar o inactivar todos los temas (alias)' })
+  cambiarEstadoTodas(@Body() dto: CambiarEstadoTodosDto) {
+    return this.svc.cambiarEstadoTodos(dto.activo);
+  }
+
   @Patch(':id')
   @Auth('ADMIN')
-  actualizar(@Param('id') id: string, @Body() dto: TemaDto) {
+  @ApiOperation({ summary: 'Actualizar un tema' })
+  actualizar(@Param('id') id: string, @Body() dto: ActualizarTemaDto) {
     return this.svc.actualizar(id, dto);
   }
 
@@ -37,3 +52,4 @@ export class TemasController {
     return this.svc.eliminar(id);
   }
 }
+
