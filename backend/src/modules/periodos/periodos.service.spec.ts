@@ -1,11 +1,22 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import { PeriodosService } from './periodos.service';
 import { mockRepository } from '../../test/test-utils';
 
 function buildService() {
   const repo = mockRepository();
-  const svc = new PeriodosService(repo as never);
-  return { svc, repo };
+  const builder = {
+    setLock: jest.fn().mockReturnThis(),
+    setOnLocked: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+  const manager = {
+    getRepository: jest.fn(() => repo),
+    createQueryBuilder: jest.fn(() => builder),
+  };
+  const dataSource = { transaction: jest.fn((cb: (m: unknown) => unknown) => cb(manager)) };
+  const svc = new PeriodosService(repo as never, dataSource as never);
+  return { svc, repo, manager, builder, dataSource };
 }
 
 const P = { id: 'p-1', nombre: '2026-1', activo: false, modoEncuesta: 'seleccion' };
@@ -64,6 +75,39 @@ describe('PeriodosService (un solo activo a la vez)', () => {
     expect(repo.update).toHaveBeenCalledWith({ activo: true }, { activo: false });
     expect(p.activo).toBe(true);
     expect(repo.save).toHaveBeenCalledWith(p);
+  });
+
+  test('bloquea las filas con NOWAIT antes de activar', async () => {
+    const { svc, repo, builder } = buildService();
+    repo.findOne.mockResolvedValue({ ...P });
+    await svc.activar('p-1');
+    expect(builder.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(builder.setOnLocked).toHaveBeenCalledWith('nowait');
+    expect(builder.getMany).toHaveBeenCalled();
+  });
+
+  test('traduce 23505 de uq_periodo_activo a 409', async () => {
+    const { svc, repo } = buildService();
+    repo.findOne.mockResolvedValue({ ...P });
+    const error = new QueryFailedError('INSERT', [], {
+      code: '23505', constraint: 'uq_periodo_activo', detail: 'Key (activo)=(true) already exists.',
+    } as never);
+    repo.save.mockRejectedValueOnce(error);
+    await expect(svc.activar('p-1')).rejects.toThrow(ConflictException);
+  });
+
+  test('traduce 55P03 de bloqueo no disponible a 409', async () => {
+    const { svc, builder } = buildService();
+    builder.getMany.mockRejectedValueOnce(new QueryFailedError('SELECT', [], { code: '55P03' } as never));
+    await expect(svc.activar('p-1')).rejects.toThrow(ConflictException);
+  });
+
+  test('no enmascara un 23505 de nombre', async () => {
+    const { svc, repo } = buildService();
+    repo.findOne.mockResolvedValue({ ...P });
+    const error = new QueryFailedError('INSERT', [], { code: '23505', constraint: 'UQ_nombre' } as never);
+    repo.save.mockRejectedValueOnce(error);
+    await expect(svc.activar('p-1')).rejects.toBe(error);
   });
 
   test('activo delega el filtro al repositorio', async () => {

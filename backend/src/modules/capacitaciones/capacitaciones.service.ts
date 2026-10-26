@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Capacitacion, CapacitacionSemestre } from './capacitacion.entity';
 import { ClicCapacitacion } from './clic.entity';
 import { ActualizarCapacitacionDto, CapacitacionDto } from './capacitacion.dto';
@@ -17,6 +17,7 @@ export class CapacitacionesService {
     @InjectRepository(Capacitacion) private cap: Repository<Capacitacion>,
     @InjectRepository(CapacitacionSemestre) private sem: Repository<CapacitacionSemestre>,
     @InjectRepository(ClicCapacitacion) private clic: Repository<ClicCapacitacion>,
+    private dataSource: DataSource,
   ) {}
 
   /** Filtro de vigencia: publicada + dentro de ventana visible. Lógica pura y testeable. */
@@ -55,24 +56,29 @@ export class CapacitacionesService {
   }
 
   async crear(dto: CapacitacionDto, imagenUrl: string | null, createdBy: string) {
-    const c = await this.cap.save(
-      this.cap.create({
-        titulo: dto.titulo,
-        descripcion: dto.descripcion ?? '',
-        enlace: dto.enlace ?? '',
-        imagenUrl,
-        temaId: dto.temaId || null,
-        fechaEvento: dto.fechaEvento ? new Date(dto.fechaEvento) : null,
-        modalidad: dto.modalidad ?? 'virtual',
-        visibleDesde: dto.visibleDesde ? new Date(dto.visibleDesde) : null,
-        visibleHasta: dto.visibleHasta ? new Date(dto.visibleHasta) : null,
-        estado: dto.estado ?? 'borrador',
-        createdBy,
-      }),
-    );
-    const sems = dto.semestres?.length ? dto.semestres : [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    await this.sem.save(sems.map((s) => this.sem.create({ capacitacionId: c.id, semestre: Number(s) })));
-    return this.detalle(c.id);
+    const id = await this.dataSource.transaction(async (manager) => {
+      const cap = manager.getRepository(Capacitacion);
+      const sem = manager.getRepository(CapacitacionSemestre);
+      const c = await cap.save(
+        cap.create({
+          titulo: dto.titulo,
+          descripcion: dto.descripcion ?? '',
+          enlace: dto.enlace ?? '',
+          imagenUrl,
+          temaId: dto.temaId || null,
+          fechaEvento: dto.fechaEvento ? new Date(dto.fechaEvento) : null,
+          modalidad: dto.modalidad ?? 'virtual',
+          visibleDesde: dto.visibleDesde ? new Date(dto.visibleDesde) : null,
+          visibleHasta: dto.visibleHasta ? new Date(dto.visibleHasta) : null,
+          estado: dto.estado ?? 'borrador',
+          createdBy,
+        }),
+      );
+      const sems = dto.semestres?.length ? dto.semestres : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      await sem.save(sems.map((s) => sem.create({ capacitacionId: c.id, semestre: Number(s) })));
+      return c.id;
+    });
+    return this.detalle(id);
   }
 
   async puedeVer(c: Capacitacion, viewer: CapacitacionViewer) {
@@ -102,25 +108,29 @@ export class CapacitacionesService {
   }
 
   async actualizar(id: string, dto: ActualizarCapacitacionDto, imagenUrl?: string | null) {
-    const c = await this.cap.findOne({ where: { id } });
-    if (!c) throw new NotFoundException('Capacitación no encontrada');
-    Object.assign(c, {
-      titulo: dto.titulo ?? c.titulo,
-      descripcion: dto.descripcion !== undefined ? (dto.descripcion ?? '') : c.descripcion,
-      enlace: dto.enlace !== undefined ? (dto.enlace ?? '') : c.enlace,
-      temaId: dto.temaId !== undefined ? dto.temaId || null : c.temaId,
-      fechaEvento: dto.fechaEvento !== undefined ? (dto.fechaEvento ? new Date(dto.fechaEvento) : null) : c.fechaEvento,
-      modalidad: dto.modalidad ?? c.modalidad,
-      visibleDesde: dto.visibleDesde !== undefined ? (dto.visibleDesde ? new Date(dto.visibleDesde) : null) : c.visibleDesde,
-      visibleHasta: dto.visibleHasta !== undefined ? (dto.visibleHasta ? new Date(dto.visibleHasta) : null) : c.visibleHasta,
-      estado: dto.estado ?? c.estado,
-      ...(imagenUrl !== undefined ? { imagenUrl } : {}),
+    await this.dataSource.transaction(async (manager) => {
+      const cap = manager.getRepository(Capacitacion);
+      const sem = manager.getRepository(CapacitacionSemestre);
+      const c = await cap.findOne({ where: { id } });
+      if (!c) throw new NotFoundException('Capacitación no encontrada');
+      Object.assign(c, {
+        titulo: dto.titulo ?? c.titulo,
+        descripcion: dto.descripcion !== undefined ? (dto.descripcion ?? '') : c.descripcion,
+        enlace: dto.enlace !== undefined ? (dto.enlace ?? '') : c.enlace,
+        temaId: dto.temaId !== undefined ? dto.temaId || null : c.temaId,
+        fechaEvento: dto.fechaEvento !== undefined ? (dto.fechaEvento ? new Date(dto.fechaEvento) : null) : c.fechaEvento,
+        modalidad: dto.modalidad ?? c.modalidad,
+        visibleDesde: dto.visibleDesde !== undefined ? (dto.visibleDesde ? new Date(dto.visibleDesde) : null) : c.visibleDesde,
+        visibleHasta: dto.visibleHasta !== undefined ? (dto.visibleHasta ? new Date(dto.visibleHasta) : null) : c.visibleHasta,
+        estado: dto.estado ?? c.estado,
+        ...(imagenUrl !== undefined ? { imagenUrl } : {}),
+      });
+      await cap.save(c);
+      if (dto.semestres) {
+        await sem.delete({ capacitacionId: id });
+        await sem.save(dto.semestres.map((s) => sem.create({ capacitacionId: id, semestre: Number(s) })));
+      }
     });
-    await this.cap.save(c);
-    if (dto.semestres) {
-      await this.sem.delete({ capacitacionId: id });
-      await this.sem.save(dto.semestres.map((s) => this.sem.create({ capacitacionId: id, semestre: Number(s) })));
-    }
     return this.detalle(id);
   }
 

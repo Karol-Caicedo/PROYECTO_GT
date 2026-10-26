@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
-import { writeFile } from 'fs/promises';
+import { rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 export type TipoImagen = 'jpg' | 'png' | 'webp';
@@ -57,4 +57,18 @@ export async function guardarImagen(
   const nombre = `${randomBytes(16).toString('hex')}.${tipo}`;
   await writeFile(join(dir, nombre), file.buffer);
   return `/api/uploads/${nombre}`;
+}
+
+/** Elimina una imagen recién guardada si la transacción de BD falla. */
+export async function eliminarImagen(
+  url: string | null | undefined,
+  uploadsDir = process.env.UPLOADS_DIR || './uploads',
+): Promise<void> {
+  if (!url) return;
+  const prefijo = '/api/uploads/';
+  if (!url.startsWith(prefijo)) return;
+  const nombre = url.slice(prefijo.length);
+  if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(nombre)) return;
+  const dir = uploadsDir.startsWith('/') ? uploadsDir : join(process.cwd(), uploadsDir);
+  await rm(join(dir, nombre), { force: true });
 }

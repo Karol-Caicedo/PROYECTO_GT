@@ -1,13 +1,27 @@
 import { NotFoundException } from '@nestjs/common';
 import { CapacitacionesService } from './capacitaciones.service';
 import { mockRepository } from '../../test/test-utils';
+import { Capacitacion, CapacitacionSemestre } from './capacitacion.entity';
+import { ClicCapacitacion } from './clic.entity';
 
 function buildService() {
   const cap = mockRepository();
   const sem = mockRepository();
   const clic = mockRepository();
-  const svc = new CapacitacionesService(cap as never, sem as never, clic as never);
-  return { svc, cap, sem, clic };
+  const repos = new Map<unknown, unknown>([
+    [Capacitacion, cap],
+    [CapacitacionSemestre, sem],
+    [ClicCapacitacion, clic],
+  ]);
+  const manager = { getRepository: jest.fn((entidad: unknown) => repos.get(entidad)) };
+  const dataSource = { transaction: jest.fn((cb: (m: unknown) => unknown) => cb(manager)) };
+  const svc = new CapacitacionesService(
+    cap as never,
+    sem as never,
+    clic as never,
+    dataSource as never,
+  );
+  return { svc, cap, sem, clic, dataSource, manager };
 }
 
 const DTO_BASE = {

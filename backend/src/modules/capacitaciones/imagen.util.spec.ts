@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { mkdtemp, readFile, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { detectarTipoImagen, guardarImagen } from './imagen.util';
+import { detectarTipoImagen, eliminarImagen, guardarImagen } from './imagen.util';
 
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -51,5 +51,27 @@ describe('guardarImagen', () => {
 
   test('rechaza un MIME que no coincide con el contenido real', async () => {
     await expect(guardarImagen(archivo(PNG, 'image/jpeg'), dir)).rejects.toThrow(/no coincide/);
+  });
+});
+
+describe('eliminarImagen', () => {
+  let dir = '';
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'sigice-img-del-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test('elimina solo URLs internas con nombre seguro', async () => {
+    const url = await guardarImagen(archivo(PNG, 'image/png'), dir);
+    await eliminarImagen(url, dir);
+    await expect(readFile(join(dir, url.replace('/api/uploads/', '')))).rejects.toThrow();
+
+    await expect(eliminarImagen('../../.env', dir)).resolves.toBeUndefined();
+    await expect(eliminarImagen('/api/uploads/../../.env', dir)).resolves.toBeUndefined();
+    await expect(eliminarImagen(null, dir)).resolves.toBeUndefined();
   });
 });
