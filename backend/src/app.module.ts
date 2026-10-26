@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { migracionesAutomaticasHabilitadas } from './config/migration-policy';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -55,7 +56,7 @@ import { UnknownRouteModule } from './common/unknown-route.module';
           Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura,
         ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        migrationsRun: true,
+        migrationsRun: migracionesAutomaticasHabilitadas(c),
         synchronize: false,
         logging: false,
       }),

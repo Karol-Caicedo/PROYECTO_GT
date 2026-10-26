@@ -64,6 +64,7 @@ Usuarios de prueba (los crea el seed, configurables en `.env`):
 | `npm run dev:frontend` | Solo frontend (`http://localhost:4200`)                         |
 | `npm run build`        | Compila backend y frontend                                      |
 | `npm run migrate`      | Ejecuta migraciones pendientes (TypeORM)                        |
+| `npm run migrate:prod` | Migraciones en producción; exige `MIGRATE_CONFIRM=YES`         |
 | `npm run seed`         | Crea admin + estudiante demo + 20 temas (idempotente)           |
 | `npm run test`         | Pruebas unitarias del backend (Jest)                            |
 | `npm run docker:up`    | Solo Postgres + Adminer en Docker                               |
@@ -111,9 +112,10 @@ configuración; `Root Directory` en la raíz del repo):
 
 - **Build Command:** `npm run install:all && npm run build`
 - **Start Command:** `npm --prefix backend run start:prod`
-- El seed **no** se ejecuta en cada despliegue. En el primer aprovisionamiento,
-  ejecuta una vez `npm --prefix backend run seed:prod` desde la consola de Railway
-  con `ADMIN_PASSWORD` definido y seguro.
+- El seed y las migraciones **no** se ejecutan en cada despliegue. En el primer
+  aprovisionamiento, ejecuta una vez `npm run migrate:prod` con
+  `MIGRATE_CONFIRM=YES`, revisa las migraciones pendientes y luego
+  `npm --prefix backend run seed:prod` con `ADMIN_PASSWORD` seguro.
 - Agrega un plugin **Postgres** y define estas variables (usa los valores de
   referencia del plugin, ej. `DB_HOST=${{Postgres.PGHOST}}`):
   `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,

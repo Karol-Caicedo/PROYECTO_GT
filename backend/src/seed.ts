@@ -70,7 +70,6 @@ export const ASIGNATURAS_INICIALES: { nombre: string; semestre: number }[] = [
 
 async function main() {
   await AppDataSource.initialize();
-  await AppDataSource.runMigrations();
   const users = AppDataSource.getRepository(User);
   const temas = AppDataSource.getRepository(Tema);
   const produccion = esProduccion();

@@ -105,11 +105,13 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
 
 ## Database
 
-- `synchronize: false`; schema changes go through migrations. `migrationsRun: true`
-  means the backend applies pending migrations on bootstrap; seed also runs them.
+- `synchronize: false`; schema changes go through migrations. `migrationsRun` is
+  enabled only outside production (`DB_MIGRATIONS_RUN=false` disables it in dev).
+  Production migrations are manual: `npm run migrate:prod` requires
+  `MIGRATE_CONFIRM=YES`. The seed never runs migrations.
 - **New migration** must be created in `backend/src/migrations/` and added to the
   explicit array in `backend/src/data-source.ts`. `AppModule` uses a glob; the CLI
-  and seed use that array.
+  and guarded runner use that array.
 - **New entity** must be registered in three places: `app.module.ts` `entities`,
   `data-source.ts` `entities`, and `backend/src/test/test-db.ts` (`ENTIDADES_TEST`).
   Missing the last one breaks the integration suite.
