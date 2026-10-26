@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiOperation } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
@@ -42,7 +42,7 @@ export class CapacitacionesController {
   @Get(':id')
   @Auth('ADMIN', 'ESTUDIANTE')
   una(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() req: { user: { id: string; rol: string; semestre: number } },
   ) {
     return this.svc.detallePara(id, req.user);
@@ -66,7 +66,7 @@ export class CapacitacionesController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('imagen', imagenUpload))
   async actualizar(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ActualizarCapacitacionDto,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
@@ -76,7 +76,7 @@ export class CapacitacionesController {
 
   @Delete(':id')
   @Auth('ADMIN')
-  eliminar(@Param('id') id: string) {
+  eliminar(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.eliminar(id);
   }
 
@@ -84,7 +84,7 @@ export class CapacitacionesController {
   @Auth('ESTUDIANTE', 'ADMIN')
   @ApiOperation({ summary: 'Registra el clic y devuelve el enlace para redirigir' })
   clic(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() req: { user: { id: string; rol: string; semestre: number } },
   ) {
     return this.svc.registrarClic(id, req.user);
@@ -93,7 +93,7 @@ export class CapacitacionesController {
   @Post(':id/notificar')
   @Auth('ADMIN')
   @ApiOperation({ summary: 'Notificar por correo a estudiantes de los semestres destino' })
-  async notificar(@Param('id') id: string) {
+  async notificar(@Param('id', ParseUUIDPipe) id: string) {
     const cap = await this.svc.detalle(id);
     const destinatarios = await this.svc.destinatarios(id);
     if (!destinatarios.length) return { enviados: 0, mensaje: 'No hay estudiantes en los semestres destino' };
