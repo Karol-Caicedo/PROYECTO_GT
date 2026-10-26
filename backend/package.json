@@ -10,6 +10,8 @@
     "seed": "ts-node src/seed.ts",
     "seed:prod": "node dist/seed.js --prod",
     "password:migration-status": "node scripts/password-migration-status.js",
+    "passwords:reset": "ts-node src/scripts/reset-passwords.ts",
+    "passwords:reset:prod": "node dist/scripts/reset-passwords.js",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
     "migration:run:guarded": "ts-node src/migrate-guarded.ts",
