@@ -26,6 +26,10 @@ import { CapacitacionesService } from '../modules/capacitaciones/capacitaciones.
 import { DashboardService } from '../modules/dashboard/dashboard.service';
 import { RecordatoriosService } from '../modules/recordatorios/recordatorios.service';
 import { PeriodosService } from '../modules/periodos/periodos.service';
+import { EncuestasAsignaturasService } from '../modules/encuestas-asignaturas/encuestas-asignaturas.service';
+import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
+import { InscripcionAsignatura } from '../modules/encuestas-asignaturas/inscripcion-asignatura.entity';
+import { Asignatura } from '../modules/asignaturas/asignatura.entity';
 import { TemasService } from '../modules/temas/temas.service';
 import { MailService } from '../modules/mail/mail.service';
 
@@ -44,6 +48,10 @@ let R: {
   rec: Repository<RecordatorioEnviado>;
   resets: Repository<PasswordReset>;
   sso: Repository<SsoCode>;
+  respAsig: Repository<RespuestaAsignatura>;
+  respItems: Repository<RespuestaAsignaturaItem>;
+  inscripciones: Repository<InscripcionAsignatura>;
+  asig: Repository<Asignatura>;
 };
 let auth: AuthService;
 let enc: EncuestasService;
@@ -52,6 +60,7 @@ let dash: DashboardService;
 let recs: RecordatoriosService;
 let periodos: PeriodosService;
 let temasSvc: TemasService;
+let asigSvc: EncuestasAsignaturasService;
 
 const hace = (dias: number) => new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
 
@@ -74,6 +83,10 @@ beforeAll(async () => {
     rec: ds.getRepository(RecordatorioEnviado),
     resets: ds.getRepository(PasswordReset),
     sso: ds.getRepository(SsoCode),
+    respAsig: ds.getRepository(RespuestaAsignatura),
+    respItems: ds.getRepository(RespuestaAsignaturaItem),
+    inscripciones: ds.getRepository(InscripcionAsignatura),
+    asig: ds.getRepository(Asignatura),
   };
   const config = new ConfigService({ ALLOWED_EMAIL_DOMAIN: '@unipacifico.edu.co', AUTH_SSO_ENABLED: 'false' });
   const jwt = new JwtService({ secret: 'test-secret' });
@@ -86,6 +99,16 @@ beforeAll(async () => {
   recs = new RecordatoriosService(R.rec as never, R.periodo as never, R.user as never, R.resp as never, new MailService(new ConfigService({})));
   periodos = new PeriodosService(R.periodo as never);
   temasSvc = new TemasService(R.tema as never);
+  asigSvc = new EncuestasAsignaturasService(
+    R.respAsig as never,
+    R.respItems as never,
+    R.inscripciones as never,
+    R.asig as never,
+    R.periodo as never,
+    R.user as never,
+    periodos,
+    ds,
+  );
 });
 
 afterAll(async () => {
@@ -253,6 +276,84 @@ describe('Atomicidad E2E (rollback real)', () => {
 
     await expect(R.resp.count()).resolves.toBe(0);
     await expect(R.rt.count()).resolves.toBe(0);
+  });
+});
+
+describe('Encuesta de asignaturas E2E (transacciones)', () => {
+  async function contexto(correo: string) {
+    const periodo = await periodos.create({
+      nombre: '2026-1',
+      fechaInicio: hace(10),
+      fechaFin: hace(-100),
+      activo: true,
+      encuestaAsignaturasActiva: true,
+      fechaInicioAsignaturas: hace(1),
+      fechaFinAsignaturas: hace(-10),
+    });
+    const [a1, a2] = await Promise.all([
+      R.asig.save(R.asig.create({ nombre: 'Asignatura A', semestre: 4, activo: true })),
+      R.asig.save(R.asig.create({ nombre: 'Asignatura B', semestre: 4, activo: true })),
+    ]);
+    const { user } = await registrar(correo, 4);
+    return { periodo, a1, a2, user };
+  }
+
+  test('guardarInscripciones reemplaza el conjunto completo', async () => {
+    const { periodo, a1, a2, user } = await contexto('asig-ok@unipacifico.edu.co');
+    await R.inscripciones.save(R.inscripciones.create({ usuarioId: user.id, periodoId: periodo.id, asignaturaId: a1.id }));
+
+    const estado = await asigSvc.guardarInscripciones(user.id, { asignaturaIds: [a2.id] });
+
+    expect(estado.inscripcionIds).toEqual([a2.id]);
+    const filas = await R.inscripciones.find();
+    expect(filas).toHaveLength(1);
+    expect(filas[0].asignaturaId).toBe(a2.id);
+  });
+
+  test('si falla el guardado de inscripciones se restauran las anteriores', async () => {
+    const { periodo, a1, a2, user } = await contexto('asig-rollback@unipacifico.edu.co');
+    await R.inscripciones.save(R.inscripciones.create({ usuarioId: user.id, periodoId: periodo.id, asignaturaId: a1.id }));
+    const svcFallido = new EncuestasAsignaturasService(
+      R.respAsig as never, R.respItems as never, R.inscripciones as never, R.asig as never,
+      R.periodo as never, R.user as never, periodos, dataSourceConFallo(ds, InscripcionAsignatura),
+    );
+
+    await expect(svcFallido.guardarInscripciones(user.id, { asignaturaIds: [a2.id] })).rejects.toThrow('fallo inyectado');
+
+    const filas = await R.inscripciones.find();
+    expect(filas).toHaveLength(1);
+    expect(filas[0].asignaturaId).toBe(a1.id);
+  });
+
+  test('responder guarda inscripciones faltantes, respuesta e ítems', async () => {
+    const { a1, user } = await contexto('asig-resp@unipacifico.edu.co');
+
+    const r = await asigSvc.responder(user.id, {
+      items: [{ asignaturaId: a1.id, tieneDificultad: true, nivelSatisfaccion: 3 }],
+    });
+
+    expect(r).toMatchObject({ semestreAlResponder: 4 });
+    expect(r?.items).toHaveLength(1);
+    expect(r?.items[0]).toMatchObject({ asignaturaId: a1.id, nivelSatisfaccion: 3 });
+    expect(await R.inscripciones.count()).toBe(1);
+    expect(await R.respAsig.count()).toBe(1);
+    expect(await R.respItems.count()).toBe(1);
+  });
+
+  test('si fallan los ítems se revierten inscripción, respuesta e ítems', async () => {
+    const { a1, user } = await contexto('asig-resp-rollback@unipacifico.edu.co');
+    const svcFallido = new EncuestasAsignaturasService(
+      R.respAsig as never, R.respItems as never, R.inscripciones as never, R.asig as never,
+      R.periodo as never, R.user as never, periodos, dataSourceConFallo(ds, RespuestaAsignaturaItem),
+    );
+
+    await expect(svcFallido.responder(user.id, {
+      items: [{ asignaturaId: a1.id, tieneDificultad: false, nivelSatisfaccion: 5 }],
+    })).rejects.toThrow('fallo inyectado');
+
+    expect(await R.inscripciones.count()).toBe(0);
+    expect(await R.respAsig.count()).toBe(0);
+    expect(await R.respItems.count()).toBe(0);
   });
 });
 
