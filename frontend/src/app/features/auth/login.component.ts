@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -168,6 +169,11 @@ export class LoginComponent implements OnInit {
       const u = this.auth.usuario();
       this.router.navigate([u?.rol === 'ADMIN' ? '/admin/dashboard' : '/encuesta']);
     } catch (e: unknown) {
+      if (e instanceof HttpErrorResponse && e.status === 401) {
+        this.error.set('Usuario o contraseña no encontrados');
+        return;
+      }
+
       const msg = (e as { error?: { message?: string } })?.error?.message;
       this.error.set(Array.isArray(msg) ? msg.join(', ') : msg || 'Credenciales inválidas');
     } finally {
