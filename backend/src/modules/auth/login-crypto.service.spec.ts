@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { QueryFailedError } from 'typeorm';
 import { LoginCryptoService } from './login-crypto.service';
 import { cifrarLogin, LoginEnvelope } from '../../../../frontend/src/app/core/login-crypto';
 
@@ -51,6 +52,24 @@ describe('LoginCryptoService', () => {
     await expect(service.descifrar(envelope)).resolves.toMatchObject({ correo: 'persona@unipacifico.edu.co' });
     execute.mockResolvedValueOnce({ affected: 0 });
     await expect(service.descifrar(envelope)).rejects.toThrow('Sobre de inicio de sesión inválido o vencido');
+  });
+
+  test('reporta servicio no disponible cuando la tabla de desafíos no existe', async () => {
+    const { service, challenges } = crearCryptoService();
+    challenges.save.mockRejectedValueOnce(new QueryFailedError('INSERT INTO', [], { code: '42P01' } as never));
+
+    await expect(service.crearParametros()).rejects.toThrow('El inicio de sesión seguro no está disponible');
+  });
+
+  test('rechaza el login con un servicio no disponible si la tabla está ausente', async () => {
+    const { service, challenges } = crearCryptoService();
+    const params = await service.crearParametros();
+    const envelope = await cifrarLogin({ correo: 'persona@unipacifico.edu.co', password: 'Clave-de-prueba-984' }, params);
+    challenges.createQueryBuilder.mockImplementationOnce(() => {
+      throw new QueryFailedError('DELETE FROM', [], { code: '42P01' } as never);
+    });
+
+    await expect(service.descifrar(envelope)).rejects.toThrow('El inicio de sesión seguro no está disponible');
   });
 
   test.each([

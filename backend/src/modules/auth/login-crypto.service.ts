@@ -12,7 +12,7 @@ import {
 import { BadRequestException, Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { LessThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -103,26 +103,46 @@ export class LoginCryptoService implements OnModuleInit {
     this.activeKeyId = activeKeyId;
   }
 
+  private esTablaFaltante(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) return false;
+    const driverError = (error as QueryFailedError & { driverError?: { code?: string } }).driverError;
+    const codigo = driverError?.code ?? '';
+    return codigo === '42P01' || /relation .* does not exist/i.test(error.message ?? '');
+  }
+
+  private async conTablaDisponible<T>(operacion: () => Promise<T>): Promise<T> {
+    try {
+      return await operacion();
+    } catch (error) {
+      if (this.esTablaFaltante(error)) {
+        throw new ServiceUnavailableException('El inicio de sesión seguro no está disponible');
+      }
+      throw error;
+    }
+  }
+
   async crearParametros(): Promise<{ version: 1; keyId: string; publicKey: string; challenge: string; expiresIn: number }> {
     const key = this.keys.get(this.activeKeyId);
     if (!key) throw new ServiceUnavailableException('El inicio de sesión seguro no está disponible');
 
-    const challenge = randomBytes(32).toString('base64url');
-    const expiraAt = new Date(Date.now() + LOGIN_CHALLENGE_TTL_MS);
-    await this.challenges.save(
-      this.challenges.create({
-        challengeHash: hashChallenge(challenge),
+    return this.conTablaDisponible(async () => {
+      const challenge = randomBytes(32).toString('base64url');
+      const expiraAt = new Date(Date.now() + LOGIN_CHALLENGE_TTL_MS);
+      await this.challenges.save(
+        this.challenges.create({
+          challengeHash: hashChallenge(challenge),
+          keyId: this.activeKeyId,
+          expiraAt,
+        }),
+      );
+      return {
+        version: 1,
         keyId: this.activeKeyId,
-        expiraAt,
-      }),
-    );
-    return {
-      version: 1,
-      keyId: this.activeKeyId,
-      publicKey: key.publicKey,
-      challenge,
-      expiresIn: LOGIN_CHALLENGE_TTL_MS / 1000,
-    };
+        publicKey: key.publicKey,
+        challenge,
+        expiresIn: LOGIN_CHALLENGE_TTL_MS / 1000,
+      };
+    });
   }
 
   async descifrar(envelope: LoginEnvelopeDto): Promise<LoginDto> {
@@ -150,16 +170,24 @@ export class LoginCryptoService implements OnModuleInit {
       throw invalidEnvelope();
     }
 
-    const consumido = await this.challenges
-      .createQueryBuilder()
-      .delete()
-      .from(LoginChallenge)
-      .where('"challenge_hash" = :hash AND "key_id" = :keyId AND "expira_at" > now()', {
-        hash: hashChallenge(envelope.challenge),
-        keyId: envelope.keyId,
-      })
-      .returning('"challenge_hash"')
-      .execute();
+    let consumido: { affected?: number };
+    try {
+      consumido = await this.challenges
+        .createQueryBuilder()
+        .delete()
+        .from(LoginChallenge)
+        .where('"challenge_hash" = :hash AND "key_id" = :keyId AND "expira_at" > now()', {
+          hash: hashChallenge(envelope.challenge),
+          keyId: envelope.keyId,
+        })
+        .returning('"challenge_hash"')
+        .execute();
+    } catch (error) {
+      if (this.esTablaFaltante(error)) {
+        throw new ServiceUnavailableException('El inicio de sesión seguro no está disponible');
+      }
+      throw invalidEnvelope();
+    }
     if (!consumido.affected) throw invalidEnvelope();
 
     let cleartext: Buffer | undefined;
@@ -209,6 +237,12 @@ export class LoginCryptoService implements OnModuleInit {
 
   @Cron('*/10 * * * *')
   async limpiarDesafiosVencidos(): Promise<void> {
-    await this.challenges.delete({ expiraAt: LessThanOrEqual(new Date()) });
+    try {
+      await this.challenges.delete({ expiraAt: LessThanOrEqual(new Date()) });
+    } catch (error) {
+      if (!this.esTablaFaltante(error)) {
+        throw error;
+      }
+    }
   }
 }
