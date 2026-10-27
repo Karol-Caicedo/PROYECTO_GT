@@ -188,4 +188,86 @@ export class DashboardMateriasService {
       top1: top.items[0] ?? null,
     };
   }
+
+  /** Desglose detallado por profesor, grupo y horarios para una asignatura específica */
+  async desgloseGrupos(asignaturaId: string, periodoId?: string) {
+    const p = await this.periodoOrFail(periodoId);
+    const asig = await this.asigRepo.findOne({
+      where: { id: asignaturaId },
+      relations: ['grupos'],
+    });
+    if (!asig) throw new BadRequestException('Asignatura no encontrada');
+
+    const items = await this.raiRepo.createQueryBuilder('rai')
+      .innerJoin(RespuestaAsignatura, 'ra', 'ra.id = rai.respuestaAsignaturaId')
+      .leftJoinAndSelect('rai.grupo', 'g')
+      .where('ra.periodoId = :pid', { pid: p.id })
+      .andWhere('rai.asignaturaId = :aid', { aid: asignaturaId })
+      .getMany();
+
+    const totalEvaluaciones = items.length;
+    const totalDificultad = items.filter((i) => i.tieneDificultad).length;
+    const promedioGeneral = totalEvaluaciones
+      ? Number((items.reduce((acc, cur) => acc + cur.nivelSatisfaccion, 0) / totalEvaluaciones).toFixed(2))
+      : 0;
+
+    const gruposConfigurados = asig.grupos || [];
+    const desglose = gruposConfigurados.map((g) => {
+      const itemsDelGrupo = items.filter((i) => i.grupoId === g.id);
+      const dificultades = itemsDelGrupo.filter((i) => i.tieneDificultad).length;
+      const totalGrupo = itemsDelGrupo.length;
+      const promedio = totalGrupo
+        ? Number((itemsDelGrupo.reduce((acc, cur) => acc + cur.nivelSatisfaccion, 0) / totalGrupo).toFixed(2))
+        : 0;
+      const porcentajeDeDificultad = totalDificultad
+        ? Number(((dificultades / totalDificultad) * 100).toFixed(1))
+        : 0;
+
+      return {
+        grupoId: g.id,
+        profesor: g.profesor,
+        codigoGrupo: g.codigoGrupo,
+        horario: g.horario,
+        activo: g.activo,
+        reportesDificultad: dificultades,
+        totalEstudiantesEvaluaron: totalGrupo,
+        promedioSatisfaccion: promedio,
+        porcentajeDeDificultad,
+      };
+    });
+
+    const itemsSinGrupo = items.filter((i) => !i.grupoId);
+    if (itemsSinGrupo.length > 0) {
+      const difSin = itemsSinGrupo.filter((i) => i.tieneDificultad).length;
+      const promSin = Number((itemsSinGrupo.reduce((acc, cur) => acc + cur.nivelSatisfaccion, 0) / itemsSinGrupo.length).toFixed(2));
+      desglose.push({
+        grupoId: 'sin-grupo',
+        profesor: 'Sin docente asignado',
+        codigoGrupo: 'Sin grupo específico',
+        horario: 'Horario no registrado',
+        activo: true,
+        reportesDificultad: difSin,
+        totalEstudiantesEvaluaron: itemsSinGrupo.length,
+        promedioSatisfaccion: promSin,
+        porcentajeDeDificultad: totalDificultad ? Number(((difSin / totalDificultad) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    desglose.sort((a, b) => b.reportesDificultad - a.reportesDificultad);
+
+    return {
+      periodo: p,
+      asignatura: {
+        id: asig.id,
+        nombre: asig.nombre,
+        codigo: asig.codigo ?? null,
+        semestre: asig.semestre,
+      },
+      totalDificultad,
+      totalEvaluaciones,
+      promedioSatisfaccion: promedioGeneral,
+      grupos: desglose,
+    };
+  }
 }
+

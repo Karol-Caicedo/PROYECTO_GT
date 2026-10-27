@@ -6,6 +6,7 @@ import { Periodo } from '../periodos/periodo.entity';
 import { User } from '../users/user.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../encuestas-asignaturas/respuesta-asignatura.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
+import { GrupoAsignatura } from '../asignaturas/grupo-asignatura.entity';
 import { DashboardService } from './dashboard.service';
 import { DashboardController } from './dashboard.controller';
 import { DashboardMateriasService } from './dashboard-materias.service';
@@ -16,10 +17,11 @@ import { CapacitacionesModule } from '../capacitaciones/capacitaciones.module';
   imports: [
     TypeOrmModule.forFeature([
       Respuesta, RespuestaTema, Tema, Periodo, User,
-      RespuestaAsignatura, RespuestaAsignaturaItem, Asignatura,
+      RespuestaAsignatura, RespuestaAsignaturaItem, Asignatura, GrupoAsignatura,
     ]),
     CapacitacionesModule,
   ],
+
   controllers: [DashboardController, DashboardMateriasController],
   providers: [DashboardService, DashboardMateriasService],
 })

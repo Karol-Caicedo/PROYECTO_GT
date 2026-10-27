@@ -22,6 +22,7 @@ import { PasswordReset } from './modules/auth/password-reset.entity';
 import { SsoCode } from './modules/auth/sso-code.entity';
 import { LoginChallenge } from './modules/auth/login-challenge.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
+import { GrupoAsignatura } from './modules/asignaturas/grupo-asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './modules/encuestas-asignaturas/respuesta-asignatura.entity';
 import { InscripcionAsignatura } from './modules/encuestas-asignaturas/inscripcion-asignatura.entity';
 import { AuthModule } from './modules/auth/auth.module';
@@ -55,8 +56,9 @@ import { UnknownRouteModule } from './common/unknown-route.module';
         entities: [
           User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion,
           CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, SsoCode, LoginChallenge,
-          Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura,
+          Asignatura, GrupoAsignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura,
         ],
+
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: migracionesAutomaticasHabilitadas(c),
         synchronize: false,

@@ -1,11 +1,16 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, IsString, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 
 export class ItemEncuestaAsignaturaDto {
   @ApiProperty({ example: '123e4567-e89b-42d3-a456-426614174000' })
   @IsString({ message: 'El identificador de la asignatura es obligatorio' })
   asignaturaId: string;
+
+  @ApiPropertyOptional({ example: '123e4567-e89b-42d3-a456-426614174002' })
+  @IsOptional()
+  @IsString()
+  grupoId?: string;
 
   @ApiProperty({ example: false })
   @IsBoolean()
@@ -23,7 +28,7 @@ export class ResponderEncuestaAsignaturaDto {
     type: [ItemEncuestaAsignaturaDto],
     example: [
       { asignaturaId: '123e4567-e89b-42d3-a456-426614174000', tieneDificultad: false, nivelSatisfaccion: 4 },
-      { asignaturaId: '123e4567-e89b-42d3-a456-426614174001', tieneDificultad: true, nivelSatisfaccion: 2 },
+      { asignaturaId: '123e4567-e89b-42d3-a456-426614174001', grupoId: '123e4567-e89b-42d3-a456-426614174002', tieneDificultad: true, nivelSatisfaccion: 2 },
     ],
   })
   @IsArray({ message: 'Debes enviar la lista de asignaturas evaluadas' })
@@ -32,14 +37,39 @@ export class ResponderEncuestaAsignaturaDto {
   items: ItemEncuestaAsignaturaDto[];
 }
 
+export class InscripcionItemDto {
+  @ApiProperty({ example: '123e4567-e89b-42d3-a456-426614174000' })
+  @IsString()
+  asignaturaId: string;
+
+  @ApiPropertyOptional({ example: '123e4567-e89b-42d3-a456-426614174002' })
+  @IsOptional()
+  @IsString()
+  grupoId?: string;
+}
+
 export class GuardarInscripcionesDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: [
       '123e4567-e89b-42d3-a456-426614174000',
       '123e4567-e89b-42d3-a456-426614174001',
     ],
   })
-  @IsArray({ message: 'Debes enviar la lista de asignaturas a inscribir' })
+  @IsOptional()
+  @IsArray()
   @IsString({ each: true, message: 'Cada identificador de asignatura debe ser una cadena' })
-  asignaturaIds: string[];
+  asignaturaIds?: string[];
+
+  @ApiPropertyOptional({
+    type: [InscripcionItemDto],
+    example: [
+      { asignaturaId: '123e4567-e89b-42d3-a456-426614174000', grupoId: '123e4567-e89b-42d3-a456-426614174002' },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InscripcionItemDto)
+  inscripciones?: InscripcionItemDto[];
 }
+

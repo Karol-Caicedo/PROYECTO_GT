@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Auth } from '../../common/auth.decorator';
 import { AsignaturasService } from './asignaturas.service';
-import { AsignaturaDto, ActualizarAsignaturaDto, CambiarEstadoTodasDto } from './asignatura.dto';
+import { AsignaturaDto, ActualizarAsignaturaDto, CambiarEstadoTodasDto, CrearGrupoAsignaturaDto, ActualizarGrupoAsignaturaDto } from './asignatura.dto';
 
 @ApiTags('asignaturas')
 @Controller('asignaturas')
@@ -37,6 +37,36 @@ export class AsignaturasController {
     return this.svc.cambiarEstadoTodas(dto.activo, dto.semestre);
   }
 
+  // --- Endpoints de grupos (rutas específicas antes de :id) ---
+
+  @Get(':id/grupos')
+  @Auth('ESTUDIANTE', 'ADMIN')
+  @ApiOperation({ summary: 'Listar grupos de una asignatura' })
+  listarGrupos(@Param('id') id: string) {
+    return this.svc.listarGrupos(id);
+  }
+
+  @Post(':id/grupos')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Crear un nuevo grupo para una asignatura' })
+  crearGrupo(@Param('id') id: string, @Body() dto: CrearGrupoAsignaturaDto) {
+    return this.svc.crearGrupo(id, dto);
+  }
+
+  @Patch('grupos/:grupoId')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Actualizar un grupo' })
+  actualizarGrupo(@Param('grupoId') grupoId: string, @Body() dto: ActualizarGrupoAsignaturaDto) {
+    return this.svc.actualizarGrupo(grupoId, dto);
+  }
+
+  @Delete('grupos/:grupoId')
+  @Auth('ADMIN')
+  @ApiOperation({ summary: 'Eliminar un grupo' })
+  eliminarGrupo(@Param('grupoId') grupoId: string) {
+    return this.svc.eliminarGrupo(grupoId);
+  }
+
   @Patch(':id')
   @Auth('ADMIN')
   @ApiOperation({ summary: 'Actualizar una asignatura existente' })
@@ -51,3 +81,4 @@ export class AsignaturasController {
     return this.svc.eliminar(id);
   }
 }
+

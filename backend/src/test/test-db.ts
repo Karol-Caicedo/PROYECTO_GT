@@ -12,6 +12,7 @@ import { PasswordReset } from '../modules/auth/password-reset.entity';
 import { SsoCode } from '../modules/auth/sso-code.entity';
 import { LoginChallenge } from '../modules/auth/login-challenge.entity';
 import { Asignatura } from '../modules/asignaturas/asignatura.entity';
+import { GrupoAsignatura } from '../modules/asignaturas/grupo-asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
 import { InscripcionAsignatura } from '../modules/encuestas-asignaturas/inscripcion-asignatura.entity';
 
@@ -29,6 +30,7 @@ export const ENTIDADES_TEST = [
   SsoCode,
   LoginChallenge,
   Asignatura,
+  GrupoAsignatura,
   RespuestaAsignatura,
   RespuestaAsignaturaItem,
   InscripcionAsignatura,
@@ -95,6 +97,7 @@ const TABLAS = [
   'inscripciones_asignaturas',
   'respuesta_asignatura_items',
   'respuestas_asignaturas',
+  'grupos_asignaturas',
   'asignaturas',
   'respuesta_temas',
   'respuestas',
@@ -102,6 +105,7 @@ const TABLAS = [
   'temas',
   'usuarios',
 ];
+
 
 export async function truncateAll(ds: DataSource) {
   await assertTestDatabase(ds);

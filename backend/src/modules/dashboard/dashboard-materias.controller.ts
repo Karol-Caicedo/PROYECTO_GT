@@ -44,4 +44,14 @@ export class DashboardMateriasController {
   resumen(@Query('periodoId') p?: string, @Query('semestre') s?: string) {
     return this.svc.resumen(p, s ? Number(s) : undefined);
   }
+
+  @Get('desglose-grupos')
+  @ApiOperation({ summary: 'Desglose detallado por profesor, grupo y horarios de una asignatura' })
+  desgloseGrupos(
+    @Query('asignaturaId') asignaturaId: string,
+    @Query('periodoId') periodoId?: string,
+  ) {
+    return this.svc.desgloseGrupos(asignaturaId, periodoId);
+  }
 }
+

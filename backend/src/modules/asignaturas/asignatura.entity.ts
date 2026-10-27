@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, OneToMany } from 'typeorm';
+import { GrupoAsignatura } from './grupo-asignatura.entity';
 
 @Entity('asignaturas')
 @Index('idx_asignaturas_semestre', ['semestre'])
@@ -21,4 +22,8 @@ export class Asignatura {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
+
+  @OneToMany(() => GrupoAsignatura, (g) => g.asignatura)
+  grupos: GrupoAsignatura[];
 }
+

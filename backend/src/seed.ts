@@ -4,7 +4,9 @@ import AppDataSource from './data-source';
 import { User } from './modules/users/user.entity';
 import { Tema } from './modules/temas/tema.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
+import { GrupoAsignatura } from './modules/asignaturas/grupo-asignatura.entity';
 import { debeCrearEstudianteDemo, esProduccion, validarClaveProduccion } from './seed-policy';
+
 
 export const TEMAS_INICIALES = [
   ['IA generativa y prompt engineering', 'Modelos generativos, prompting y aplicaciones'],
@@ -143,6 +145,7 @@ async function main() {
   }
 
   const asignaturasRepo = AppDataSource.getRepository(Asignatura);
+  const gruposRepo = AppDataSource.getRepository(GrupoAsignatura);
   const totalAsignaturas = await asignaturasRepo.count();
   if (totalAsignaturas === 0) {
     for (const item of ASIGNATURAS_INICIALES) {
@@ -151,6 +154,59 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Asignaturas iniciales creadas: ${ASIGNATURAS_INICIALES.length}`);
   }
+
+  const totalGrupos = await gruposRepo.count();
+  if (totalGrupos === 0) {
+    const calculo = await asignaturasRepo.findOne({ where: { nombre: 'Cálculo Diferencial' } });
+    if (calculo) {
+      await gruposRepo.save([
+        gruposRepo.create({
+          asignaturaId: calculo.id,
+          profesor: 'Prof. Lucio Pérez',
+          codigoGrupo: 'Grupo D1',
+          horario: 'Lunes 8:00 - 10:00 AM y Jueves 9:00 - 11:00 AM',
+          activo: true,
+        }),
+        gruposRepo.create({
+          asignaturaId: calculo.id,
+          profesor: 'Prof. Lucio Pérez',
+          codigoGrupo: 'Grupo D2',
+          horario: 'Martes 8:00 - 10:00 AM y Viernes 10:00 - 12:00 PM',
+          activo: true,
+        }),
+        gruposRepo.create({
+          asignaturaId: calculo.id,
+          profesor: 'Prof. Carmen Rivas',
+          codigoGrupo: 'Grupo D3',
+          horario: 'Miércoles 2:00 - 4:00 PM y Viernes 2:00 - 4:00 PM',
+          activo: true,
+        }),
+      ]);
+    }
+
+    const prog = await asignaturasRepo.findOne({ where: { nombre: 'Fundamentos de Programación' } });
+    if (prog) {
+      await gruposRepo.save([
+        gruposRepo.create({
+          asignaturaId: prog.id,
+          profesor: 'Prof. Andrés Gómez',
+          codigoGrupo: 'Grupo P1',
+          horario: 'Lunes 10:00 - 12:00 PM y Miércoles 10:00 - 12:00 PM',
+          activo: true,
+        }),
+        gruposRepo.create({
+          asignaturaId: prog.id,
+          profesor: 'Prof. Elena Morales',
+          codigoGrupo: 'Grupo P2',
+          horario: 'Martes 2:00 - 4:00 PM y Jueves 2:00 - 4:00 PM',
+          activo: true,
+        }),
+      ]);
+    }
+    // eslint-disable-next-line no-console
+    console.log('Grupos de asignaturas iniciales creados.');
+  }
+
 
   await AppDataSource.destroy();
   process.exit(0);

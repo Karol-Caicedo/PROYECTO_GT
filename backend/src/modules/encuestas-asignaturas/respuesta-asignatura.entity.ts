@@ -5,6 +5,7 @@ import {
 import { User } from '../users/user.entity';
 import { Periodo } from '../periodos/periodo.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
+import { GrupoAsignatura } from '../asignaturas/grupo-asignatura.entity';
 
 @Entity('respuestas_asignaturas')
 @Unique('uq_respuesta_asig_usuario_periodo', ['usuarioId', 'periodoId'])
@@ -44,6 +45,7 @@ export class RespuestaAsignatura {
 @Entity('respuesta_asignatura_items')
 @Index('idx_rai_asignatura', ['asignaturaId'])
 @Index('idx_rai_resp_asig', ['respuestaAsignaturaId'])
+@Index('idx_rai_grupo', ['grupoId'])
 export class RespuestaAsignaturaItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -53,6 +55,9 @@ export class RespuestaAsignaturaItem {
 
   @Column({ name: 'asignatura_id' })
   asignaturaId: string;
+
+  @Column({ name: 'grupo_id', type: 'uuid', nullable: true })
+  grupoId?: string | null;
 
   @Column({ name: 'tiene_dificultad', default: false })
   tieneDificultad: boolean;
@@ -67,4 +72,9 @@ export class RespuestaAsignaturaItem {
   @ManyToOne(() => Asignatura, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'asignatura_id', foreignKeyConstraintName: 'respuesta_asignatura_items_asignatura_id_fkey' })
   asignatura: Asignatura;
+
+  @ManyToOne(() => GrupoAsignatura, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'grupo_id', foreignKeyConstraintName: 'respuesta_asignatura_items_grupo_id_fkey' })
+  grupo?: GrupoAsignatura | null;
 }
+

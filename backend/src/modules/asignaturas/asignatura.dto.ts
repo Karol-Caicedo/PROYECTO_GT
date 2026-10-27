@@ -59,3 +59,45 @@ export class CambiarEstadoTodasDto {
   @Max(9, { message: 'El semestre máximo es 9' })
   semestre?: number;
 }
+
+export class CrearGrupoAsignaturaDto {
+  @ApiProperty({ example: 'Lucio Perez' })
+  @IsString({ message: 'El nombre del profesor es obligatorio' })
+  profesor: string;
+
+  @ApiProperty({ example: 'Grupo D1' })
+  @IsString({ message: 'El código de grupo es obligatorio' })
+  codigoGrupo: string;
+
+  @ApiProperty({ example: 'Lunes 8:00 - 10:00 AM, Jueves 9:00 - 11:00 AM' })
+  @IsString({ message: 'El horario es obligatorio' })
+  horario: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
+
+export class ActualizarGrupoAsignaturaDto {
+  @ApiPropertyOptional({ example: 'Lucio Perez' })
+  @IsOptional()
+  @IsString()
+  profesor?: string;
+
+  @ApiPropertyOptional({ example: 'Grupo D1' })
+  @IsOptional()
+  @IsString()
+  codigoGrupo?: string;
+
+  @ApiPropertyOptional({ example: 'Lunes 8:00 - 10:00 AM, Jueves 9:00 - 11:00 AM' })
+  @IsOptional()
+  @IsString()
+  horario?: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
+

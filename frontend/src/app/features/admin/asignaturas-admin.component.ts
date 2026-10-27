@@ -13,12 +13,21 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { StatusChipComponent } from '../../shared/ui/status-chip.component';
 import { UiService } from '../../shared/ui/ui.service';
 
+export interface Grupo {
+  id: string;
+  profesor: string;
+  codigoGrupo: string;
+  horario: string;
+  activo: boolean;
+}
+
 export interface Asignatura {
   id: string;
   nombre: string;
   codigo?: string;
   semestre: number;
   activo: boolean;
+  grupos?: Grupo[];
 }
 
 @Component({
@@ -37,7 +46,7 @@ export interface Asignatura {
     StatusChipComponent,
   ],
   styles: [`
-    .dos-columnas { display: grid; grid-template-columns: 340px 1fr; gap: var(--esp-4); align-items: start; }
+    .dos-columnas { display: grid; grid-template-columns: 360px 1fr; gap: var(--esp-4); align-items: start; }
     @media (max-width: 900px) { .dos-columnas { grid-template-columns: 1fr; } }
     .filtros-asignaturas { display: flex; gap: var(--esp-3); flex-wrap: wrap; margin-bottom: var(--esp-3); }
     .filtros-asignaturas mat-form-field { flex: 1 1 180px; }
@@ -48,55 +57,133 @@ export interface Asignatura {
       font-size: var(--t-secundario); font-weight: 700;
       background: var(--azul-100); color: var(--azul-900);
     }
+    .panel-grupos-card { margin-top: var(--esp-4); border: 1px solid var(--azul-300); background: #f8fafc; }
+    .header-panel-grupos { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--esp-3); }
+    .grupo-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: var(--esp-2) var(--esp-3); background: var(--superficie);
+      border-radius: var(--radio-s); border: 1px solid var(--borde); margin-bottom: var(--esp-2);
+    }
+    .grupo-item-info { display: flex; flex-direction: column; gap: 2px; }
+    .grupo-badge { font-weight: 700; color: var(--azul-900); font-size: 13px; }
+    .grupo-profesor { font-size: 13px; color: var(--texto-primario); font-weight: 600; }
+    .grupo-horario { font-size: 12px; color: var(--texto-secundario); }
   `],
   template: `
     <div class="pagina">
       <app-page-header
         titulo="Plan de estudios — Asignaturas"
-        subtitulo="Gestión de asignaturas por semestre para encuestas y refuerzos académicos"
+        subtitulo="Gestión de asignaturas, docentes y grupos por semestre para encuestas y refuerzos académicos"
         [miga]="[{ texto: 'Administración', ruta: '/admin/dashboard' }, { texto: 'Asignaturas' }]"
       />
 
       <div class="dos-columnas">
-        <!-- Formulario Crear / Editar -->
-        <mat-card>
-          <mat-card-content>
-            <h2 class="titulo-seccion">{{ editandoId() ? 'Editar asignatura' : 'Nueva asignatura' }}</h2>
-            <form [formGroup]="form" (ngSubmit)="guardar()">
-              <mat-form-field class="full-width">
-                <mat-label>Nombre de la asignatura</mat-label>
-                <input matInput formControlName="nombre" maxlength="150" placeholder="Ej. Cálculo Diferencial" />
-              </mat-form-field>
+        <!-- Columna Izquierda: Formulario Crear/Editar Asignatura y Gestión de Grupos -->
+        <div style="display:flex; flex-direction:column; gap:var(--esp-4)">
+          <mat-card>
+            <mat-card-content>
+              <h2 class="titulo-seccion">{{ editandoId() ? 'Editar asignatura' : 'Nueva asignatura' }}</h2>
+              <form [formGroup]="form" (ngSubmit)="guardar()">
+                <mat-form-field class="full-width">
+                  <mat-label>Nombre de la asignatura</mat-label>
+                  <input matInput formControlName="nombre" maxlength="150" placeholder="Ej. Cálculo Diferencial" />
+                </mat-form-field>
 
-              <mat-form-field class="full-width">
-                <mat-label>Código (opcional)</mat-label>
-                <input matInput formControlName="codigo" maxlength="50" placeholder="Ej. IS-101" />
-              </mat-form-field>
+                <mat-form-field class="full-width">
+                  <mat-label>Código (opcional)</mat-label>
+                  <input matInput formControlName="codigo" maxlength="50" placeholder="Ej. IS-101" />
+                </mat-form-field>
 
-              <mat-form-field class="full-width">
-                <mat-label>Semestre del pensum (1 a 9)</mat-label>
-                <mat-select formControlName="semestre">
-                  @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-                    <mat-option [value]="s">Semestre {{ s }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
+                <mat-form-field class="full-width">
+                  <mat-label>Semestre del pensum (1 a 9)</mat-label>
+                  <mat-select formControlName="semestre">
+                    @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
+                      <mat-option [value]="s">Semestre {{ s }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
 
-              <div style="display:flex; gap:var(--esp-2); margin-top:var(--esp-2)">
-                <button mat-raised-button color="primary" class="full-width" [disabled]="form.invalid">
-                  {{ editandoId() ? 'Actualizar' : 'Crear asignatura' }}
-                </button>
-                @if (editandoId()) {
-                  <button type="button" mat-stroked-button (click)="cancelarEdicion()">
-                    Cancelar
+                <div style="display:flex; gap:var(--esp-2); margin-top:var(--esp-2)">
+                  <button mat-raised-button color="primary" class="full-width" [disabled]="form.invalid">
+                    {{ editandoId() ? 'Actualizar' : 'Crear asignatura' }}
                   </button>
-                }
-              </div>
-            </form>
-          </mat-card-content>
-        </mat-card>
+                  @if (editandoId()) {
+                    <button type="button" mat-stroked-button (click)="cancelarEdicion()">
+                      Cancelar
+                    </button>
+                  }
+                </div>
+              </form>
+            </mat-card-content>
+          </mat-card>
 
-        <!-- Lista de asignaturas -->
+          <!-- Panel de Gestión de Grupos de la Asignatura Seleccionada -->
+          @if (asignaturaParaGrupos()) {
+            <mat-card class="panel-grupos-card">
+              <mat-card-content>
+                <div class="header-panel-grupos">
+                  <div>
+                    <h2 class="titulo-seccion" style="margin:0; font-size:16px; color:var(--azul-900)">
+                      <span class="material-symbols-outlined" style="vertical-align:middle; font-size:18px; margin-right:4px">groups</span>
+                      Grupos y horarios
+                    </h2>
+                    <small class="texto-secundario">{{ asignaturaParaGrupos()?.nombre }} (Semestre {{ asignaturaParaGrupos()?.semestre }})</small>
+                  </div>
+                  <button mat-icon-button (click)="cerrarPanelGrupos()" title="Cerrar panel de grupos">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <!-- Formulario agregar nuevo grupo -->
+                <form [formGroup]="formGrupo" (ngSubmit)="guardarGrupo()" style="margin-bottom:var(--esp-4)">
+                  <mat-form-field class="full-width" subscriptSizing="dynamic" style="margin-bottom:var(--esp-2)">
+                    <mat-label>Profesor / Docente</mat-label>
+                    <input matInput formControlName="profesor" placeholder="Ej. Prof. Lucio Pérez" />
+                  </mat-form-field>
+
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--esp-2); margin-bottom:var(--esp-2)">
+                    <mat-form-field subscriptSizing="dynamic">
+                      <mat-label>Código de grupo</mat-label>
+                      <input matInput formControlName="codigoGrupo" placeholder="Ej. Grupo D1" />
+                    </mat-form-field>
+
+                    <button mat-flat-button color="primary" [disabled]="formGrupo.invalid || guardandoGrupo()" style="height:56px">
+                      {{ guardandoGrupo() ? 'Guardando...' : '+ Añadir grupo' }}
+                    </button>
+                  </div>
+
+                  <mat-form-field class="full-width" subscriptSizing="dynamic">
+                    <mat-label>Horario de clases</mat-label>
+                    <input matInput formControlName="horario" placeholder="Ej. Lunes 8-10 am y Jueves 9-11 am" />
+                  </mat-form-field>
+                </form>
+
+                <!-- Listado de grupos configurados -->
+                <h3 style="font-size:13px; font-weight:700; color:var(--texto-secundario); margin:0 0 var(--esp-2)">
+                  Grupos asignados ({{ listaGrupos().length }})
+                </h3>
+
+                @if (!listaGrupos().length) {
+                  <p class="texto-secundario" style="font-size:13px">Aún no hay grupos creados para esta materia.</p>
+                } @else {
+                  @for (g of listaGrupos(); track g.id) {
+                    <div class="grupo-item">
+                      <div class="grupo-item-info">
+                        <span class="grupo-badge">{{ g.codigoGrupo }} — <span class="grupo-profesor">{{ g.profesor }}</span></span>
+                        <span class="grupo-horario">⏰ {{ g.horario }}</span>
+                      </div>
+                      <button mat-icon-button color="warn" (click)="eliminarGrupo(g.id)" title="Eliminar grupo">
+                        <span class="material-symbols-outlined" style="font-size:18px">delete</span>
+                      </button>
+                    </div>
+                  }
+                }
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+
+        <!-- Columna Derecha: Lista de asignaturas -->
         <mat-card>
           <mat-card-content>
             <div class="filtros-asignaturas">
@@ -157,6 +244,22 @@ export interface Asignatura {
                     </td>
                   </ng-container>
 
+                  <ng-container matColumnDef="grupos">
+                    <th mat-header-cell *matHeaderCellDef>Docentes / Grupos</th>
+                    <td mat-cell *matCellDef="let a">
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        [color]="asignaturaParaGrupos()?.id === a.id ? 'primary' : ''"
+                        (click)="seleccionarParaGrupos(a)"
+                        style="min-height:30px; font-size:12px; padding:0 8px"
+                      >
+                        <span class="material-symbols-outlined" style="font-size:16px; margin-right:4px">groups</span>
+                        {{ (a.grupos?.length || 0) }} grupo(s)
+                      </button>
+                    </td>
+                  </ng-container>
+
                   <ng-container matColumnDef="activo">
                     <th mat-header-cell *matHeaderCellDef>Estado</th>
                     <td mat-cell *matCellDef="let a">
@@ -178,8 +281,8 @@ export interface Asignatura {
                     </td>
                   </ng-container>
 
-                  <tr mat-header-row *matHeaderRowDef="['nombre', 'semestre', 'activo', 'acc']"></tr>
-                  <tr mat-row *matRowDef="let r; columns: ['nombre', 'semestre', 'activo', 'acc']"></tr>
+                  <tr mat-header-row *matHeaderRowDef="['nombre', 'semestre', 'grupos', 'activo', 'acc']"></tr>
+                  <tr mat-row *matRowDef="let r; columns: ['nombre', 'semestre', 'grupos', 'activo', 'acc']"></tr>
                 </table>
               </div>
             }
@@ -188,6 +291,7 @@ export interface Asignatura {
       </div>
     </div>
   `,
+
 })
 export class AsignaturasAdminComponent implements OnInit {
   private http = inject(HttpClient);
@@ -307,9 +411,91 @@ export class AsignaturasAdminComponent implements OnInit {
       await this.http.delete(`${this.api}/asignaturas/${a.id}`).toPromise();
       this.ui.exito('Asignatura eliminada.');
       if (this.editandoId() === a.id) this.cancelarEdicion();
+      if (this.asignaturaParaGrupos()?.id === a.id) this.cerrarPanelGrupos();
       await this.cargar();
     } catch {
       this.ui.error('No se pudo eliminar la asignatura.');
     }
   }
+
+  // --- GESTIÓN DE GRUPOS, DOCENTES Y HORARIOS ---
+  asignaturaParaGrupos = signal<Asignatura | null>(null);
+  listaGrupos = signal<Grupo[]>([]);
+  guardandoGrupo = signal<boolean>(false);
+
+  formGrupo = this.fb.group({
+    profesor: ['', [Validators.required, Validators.maxLength(150)]],
+    codigoGrupo: ['', [Validators.required, Validators.maxLength(50)]],
+    horario: ['', [Validators.required, Validators.maxLength(150)]],
+  });
+
+  async seleccionarParaGrupos(a: Asignatura) {
+    if (this.asignaturaParaGrupos()?.id === a.id) {
+      this.cerrarPanelGrupos();
+      return;
+    }
+    this.asignaturaParaGrupos.set(a);
+    await this.cargarGrupos(a.id);
+  }
+
+  cerrarPanelGrupos() {
+    this.asignaturaParaGrupos.set(null);
+    this.listaGrupos.set([]);
+    this.formGrupo.reset({ profesor: '', codigoGrupo: '', horario: '' });
+  }
+
+  async cargarGrupos(asigId: string) {
+    try {
+      const gs = await this.http.get<Grupo[]>(`${this.api}/asignaturas/${asigId}/grupos`).toPromise();
+      this.listaGrupos.set(gs || []);
+    } catch {
+      this.listaGrupos.set([]);
+    }
+  }
+
+  async guardarGrupo() {
+    const asig = this.asignaturaParaGrupos();
+    if (!asig || this.formGrupo.invalid) return;
+
+    this.guardandoGrupo.set(true);
+    try {
+      const { profesor, codigoGrupo, horario } = this.formGrupo.value;
+      await this.http.post(`${this.api}/asignaturas/${asig.id}/grupos`, {
+        profesor,
+        codigoGrupo,
+        horario,
+      }).toPromise();
+      this.ui.exito('Grupo agregado exitosamente.');
+      this.formGrupo.reset({ profesor: '', codigoGrupo: '', horario: '' });
+      await this.cargarGrupos(asig.id);
+      await this.cargar();
+    } catch {
+      this.ui.error('No se pudo guardar el grupo.');
+    } finally {
+      this.guardandoGrupo.set(false);
+    }
+  }
+
+  async eliminarGrupo(grupoId: string) {
+    const asig = this.asignaturaParaGrupos();
+    const ok = await this.ui.confirmar({
+      titulo: 'Eliminar grupo',
+      mensaje: '¿Deseas eliminar este grupo y su horario asociado?',
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    });
+    if (!ok) return;
+
+    try {
+      await this.http.delete(`${this.api}/asignaturas/grupos/${grupoId}`).toPromise();
+      this.ui.exito('Grupo eliminado.');
+      if (asig) {
+        await this.cargarGrupos(asig.id);
+        await this.cargar();
+      }
+    } catch {
+      this.ui.error('No se pudo eliminar el grupo.');
+    }
+  }
 }
+

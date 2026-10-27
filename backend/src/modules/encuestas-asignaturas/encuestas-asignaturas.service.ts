@@ -40,9 +40,10 @@ export class EncuestasAsignaturasService {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    // Todas las materias activas del pensum académico (sin sesgo de semestre)
+    // Todas las materias activas del pensum académico (sin sesgo de semestre), con sus grupos
     const todasAsignaturasEntidades = await this.asignaturasRepo.find({
       where: { activo: true },
+      relations: ['grupos'],
       order: { semestre: 'ASC', nombre: 'ASC' },
     });
     const todasAsignaturas = todasAsignaturasEntidades.map((a) => ({
@@ -50,6 +51,12 @@ export class EncuestasAsignaturasService {
       nombre: a.nombre,
       codigo: a.codigo ?? null,
       semestre: a.semestre,
+      grupos: (a.grupos || []).filter((g) => g.activo).map((g) => ({
+        id: g.id,
+        profesor: g.profesor,
+        codigoGrupo: g.codigoGrupo,
+        horario: g.horario,
+      })),
     }));
 
     const miRespuesta = await this.miRespuesta(userId, periodo.id);
@@ -58,22 +65,42 @@ export class EncuestasAsignaturasService {
     // Inscripciones actuales del estudiante en el periodo activo
     const inscripciones = await this.inscripcionesRepo.find({
       where: { usuarioId: userId, periodoId: periodo.id },
-      relations: ['asignatura'],
+      relations: ['asignatura', 'grupo'],
       order: { createdAt: 'ASC' },
     });
 
     const inscripcionIds = inscripciones.map((i) => i.asignaturaId);
-    let asignaturasInscritas = inscripciones.map((i) => i.asignatura).filter(Boolean).map((a) => ({
-      id: a.id,
-      nombre: a.nombre,
-      codigo: a.codigo ?? null,
-      semestre: a.semestre,
+    const inscripcionesDetalle = inscripciones.map((i) => ({
+      asignaturaId: i.asignaturaId,
+      grupoId: i.grupoId ?? null,
+      grupo: i.grupo ? { id: i.grupo.id, profesor: i.grupo.profesor, codigoGrupo: i.grupo.codigoGrupo, horario: i.grupo.horario } : null,
     }));
+
+    let asignaturasInscritas = inscripciones.map((i) => i.asignatura).filter(Boolean).map((a) => {
+      const insc = inscripciones.find((item) => item.asignaturaId === a.id);
+      const asigInfo = todasAsignaturas.find((t) => t.id === a.id);
+      return {
+        id: a.id,
+        nombre: a.nombre,
+        codigo: a.codigo ?? null,
+        semestre: a.semestre,
+        grupoId: insc?.grupoId ?? null,
+        grupo: insc?.grupo ? { id: insc.grupo.id, profesor: insc.grupo.profesor, codigoGrupo: insc.grupo.codigoGrupo, horario: insc.grupo.horario } : null,
+        grupos: asigInfo?.grupos || [],
+      };
+    });
 
     // Si ya respondió, sus materias evaluadas son las de su respuesta
     if (yaRespondio && miRespuesta?.items?.length) {
       const idsRespondidos = miRespuesta.items.map((it) => it.asignaturaId);
-      asignaturasInscritas = todasAsignaturas.filter((a) => idsRespondidos.includes(a.id));
+      asignaturasInscritas = todasAsignaturas.filter((a) => idsRespondidos.includes(a.id)).map((a) => {
+        const itemResp = miRespuesta.items.find((it) => it.asignaturaId === a.id);
+        return {
+          ...a,
+          grupoId: itemResp?.grupoId ?? null,
+          grupo: itemResp?.grupo ?? null,
+        };
+      });
     }
 
     return {
@@ -81,6 +108,7 @@ export class EncuestasAsignaturasService {
       periodo: { id: periodo.id, nombre: periodo.nombre, activo: periodo.activo },
       todasAsignaturas,
       inscripcionIds,
+      inscripciones: inscripcionesDetalle,
       asignaturasInscritas,
       yaRespondio,
       miRespuesta,
@@ -102,11 +130,25 @@ export class EncuestasAsignaturasService {
         throw new BadRequestException('Ya enviaste tu encuesta para este periodo y no puedes modificar tus materias');
       }
 
-      const uniqueIds = Array.from(new Set(dto.asignaturaIds || []));
-      if (uniqueIds.length === 0) {
+      // Soporta tanto array de IDs directos como objetos con grupoId opcional
+      const itemsDeseados: { asignaturaId: string; grupoId?: string | null }[] = [];
+      if (dto.inscripciones && dto.inscripciones.length > 0) {
+        for (const item of dto.inscripciones) {
+          if (item.asignaturaId && !itemsDeseados.some((d) => d.asignaturaId === item.asignaturaId)) {
+            itemsDeseados.push({ asignaturaId: item.asignaturaId, grupoId: item.grupoId || null });
+          }
+        }
+      } else if (dto.asignaturaIds && dto.asignaturaIds.length > 0) {
+        for (const id of Array.from(new Set(dto.asignaturaIds))) {
+          itemsDeseados.push({ asignaturaId: id, grupoId: null });
+        }
+      }
+
+      if (itemsDeseados.length === 0) {
         throw new BadRequestException('Debes seleccionar al menos una materia que estés cursando');
       }
 
+      const uniqueIds = itemsDeseados.map((i) => i.asignaturaId);
       const asignaturasValidas = await asignaturas.find({
         where: { id: In(uniqueIds), activo: true },
       });
@@ -116,11 +158,12 @@ export class EncuestasAsignaturasService {
 
       await inscripciones.delete({ usuarioId: userId, periodoId: periodo.id });
       await inscripciones.save(
-        uniqueIds.map((asigId) =>
+        itemsDeseados.map((it) =>
           inscripciones.create({
             usuarioId: userId,
             periodoId: periodo.id,
-            asignaturaId: asigId,
+            asignaturaId: it.asignaturaId,
+            grupoId: it.grupoId ?? null,
           }),
         ),
       );
@@ -137,7 +180,7 @@ export class EncuestasAsignaturasService {
 
     const r = await this.resp.findOne({
       where: { usuarioId: userId, periodoId: periodo.id },
-      relations: ['items'],
+      relations: ['items', 'items.grupo'],
     });
     if (!r) return null;
 
@@ -150,6 +193,8 @@ export class EncuestasAsignaturasService {
       return {
         id: i.id,
         asignaturaId: i.asignaturaId,
+        grupoId: i.grupoId ?? null,
+        grupo: i.grupo ? { id: i.grupo.id, profesor: i.grupo.profesor, codigoGrupo: i.grupo.codigoGrupo, horario: i.grupo.horario } : null,
         tieneDificultad: i.tieneDificultad,
         nivelSatisfaccion: i.nivelSatisfaccion,
         asignatura: a ? { id: a.id, nombre: a.nombre, codigo: a.codigo ?? null, semestre: a.semestre } : null,
@@ -217,14 +262,26 @@ export class EncuestasAsignaturasService {
       const inscripcionesFaltantes = ids.filter((id) => !idsInscritos.has(id));
       if (inscripcionesFaltantes.length > 0) {
         await inscripciones.save(
-          inscripcionesFaltantes.map((asigId) =>
-            inscripciones.create({
+          inscripcionesFaltantes.map((asigId) => {
+            const item = dto.items.find((it) => it.asignaturaId === asigId);
+            return inscripciones.create({
               usuarioId: userId,
               periodoId: periodo.id,
               asignaturaId: asigId,
-            }),
-          ),
+              grupoId: item?.grupoId ?? null,
+            });
+          }),
         );
+      }
+
+      // Actualizar grupoId en inscripciones existentes si se especificó en la respuesta
+      for (const item of dto.items) {
+        if (item.grupoId) {
+          await inscripciones.update(
+            { usuarioId: userId, periodoId: periodo.id, asignaturaId: item.asignaturaId },
+            { grupoId: item.grupoId },
+          );
+        }
       }
 
       const r = await resp.save(
@@ -240,6 +297,7 @@ export class EncuestasAsignaturasService {
           respItems.create({
             respuestaAsignaturaId: r.id,
             asignaturaId: i.asignaturaId,
+            grupoId: i.grupoId ?? null,
             tieneDificultad: !!i.tieneDificultad,
             nivelSatisfaccion: i.nivelSatisfaccion,
           }),
@@ -252,3 +310,4 @@ export class EncuestasAsignaturasService {
     return this.miRespuesta(userId, periodoId);
   }
 }
+

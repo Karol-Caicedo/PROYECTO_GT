@@ -13,16 +13,28 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { UiService } from '../../shared/ui/ui.service';
 
+export interface GrupoAsignaturaInfo {
+  id: string;
+  profesor: string;
+  codigoGrupo: string;
+  horario: string;
+  activo?: boolean;
+}
+
 interface Asignatura {
   id: string;
   nombre: string;
   codigo?: string | null;
   semestre: number;
   activo?: boolean;
+  grupoId?: string | null;
+  grupo?: GrupoAsignaturaInfo | null;
+  grupos?: GrupoAsignaturaInfo[];
 }
 
 interface ItemEvaluacion {
   asignaturaId: string;
+  grupoId?: string | null;
   tieneDificultad: boolean;
   nivelSatisfaccion: number;
 }
@@ -30,6 +42,8 @@ interface ItemEvaluacion {
 interface MiRespuestaItem {
   id: string;
   asignaturaId: string;
+  grupoId?: string | null;
+  grupo?: GrupoAsignaturaInfo | null;
   tieneDificultad: boolean;
   nivelSatisfaccion: number;
   asignatura?: Asignatura;
@@ -47,6 +61,7 @@ interface EstadoEncuestaAsignatura {
     items: MiRespuestaItem[];
   } | null;
 }
+
 
 const NIVELES = [
   { valor: 1, label: '1 - Muy baja', descripcion: 'Muy insatisfecho' },
@@ -190,8 +205,26 @@ const NIVELES = [
       cursor: pointer; font-size: var(--t-secundario); font-weight: 600;
       color: var(--texto-secundario); transition: all var(--transicion-rapida);
     }
-    .btn-dificultad:hover { border-color: #f59e0b; color: #b45309; }
-    .btn-dificultad.activa { background: #f59e0b; color: #fff; border-color: #d97706; }
+    .seccion-grupos-estudiante {
+      margin-top: var(--esp-3); padding-top: var(--esp-3); border-top: 1px dashed var(--borde);
+    }
+    .label-docente-grupo {
+      font-size: 13px; font-weight: 700; color: var(--azul-900);
+      margin-bottom: var(--esp-2); display: flex; align-items: center; gap: var(--esp-1);
+    }
+    .chips-grupos-container { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
+    .chip-grupo-opcion {
+      border: 1px solid var(--borde); background: var(--superficie); border-radius: var(--radio-s);
+      padding: var(--esp-2) var(--esp-3); text-align: left; cursor: pointer;
+      display: flex; flex-direction: column; gap: 2px; transition: all var(--transicion-rapida);
+    }
+    .chip-grupo-opcion:hover { border-color: var(--azul-400); background: #f8fafc; }
+    .chip-grupo-opcion.seleccionado {
+      border-color: var(--azul-500); background: var(--azul-50); box-shadow: 0 0 0 1px var(--azul-500);
+    }
+    .badge-cg { font-size: 13px; font-weight: 700; color: var(--azul-900); }
+    .nombre-prof { font-size: 12px; font-weight: 600; color: var(--texto-primario); }
+    .horario-prof { font-size: 11px; color: var(--texto-secundario); }
     .seccion-satisfaccion { margin-top: var(--esp-3); padding-top: var(--esp-3); border-top: 1px dashed var(--borde); }
     .titulo-satisfaccion { font-size: 13px; font-weight: 600; color: var(--texto-secundario); margin-bottom: var(--esp-2); }
     .escala-satisfaccion { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
@@ -205,6 +238,7 @@ const NIVELES = [
     .btn-escala:hover { border-color: var(--azul-500); }
     .btn-escala.seleccionado { background: var(--azul-500); color: var(--superficie); border-color: var(--azul-500); }
     .barra-envio { margin-top: var(--esp-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--esp-3); }
+
 
     /* Confirmación éxito */
     .confirmacion-exito { text-align: center; padding: var(--esp-8) var(--esp-4); }
@@ -259,6 +293,7 @@ const NIVELES = [
                 <thead>
                   <tr>
                     <th>Asignatura</th>
+                    <th>Docente y Grupo</th>
                     <th>¿Dificultad?</th>
                     <th>Nivel de satisfacción</th>
                   </tr>
@@ -272,6 +307,18 @@ const NIVELES = [
                           <span style="font-size:12px; color:var(--texto-secundario); margin-left:6px">
                             (Pensum S{{ item.asignatura?.semestre }})
                           </span>
+                        }
+                      </td>
+                      <td>
+                        @if (item.grupo) {
+                          <span style="font-size:13px; font-weight:600; color:var(--azul-900)">
+                            {{ item.grupo.codigoGrupo }} — {{ item.grupo.profesor }}
+                          </span>
+                          <small style="display:block; color:var(--texto-secundario); font-size:11px">
+                            ⏰ {{ item.grupo.horario }}
+                          </small>
+                        } @else {
+                          <span style="font-size:12px; color:var(--texto-secundario)">No especificado</span>
                         }
                       </td>
                       <td>
@@ -291,6 +338,7 @@ const NIVELES = [
                     </tr>
                   }
                 </tbody>
+
               </table>
             </div>
 
@@ -470,8 +518,31 @@ const NIVELES = [
                   </button>
                 </div>
 
+                @if (asig.grupos && asig.grupos.length > 0) {
+                  <div class="seccion-grupos-estudiante">
+                    <span class="label-docente-grupo">
+                      <span class="material-symbols-outlined" style="font-size:16px">school</span>
+                      Profesor y grupo con el que ves la materia (opcional):
+                    </span>
+                    <div class="chips-grupos-container">
+                      @for (g of asig.grupos; track g.id) {
+                        <button
+                          type="button"
+                          class="chip-grupo-opcion"
+                          [class.seleccionado]="evaluacion()[asig.id]?.grupoId === g.id"
+                          (click)="seleccionarGrupo(asig.id, g.id)"
+                        >
+                          <span class="badge-cg">{{ g.codigoGrupo }} — {{ g.profesor }}</span>
+                          <span class="horario-prof">⏰ {{ g.horario }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+
                 <div class="seccion-satisfaccion">
                   <div class="titulo-satisfaccion">¿Cómo evalúas tu satisfacción con esta asignatura?</div>
+
                   <div class="escala-satisfaccion">
                     @for (n of niveles; track n.valor) {
                       <button
@@ -588,8 +659,10 @@ export class EncuestaAsignaturasComponent implements OnInit {
         // Inicializar evaluaciones para materias
         const inicial: Record<string, ItemEvaluacion> = {};
         for (const a of res.todasAsignaturas || []) {
+          const inscrita = res.asignaturasInscritas?.find((ai) => ai.id === a.id);
           inicial[a.id] = {
             asignaturaId: a.id,
+            grupoId: inscrita?.grupoId || null,
             tieneDificultad: false,
             nivelSatisfaccion: 3,
           };
@@ -605,6 +678,7 @@ export class EncuestaAsignaturasComponent implements OnInit {
                 if (p[a.id]) {
                   inicial[a.id] = {
                     ...inicial[a.id],
+                    grupoId: p[a.id].grupoId !== undefined ? p[a.id].grupoId : inicial[a.id].grupoId,
                     tieneDificultad: !!p[a.id].tieneDificultad,
                     nivelSatisfaccion: Number(p[a.id].nivelSatisfaccion) || 3,
                   };
@@ -620,6 +694,18 @@ export class EncuestaAsignaturasComponent implements OnInit {
       this.cargando.set(false);
     }
   }
+
+  seleccionarGrupo(asigId: string, grupoId: string) {
+    const mapa = { ...this.evaluacion() };
+    const actual = mapa[asigId] || { asignaturaId: asigId, tieneDificultad: false, nivelSatisfaccion: 3 };
+    mapa[asigId] = {
+      ...actual,
+      grupoId: actual.grupoId === grupoId ? null : grupoId,
+    };
+    this.evaluacion.set(mapa);
+    this.guardarBorrador();
+  }
+
 
   toggleSeleccionMateria(asigId: string) {
     const s = new Set(this.inscripcionesSeleccionadas());

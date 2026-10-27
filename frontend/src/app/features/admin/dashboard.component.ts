@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -16,9 +17,30 @@ import {
   opcionesBarrasHorizontales, opcionesBarrasVerticales, opcionesLinea,
 } from '../../core/charts.config';
 
+export interface GrupoDesglose {
+  grupoId: string;
+  profesor: string;
+  codigoGrupo: string;
+  horario: string;
+  activo: boolean;
+  reportesDificultad: number;
+  totalEstudiantesEvaluaron: number;
+  promedioSatisfaccion: number;
+  porcentajeDeDificultad: number;
+}
+
+export interface DesgloseAsignatura {
+  periodo: { id: string; nombre: string };
+  asignatura: { id: string; nombre: string; codigo: string | null; semestre: number };
+  totalDificultad: number;
+  totalEvaluaciones: number;
+  promedioSatisfaccion: number;
+  grupos: GrupoDesglose[];
+}
+
 type TipoDashboard = 'temas' | 'materias';
 type GraficoTemas = 'top' | 'tasa' | 'calor' | 'comparativo';
-type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo';
+type GraficoMaterias = 'top' | 'desglose' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,6 +48,7 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     MatCardModule,
     MatFormFieldModule,
     MatSelectModule,
@@ -35,6 +58,7 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
     MetricCardComponent,
   ],
   styles: [`
+
     .tabs-tipo-dashboard {
       display: flex; gap: var(--esp-2); margin-bottom: var(--esp-4);
       background: var(--azul-50); padding: 4px; border-radius: var(--radio-m);
@@ -70,6 +94,110 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
     .resumen-recordatorios .etiqueta { font-size: 12px; color: var(--texto-secundario); }
     .grafico-entrada { animation: grafico-entrada 180ms ease-out; }
     @keyframes grafico-entrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* Estilos drill-down y desglose por docente y grupo */
+    .chip-info-docente {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+      color: #92400e; background: #fef3c7; border: 1px solid #fde68a; padding: 4px 10px; border-radius: var(--radio-s);
+    }
+    .seccion-drilldown-top {
+      margin-top: var(--esp-4); padding-top: var(--esp-3); border-top: 1px dashed var(--borde);
+    }
+    .titulo-drilldown {
+      font-size: 13px; font-weight: 700; color: var(--azul-900); display: block; margin-bottom: var(--esp-2);
+    }
+    .pills-top-materias { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
+    .pill-materia {
+      display: inline-flex; align-items: center; gap: var(--esp-2);
+      padding: var(--esp-2) var(--esp-3); border-radius: var(--radio-s);
+      border: 1px solid var(--borde); background: var(--superficie);
+      color: var(--texto-primario); cursor: pointer; transition: all var(--transicion-rapida);
+      font-size: 13px; font-weight: 600;
+    }
+    .pill-materia:hover {
+      border-color: var(--azul-500); background: var(--azul-50); color: var(--azul-900);
+    }
+    .pill-materia.activa {
+      border-color: var(--azul-700); background: var(--azul-100); color: var(--azul-900); font-weight: 700;
+    }
+    .pill-badge {
+      background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700;
+      padding: 2px 6px; border-radius: 999px;
+    }
+    .icono-flecha { font-size: 16px; color: var(--azul-600); }
+
+    .header-desglose-seccion {
+      display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--esp-2);
+    }
+    .selector-asignatura-desglose { margin-bottom: var(--esp-4); }
+    .form-field-asig { min-width: 300px; width: 100%; max-width: 480px; }
+    .resumen-asig-desglose {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--esp-3); margin-bottom: var(--esp-4);
+    }
+    .tarjeta-resumen-asig {
+      background: var(--azul-50); border: 1px solid var(--borde); border-radius: var(--radio-s);
+      padding: var(--esp-3); display: flex; flex-direction: column; gap: 2px;
+    }
+    .tarjeta-resumen-asig.alerta-borde { border-left: 4px solid #f59e0b; }
+    .etiqueta-resumen { font-size: 12px; color: var(--texto-secundario); font-weight: 600; }
+    .valor-resumen { font-size: 18px; font-weight: 800; color: var(--azul-900); }
+    .color-alerta { color: #b45309; }
+
+    .subtitulo-desglose {
+      font-size: 15px; font-weight: 700; color: var(--azul-900); margin: var(--esp-3) 0 var(--esp-2);
+    }
+    .grafico-grupos-bloque { margin-bottom: var(--esp-4); }
+
+    .grid-grupos-docentes {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--esp-3);
+    }
+    .card-grupo-detalle {
+      border: 1px solid var(--borde); border-radius: var(--radio-m); background: var(--superficie);
+      padding: var(--esp-3) var(--esp-4); box-shadow: var(--sombra-1); display: flex; flex-direction: column; gap: var(--esp-3);
+      transition: all var(--transicion-rapida);
+    }
+    .card-grupo-detalle:hover { border-color: var(--azul-300); }
+    .card-grupo-detalle.prioritario { border-top: 3px solid #f59e0b; }
+    .card-grupo-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--esp-2); }
+    .tag-grupo {
+      display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase;
+      background: var(--azul-100); color: var(--azul-900); padding: 2px 8px; border-radius: var(--radio-s);
+      margin-bottom: 4px;
+    }
+    .nombre-profesor { margin: 0; font-size: 15px; font-weight: 700; color: var(--azul-900); }
+    .badge-dificultad {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #f8fafc; border: 1px solid var(--borde); border-radius: var(--radio-s); padding: 4px 8px; min-width: 60px;
+    }
+    .badge-dificultad.con-dificultad { background: #fef3c7; border-color: #fde68a; }
+    .badge-dificultad .num-dif { font-size: 18px; font-weight: 800; color: #b45309; line-height: 1; }
+    .badge-dificultad .txt-dif { font-size: 10px; font-weight: 700; color: #92400e; }
+
+    .card-grupo-body { display: flex; flex-direction: column; gap: var(--esp-2); }
+    .info-fila { display: flex; align-items: flex-start; gap: var(--esp-2); font-size: 13px; }
+    .icono-info { font-size: 18px; color: var(--azul-600); margin-top: 1px; flex-shrink: 0; }
+    .label-fila { color: var(--texto-secundario); display: block; font-size: 11px; }
+    .valor-horario { color: var(--azul-900); font-weight: 700; font-size: 13px; }
+
+    .recomendacion-capacitacion {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radio-s);
+      padding: var(--esp-3); margin-top: var(--esp-2);
+    }
+    .rec-header {
+      display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--azul-900);
+      margin-bottom: 4px;
+    }
+    .rec-header .material-symbols-outlined { font-size: 16px; color: #d97706; }
+    .rec-texto { margin: 0 0 var(--esp-2); font-size: 12px; color: var(--texto-primario); line-height: 1.4; }
+    .btn-programar-rec { font-size: 12px; height: 32px; padding: 0 10px; }
+
+    .empty-grupos {
+      text-align: center; padding: var(--esp-6); background: var(--superficie);
+      border: 1px dashed var(--borde); border-radius: var(--radio-m);
+    }
+    .empty-grupos .icono-vacio { font-size: 48px; color: var(--texto-secundario); margin-bottom: var(--esp-2); }
+
     @media (max-width: 600px) {
       .grafico { height: 280px; }
       .grafico.alto { height: 320px; }
@@ -77,6 +205,7 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
       .tabla-calor td:first-child { max-width: 140px; }
     }
   `],
+
   template: `
     <div class="pagina">
       <app-page-header
@@ -262,17 +391,192 @@ type GraficoMaterias = 'top' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo'
           @switch (graficoMaterias()) {
             @case ('top') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">warning</span>Top 5 de asignaturas con dificultad reportada</h2>
-                <p class="desc-grafico">Materias donde los estudiantes han solicitado mayor apoyo y refuerzo académico.</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:var(--esp-2)">
+                  <div>
+                    <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">warning</span>Top 5 de asignaturas con dificultad reportada</h2>
+                    <p class="desc-grafico">Materias donde los estudiantes han solicitado mayor apoyo y refuerzo académico.</p>
+                  </div>
+                  @if (topMaterias().length) {
+                    <span class="chip-info-docente">
+                      <span class="material-symbols-outlined" style="font-size:16px">info</span>
+                      Haz clic en una materia para ver qué profesor y horario la dictan
+                    </span>
+                  }
+                </div>
+
                 @if (topMaterias().length) {
                   <div class="grafico alto"><canvas baseChart [data]="topMateriasData()" [options]="hbar" [type]="'bar'"></canvas></div>
+
+                  <!-- Accesos directos para desglose de cada asignatura del Top -->
+                  <div class="seccion-drilldown-top">
+                    <span class="titulo-drilldown">Profundizar por docente y horarios:</span>
+                    <div class="pills-top-materias">
+                      @for (t of topMaterias(); track t.asignaturaId) {
+                        <button
+                          type="button"
+                          class="pill-materia"
+                          [class.activa]="asigDesgloseSeleccionada() === t.asignaturaId"
+                          (click)="seleccionarMateriaParaDesglose(t.asignaturaId)"
+                          title="Inspeccionar qué docentes y horarios imparten esta materia"
+                        >
+                          <span class="pill-nombre">{{ t.nombre }}</span>
+                          <span class="pill-badge">{{ t.valor }} reportes</span>
+                          <span class="material-symbols-outlined icono-flecha">arrow_forward</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
                 } @else {
                   <p class="texto-secundario">Aún no hay reportes de dificultad registrados en las asignaturas para este filtro.</p>
                 }
               </mat-card-content></mat-card>
             }
 
+            @case ('desglose') {
+              <mat-card class="mt grafico-entrada"><mat-card-content>
+                <div class="header-desglose-seccion">
+                  <div>
+                    <h2 class="titulo-grafico">
+                      <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+                      Desglose de dificultad por Profesor, Grupo y Horario
+                    </h2>
+                    <p class="desc-grafico">
+                      Identifica qué docente y horarios concentran las dificultades para programar capacitaciones oportunas sin choques de clases.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="selector-asignatura-desglose">
+                  <mat-form-field subscriptSizing="dynamic" class="form-field-asig">
+                    <mat-label>Seleccionar asignatura a inspeccionar</mat-label>
+                    <mat-select [value]="asigDesgloseSeleccionada()" (selectionChange)="cargarDesglose($event.value)">
+                      @for (a of todasAsignaturas(); track a.id) {
+                        <mat-option [value]="a.id">{{ a.nombre }} (Semestre {{ a.semestre }})</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                @if (cargandoDesglose()) {
+                  <div style="padding:var(--esp-6); text-align:center">
+                    <p class="texto-secundario">Consultando grupos, profesores y horarios de la asignatura...</p>
+                  </div>
+                } @else if (desgloseMateria()) {
+                  <!-- Resumen de la asignatura seleccionada -->
+                  <div class="resumen-asig-desglose">
+                    <div class="tarjeta-resumen-asig">
+                      <span class="etiqueta-resumen">Materia</span>
+                      <span class="valor-resumen">{{ desgloseMateria()?.asignatura?.nombre }}</span>
+                      <small class="texto-secundario">Semestre {{ desgloseMateria()?.asignatura?.semestre }}</small>
+                    </div>
+
+                    <div class="tarjeta-resumen-asig alerta-borde">
+                      <span class="etiqueta-resumen">Total dificultades reportadas</span>
+                      <span class="valor-resumen color-alerta">{{ desgloseMateria()?.totalDificultad }}</span>
+                      <small class="texto-secundario">de {{ desgloseMateria()?.totalEvaluaciones }} evaluaciones recibidas</small>
+                    </div>
+
+                    <div class="tarjeta-resumen-asig">
+                      <span class="etiqueta-resumen">Satisfacción promedio</span>
+                      <span class="valor-resumen">{{ desgloseMateria()?.promedioSatisfaccion }} / 5.0</span>
+                      <small class="texto-secundario">Nivel general reportado</small>
+                    </div>
+
+                    <div class="tarjeta-resumen-asig">
+                      <span class="etiqueta-resumen">Grupos / Docentes</span>
+                      <span class="valor-resumen">{{ desgloseMateria()?.grupos?.length || 0 }}</span>
+                      <small class="texto-secundario">en oferta académica</small>
+                    </div>
+                  </div>
+
+                  <!-- Gráfico comparativo entre grupos / profesores si hay grupos -->
+                  @if (desgloseMateria()!.grupos.length > 0) {
+                    <div class="grafico-grupos-bloque">
+                      <h3 class="subtitulo-desglose">Comparativo de reportes de dificultad por docente y grupo</h3>
+                      <div class="grafico"><canvas baseChart [data]="desgloseGruposChartData()" [options]="hbar" [type]="'bar'"></canvas></div>
+                    </div>
+
+                    <!-- Tarjetas detalladas operativas para planificar la capacitación -->
+                    <h3 class="subtitulo-desglose" style="margin-top:var(--esp-4)">Detalle operativo por grupo para planeación de capacitaciones</h3>
+                    <div class="grid-grupos-docentes">
+                      @for (g of desgloseMateria()!.grupos; track g.grupoId) {
+                        <div class="card-grupo-detalle" [class.prioritario]="g.reportesDificultad > 0">
+                          <div class="card-grupo-header">
+                            <div>
+                              <span class="tag-grupo">{{ g.codigoGrupo }}</span>
+                              <h4 class="nombre-profesor">{{ g.profesor }}</h4>
+                            </div>
+                            <div class="badge-dificultad" [class.con-dificultad]="g.reportesDificultad > 0">
+                              <span class="num-dif">{{ g.reportesDificultad }}</span>
+                              <span class="txt-dif">dificultades</span>
+                            </div>
+                          </div>
+
+                          <div class="card-grupo-body">
+                            <div class="info-fila">
+                              <span class="material-symbols-outlined icono-info">schedule</span>
+                              <div>
+                                <span class="label-fila">Horario de clase:</span>
+                                <strong class="valor-horario">{{ g.horario }}</strong>
+                              </div>
+                            </div>
+
+                            <div class="info-fila">
+                              <span class="material-symbols-outlined icono-info">star</span>
+                              <div>
+                                <span class="label-fila">Satisfacción del grupo:</span>
+                                <strong>{{ g.promedioSatisfaccion > 0 ? (g.promedioSatisfaccion + ' / 5.0') : 'Sin evaluar' }}</strong>
+                              </div>
+                            </div>
+
+                            <div class="info-fila">
+                              <span class="material-symbols-outlined icono-info">pie_chart</span>
+                              <div>
+                                <span class="label-fila">Concentración en la materia:</span>
+                                <strong>{{ g.porcentajeDeDificultad }}% del total</strong>
+                              </div>
+                            </div>
+
+                            <!-- Caja de recomendación para la capacitación -->
+                            <div class="recomendacion-capacitacion">
+                              <div class="rec-header">
+                                <span class="material-symbols-outlined">lightbulb</span>
+                                <span>Recomendación para capacitación</span>
+                              </div>
+                              <p class="rec-texto">
+                                Para evitar cruce de clases con este grupo ({{ g.horario }}), se sugiere programar la capacitación de refuerzo en horarios contraturno o fines de semana.
+                              </p>
+                              <a
+                                mat-stroked-button
+                                color="primary"
+                                class="btn-programar-rec"
+                                routerLink="/admin/capacitaciones"
+                              >
+                                <span class="material-symbols-outlined" style="font-size:16px; margin-right:4px">add_task</span>
+                                Programar capacitación
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="empty-grupos">
+                      <span class="material-symbols-outlined icono-vacio">assignment_late</span>
+                      <p>Esta asignatura no tiene grupos con profesores ni horarios configurados aún.</p>
+                      <a mat-flat-button color="primary" routerLink="/admin/asignaturas">
+                        Configurar profesores y grupos en Asignaturas
+                      </a>
+                    </div>
+                  }
+                } @else {
+                  <p class="texto-secundario">Selecciona una asignatura para inspeccionar el reporte por profesor y grupo.</p>
+                }
+              </mat-card-content></mat-card>
+            }
+
             @case ('satisfaccion') {
+
               <mat-card class="mt grafico-entrada"><mat-card-content>
                 <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">star</span>Satisfacción académica promedio por asignatura</h2>
                 <p class="desc-grafico">Promedio de satisfacción reportado por los estudiantes (escala de 1 a 5).</p>
@@ -385,11 +689,18 @@ export class DashboardComponent implements OnInit {
   graficoMaterias = signal<GraficoMaterias>('top');
   opcionesGraficoMaterias: { id: GraficoMaterias; texto: string }[] = [
     { id: 'top', texto: 'Top 5 dificultad reportada' },
+    { id: 'desglose', texto: 'Desglose por Docente, Grupo y Horario' },
     { id: 'satisfaccion', texto: 'Satisfacción promedio por asignatura' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'calor', texto: 'Mapa de calor Asignatura × Semestre' },
     { id: 'comparativo', texto: 'Comparativo entre periodos' },
   ];
+
+  // Desglose de grupos y horarios
+  desgloseMateria = signal<DesgloseAsignatura | null>(null);
+  asigDesgloseSeleccionada = signal<string>('');
+  cargandoDesglose = signal<boolean>(false);
+
 
   // Opciones Chart.js
   hbar: ChartConfiguration['options'] = opcionesBarrasHorizontales();
@@ -439,6 +750,23 @@ export class DashboardComponent implements OnInit {
       { label: 'Satisfacción promedio', data: this.compMaterias().map((c) => c.promedio), borderColor: GRAFICOS.azul, backgroundColor: GRAFICOS.azul, fill: false },
     ],
   });
+
+  desgloseGruposChartData = () => {
+    const d = this.desgloseMateria();
+    if (!d || !d.grupos.length) return { labels: [], datasets: [] };
+    return {
+      labels: d.grupos.map((g) => `${g.codigoGrupo} (${g.profesor})`),
+      datasets: [
+        {
+          label: 'Reportes de dificultad',
+          data: d.grupos.map((g) => g.reportesDificultad),
+          backgroundColor: '#f59e0b',
+          borderRadius: 6,
+        },
+      ],
+    };
+  };
+
   heatFilasMaterias = () => Object.keys(this.heatMaterias());
 
   maxCalor(): number {
@@ -467,7 +795,10 @@ export class DashboardComponent implements OnInit {
 
     const asigs = await this.http.get<{ id: string; nombre: string; semestre: number }[]>(`${this.api}/asignaturas/admin/todas`).toPromise().catch(() => []);
     this.todasAsignaturas.set(asigs || []);
-    if (asigs?.length) this.asigComp.set(asigs[0].id);
+    if (asigs?.length) {
+      this.asigComp.set(asigs[0].id);
+      this.asigDesgloseSeleccionada.set(asigs[0].id);
+    }
 
     await this.recargar();
   }
@@ -484,6 +815,9 @@ export class DashboardComponent implements OnInit {
     } else {
       await this.cargarMaterias();
       await this.cargarCompMaterias();
+      if (this.asigDesgloseSeleccionada()) {
+        await this.cargarDesglose();
+      }
     }
   }
 
@@ -540,6 +874,10 @@ export class DashboardComponent implements OnInit {
       this.heatMaterias.set(heat.matriz || {});
       this.satisfaccionMaterias.set(satisfaccion.items || []);
       this.resumenMaterias.set(resumen);
+
+      if (top.items?.length && !this.asigDesgloseSeleccionada()) {
+        this.asigDesgloseSeleccionada.set(top.items[0].asignaturaId);
+      }
     } finally {
       this.cargando.set(false);
     }
@@ -550,4 +888,29 @@ export class DashboardComponent implements OnInit {
     const r = await this.http.get<{ periodo: string; promedio: number; dificultadCount: number }[]>(`${this.api}/dashboard-materias/comparativo?asignaturaId=${this.asigComp()}`).toPromise().catch(() => []);
     this.compMaterias.set(r || []);
   }
+
+  async seleccionarMateriaParaDesglose(asigId: string) {
+    this.asigDesgloseSeleccionada.set(asigId);
+    this.graficoMaterias.set('desglose');
+    await this.cargarDesglose(asigId);
+  }
+
+  async cargarDesglose(asignaturaId?: string) {
+    const aid = asignaturaId || this.asigDesgloseSeleccionada();
+    if (!aid) return;
+    this.asigDesgloseSeleccionada.set(aid);
+    this.cargandoDesglose.set(true);
+    try {
+      const p = this.periodoId() ? `&periodoId=${this.periodoId()}` : '';
+      const r = await this.http
+        .get<DesgloseAsignatura>(`${this.api}/dashboard-materias/desglose-grupos?asignaturaId=${aid}${p}`)
+        .toPromise()
+        .catch(() => null);
+      this.desgloseMateria.set(r ?? null);
+    } finally {
+      this.cargandoDesglose.set(false);
+    }
+  }
 }
+
+
