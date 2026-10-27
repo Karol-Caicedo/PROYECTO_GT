@@ -30,6 +30,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }), detalle.stack);
     }
 
+    if (status === HttpStatus.UNAUTHORIZED) {
+      this.logger.warn(JSON.stringify({
+        event: 'http_unauthorized',
+        status,
+        method: req.method,
+        path,
+        correlationId,
+      }));
+    }
+
     if (status === HttpStatus.FORBIDDEN && !req.accessDeniedLogged) {
       this.logger.warn(JSON.stringify({
         event: 'access_denied',

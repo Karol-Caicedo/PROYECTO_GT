@@ -59,4 +59,26 @@ describe('AllExceptionsFilter', () => {
     expect(log + stack).not.toContain('ClaveSecreta');
     expect(log + stack).not.toContain('abc.def');
   });
+
+  test('un 401 registra método, ruta y correlation ID sin registrar secretos ni query', () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { host, json } = crearHost();
+    const filter = new AllExceptionsFilter();
+    filter.catch(new HttpException('Credenciales inválidas', HttpStatus.UNAUTHORIZED), host);
+
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({
+      statusCode: 401,
+      message: 'No autenticado',
+      correlationId: 'corr-1',
+    }));
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({
+      event: 'http_unauthorized',
+      status: 401,
+      method: 'POST',
+      path: '/api/auth/login',
+      correlationId: 'corr-1',
+    }));
+    expect(String(warn.mock.calls[0][0])).not.toContain('token=abc');
+    expect(String(warn.mock.calls[0][0])).not.toContain('Credenciales');
+  });
 });
