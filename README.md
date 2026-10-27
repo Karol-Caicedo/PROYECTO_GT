@@ -111,14 +111,12 @@ El backend compila y sirve también el frontend (`railway.json` ya trae la
 configuración; `Root Directory` en la raíz del repo):
 
 - **Build Command:** `npm run install:all && npm run build`
-- **Pre-deploy Command:** Railway runs the guarded `npm run migrate:prod`
-  automatically before starting the new version. It applies every pending
-  migration; inspect and review their effects before deploying.
-- **Start Command:** `npm --prefix backend run start:prod`
-- El pre-deploy confirma el runner protegido con `MIGRATE_CONFIRM=YES`. Si una
-  migración falla, Railway no inicia la nueva versión. El seed no se ejecuta en
-  cada despliegue; en el primer aprovisionamiento, después de la migración,
-  ejecuta `npm --prefix backend run seed:prod` con `ADMIN_PASSWORD` seguro.
+- **Start Command:** `MIGRATE_CONFIRM=YES npm run migrate:prod && npm --prefix backend run start:prod`
+- Antes de iniciar Nest, Railway ejecuta el runner protegido de migraciones.
+  Aplica las migraciones pendientes y, si alguna falla, no inicia la aplicación.
+  El seed no se ejecuta en cada despliegue; en el primer aprovisionamiento,
+  después de la migración, ejecuta `npm --prefix backend run seed:prod` con
+  `ADMIN_PASSWORD` seguro.
 - Agrega un plugin **Postgres** y define estas variables (usa los valores de
   referencia del plugin, ej. `DB_HOST=${{Postgres.PGHOST}}`):
   `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,
@@ -175,9 +173,8 @@ LOGIN_CRYPTO_KEYS_JSON={"login-2026-01":"<PKCS8-DER-BASE64>"}
 La clave privada nunca se distribuye al navegador. Para rotar, añade la nueva
 clave al mapa, cambia `LOGIN_CRYPTO_ACTIVE_KEY_ID`, reinicia el backend y
 conserva la anterior al menos 2 minutos para completar los desafíos vigentes.
-Railway aplica esa migración en el pre-deploy junto con todas las otras pendientes;
-no se ejecuta durante el arranque de la aplicación. HTTPS sigue siendo obligatorio
-en producción. El cuerpo cifrado no
+Railway aplica esa migración antes de iniciar la aplicación junto con todas las
+otras pendientes. HTTPS sigue siendo obligatorio en producción. El cuerpo cifrado no
 oculta las credenciales al propietario del navegador ni protege contra XSS.
 
 Para generar manualmente una clave de al menos 3072 bits, usa un entorno seguro

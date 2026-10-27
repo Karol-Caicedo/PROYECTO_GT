@@ -26,8 +26,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
   `intereses-postgres` / `intereses-adminer`). `npm run docker:full` adds backend
   `:3000` and frontend `:4201`.
 - Deploy target is Railway (`railway.json`): build `npm run install:all && npm run
-  build`, pre-deploy runs the guarded production migration runner, and start runs
-  the backend without seeding. The seed is a manual provisioning step
+  build`; the start command runs the guarded production migration runner before
+  starting the backend, without seeding. The seed is a manual provisioning step
   (`seed:prod`) and is never executed on every deploy.
   Healthcheck: `GET /api/health`. There are no CI workflows.
 
@@ -114,8 +114,8 @@ Documentación de referencia: `TECH_STACK.md`, `ARCHITECTURE.md` y
 
 - `synchronize: false`; schema changes go through migrations. `migrationsRun` is
   enabled only outside production (`DB_MIGRATIONS_RUN=false` disables it in dev).
-  Railway runs `npm run migrate:prod` in its pre-deploy step with
-  `MIGRATE_CONFIRM=YES`; this applies all pending migrations before the new app
+  Railway runs `MIGRATE_CONFIRM=YES npm run migrate:prod` in its start command
+  before the backend process; this applies all pending migrations before the app
   starts. Review migration effects before merging. The seed never runs migrations.
 - **New migration** must be created in `backend/src/migrations/` and added to the
   explicit array in `backend/src/data-source.ts`. `AppModule` uses a glob; the CLI

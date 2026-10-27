@@ -152,9 +152,9 @@ src/app/
 - Pruebas backend: unitarias con mocks y una suite de integración contra
   PostgreSQL real.
 - No hay lint/formateo configurado ni pruebas frontend.
-- `migrationsRun` se aplica al arrancar solo fuera de producción. Railway ejecuta
-  el runner protegido con `MIGRATE_CONFIRM=YES` en el pre-deploy, antes de iniciar
-  la nueva versión; se aplican todas las pendientes. El seed sigue siendo
+- `migrationsRun` se aplica al arrancar solo fuera de producción. El comando de
+  inicio de Railway ejecuta el runner protegido con `MIGRATE_CONFIRM=YES` antes
+  de iniciar la aplicación; se aplican todas las pendientes. El seed sigue siendo
   aprovisionamiento manual y nunca corre en cada despliegue.
 - Los cambios de esquema se crean en `backend/src/migrations/` y se registran en
   `backend/src/data-source.ts`.

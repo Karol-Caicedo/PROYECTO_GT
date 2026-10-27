@@ -1,8 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 
 /**
- * En producción las migraciones nunca se aplican al arrancar: se ejecutan
- * manualmente con `migration:run:guarded` y confirmación explícita.
+ * La aplicación no ejecuta migraciones al inicializar TypeORM en producción.
+ * El comando de inicio de Railway ejecuta antes el runner protegido y confirma
+ * explícitamente la operación.
  */
 export function migracionesAutomaticasHabilitadas(config: ConfigService): boolean {
   const entorno = (config.get<string>('NODE_ENV') || '').trim().toLowerCase();

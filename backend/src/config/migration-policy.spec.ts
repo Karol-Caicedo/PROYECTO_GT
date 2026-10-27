@@ -51,7 +51,8 @@ describe('C-04 política de migraciones', () => {
     expect(packageJson.scripts.start).not.toContain('migrate');
     expect(packageJson.scripts['start:prod']).toContain('NODE_ENV=production');
     expect(packageJson.scripts['start:prod']).not.toContain('migrate');
-    expect(railway.deploy.preDeployCommand).toContain('MIGRATE_CONFIRM=YES npm run migrate:prod');
-    expect(railway.deploy.startCommand).toBe('npm --prefix backend run start:prod');
+    expect(railway.deploy.startCommand).toBe(
+      'MIGRATE_CONFIRM=YES npm run migrate:prod && npm --prefix backend run start:prod',
+    );
   });
 });
