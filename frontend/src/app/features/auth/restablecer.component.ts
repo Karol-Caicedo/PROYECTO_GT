@@ -1,11 +1,11 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
 function clavesIguales(control: AbstractControl): ValidationErrors | null {
@@ -39,11 +39,8 @@ function clavesIguales(control: AbstractControl): ValidationErrors | null {
         <mat-card-content>
           <img class="logo" src="assets/logo.jpg" alt="Escudo de la Universidad del Pacífico" />
           <h1>Nueva contraseña</h1>
-          <p class="sub">El enlace vence en 1 hora y solo sirve una vez</p>
-          @if (!token()) {
-            <p class="error" role="alert">Enlace inválido. Solicita uno nuevo desde la pantalla de recuperación.</p>
-            <p class="pie"><a routerLink="/auth/recuperar">Solicitar enlace</a></p>
-          } @else if (listo()) {
+          <p class="sub">Ingresa el código de tu correo. Vence en 1 hora y solo sirve una vez.</p>
+          @if (listo()) {
             <p class="exito" role="status">
               <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
               <span>{{ mensaje() }}</span>
@@ -51,6 +48,10 @@ function clavesIguales(control: AbstractControl): ValidationErrors | null {
             <p class="pie"><a routerLink="/auth/login">Ingresar con mi nueva clave</a></p>
           } @else {
             <form [formGroup]="form" (ngSubmit)="enviar()">
+              <mat-form-field class="full-width"><mat-label>Código de recuperación</mat-label>
+                <input matInput formControlName="token" autocomplete="off" autocapitalize="off" spellcheck="false" />
+                @if (form.controls.token.invalid && form.controls.token.touched) { <mat-error>Ingresa el código recibido por correo</mat-error> }
+              </mat-form-field>
               <mat-form-field class="full-width"><mat-label>Nueva contraseña (mínimo 8 caracteres)</mat-label>
                 <input matInput formControlName="password" type="password" autocomplete="new-password" />
                 @if (form.controls.password.invalid && form.controls.password.touched) { <mat-error>Mínimo 8 caracteres</mat-error> }
@@ -70,37 +71,32 @@ function clavesIguales(control: AbstractControl): ValidationErrors | null {
     </div>
   `,
 })
-export class RestablecerComponent implements OnInit {
+export class RestablecerComponent {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
-  private route = inject(ActivatedRoute);
-  token = signal('');
   error = signal('');
   mensaje = signal('');
   cargando = signal(false);
   listo = signal(false);
   form = this.fb.group(
     {
+      token: ['', [Validators.required, Validators.minLength(10)]],
       password: ['', [Validators.required, Validators.minLength(8)]],
       password2: ['', Validators.required],
     },
     { validators: clavesIguales },
   );
 
-  ngOnInit() {
-    this.token.set(this.route.snapshot.queryParamMap.get('token') || '');
-  }
-
   async enviar() {
     this.error.set('');
     this.cargando.set(true);
     try {
-      const r = await this.auth.restablecerClave(this.token(), this.form.value.password!);
+      const r = await this.auth.restablecerClave(this.form.value.token!, this.form.value.password!);
       this.mensaje.set(r?.mensaje || 'Contraseña actualizada.');
       this.listo.set(true);
     } catch (e: unknown) {
       const msg = (e as { error?: { message?: string | string[] } })?.error?.message;
-      this.error.set(typeof msg === 'string' ? msg : 'No se pudo restablecer. Solicita un enlace nuevo.');
+      this.error.set(typeof msg === 'string' ? msg : 'No se pudo restablecer. Solicita un código nuevo.');
     } finally {
       this.cargando.set(false);
     }

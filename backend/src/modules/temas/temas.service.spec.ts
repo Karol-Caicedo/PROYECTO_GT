@@ -12,10 +12,14 @@ function buildService() {
 describe('TemasService', () => {
   test('activos filtra y ordena; todos no filtra', async () => {
     const { svc, repo } = buildService();
-    await svc.activos();
+    const tema = { id: 't-1', nombre: 'IA', descripcion: 'Descripción', activo: true, createdAt: new Date() };
+    repo.find.mockResolvedValue([tema]);
+    const activos = await svc.activos();
     expect(repo.find).toHaveBeenCalledWith({ where: { activo: true }, order: { nombre: 'ASC' } });
-    await svc.todos();
+    expect(activos).toEqual([{ id: 't-1', nombre: 'IA', descripcion: 'Descripción', activo: true }]);
+    const todos = await svc.todos();
     expect(repo.find).toHaveBeenCalledWith({ order: { nombre: 'ASC' } });
+    expect(todos[0]).not.toHaveProperty('createdAt');
   });
 
   test('crear usa activo=true por defecto', async () => {
@@ -24,6 +28,17 @@ describe('TemasService', () => {
     expect(repo.create).toHaveBeenCalledWith({ nombre: 'IA', activo: true });
     await svc.crear({ nombre: 'IoT', activo: false });
     expect(repo.create).toHaveBeenCalledWith({ nombre: 'IoT', activo: false });
+  });
+
+  test('crear y actualizar no devuelven metadatos de persistencia', async () => {
+    const { svc, repo } = buildService();
+    repo.save.mockResolvedValue({ id: 't-1', nombre: 'IA', descripcion: null, activo: true, createdAt: new Date() } as never);
+    const creado = await svc.crear({ nombre: 'IA' });
+    expect(creado).toEqual({ id: 't-1', nombre: 'IA', descripcion: null, activo: true });
+
+    repo.findOne.mockResolvedValue({ id: 't-1', nombre: 'Viejo', descripcion: null, activo: true, createdAt: new Date() } as never);
+    const actualizado = await svc.actualizar('t-1', { nombre: 'Nuevo' });
+    expect(actualizado).toEqual({ id: 't-1', nombre: 'IA', descripcion: null, activo: true });
   });
 
   test('actualizar/eliminar inexistente → 404', async () => {
@@ -59,4 +74,3 @@ describe('TemasService', () => {
     expect(res).toEqual({ ok: true, activo: false });
   });
 });
-

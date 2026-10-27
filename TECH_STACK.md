@@ -45,7 +45,7 @@ Documento de referencia del monorepo SIGICE. Refleja las versiones declaradas en
 - **Angular 20 standalone:** componentes independientes y rutas lazy con
   `loadComponent`.
 - **Angular Material:** tarjetas, formularios, tablas, diálogos y navegación.
-- **Estado:** signals para estado local; `localStorage.token` para el JWT.
+- **Estado:** signals para estado local; `sessionStorage` para el JWT Bearer.
 - **HTTP:** `HttpClient` con interceptor que adjunta el token solo a URLs `/api/`.
 - **Gráficas:** ng2-charts sobre Chart.js.
 - **Estilos:** SCSS con tokens en `frontend/src/styles/_tokens.scss`; evitar

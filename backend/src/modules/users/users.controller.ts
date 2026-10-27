@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from '../../common/password.util';
 import { Auth } from '../../common/auth.decorator';
 import { UsersService } from './users.service';
 import { CrearUsuarioDto, ActualizarUsuarioDto, CambiarClaveDto, VerificarAdminDto } from './user.dto';
+import { toUsuarioAdmin } from './user-publico';
 
 /** Gestión de usuarios por Proyección Social (el registro público está deshabilitado). */
 @ApiTags('usuarios')
@@ -17,7 +18,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Listar usuarios (sin hashes de clave)' })
   async listar() {
     const todos = await this.users.findAll();
-    return todos.map(({ passwordHash: _p, tokenVersion: _tv, ...resto }) => resto);
+    return todos.map(toUsuarioAdmin);
   }
 
   @Post()
@@ -39,8 +40,7 @@ export class UsersController {
       rol: dto.rol,
       aceptoDatosAt: null,
     });
-    const { passwordHash: _p, tokenVersion: _tv, ...resto } = user;
-    return resto;
+    return toUsuarioAdmin(user);
   }
 
   @Post('verificar-admin')
@@ -87,8 +87,7 @@ export class UsersController {
     }
 
     await this.users.save(user);
-    const { passwordHash: _p, tokenVersion: _tv, ...resto } = user;
-    return resto;
+    return toUsuarioAdmin(user);
   }
 
   @Delete(':id')

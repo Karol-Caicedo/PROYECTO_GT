@@ -1,10 +1,7 @@
 const TOKEN_KEY = 'token';
 let memoria: string | null = null;
 
-/**
- * El JWT no se persiste en localStorage. Se conserva en sessionStorage
- * (misma pestaña/recarga) y se elimina explícitamente cualquier copia legada.
- */
+/** El token se limita a la pestaña actual y nunca se escribe en localStorage. */
 export function leerToken(): string | null {
   try {
     return sessionStorage.getItem(TOKEN_KEY) ?? memoria;

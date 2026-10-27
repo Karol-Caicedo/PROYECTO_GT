@@ -71,7 +71,12 @@ export class EncuestasService {
     if (!r) return null;
     const temasIds = r.temas.map((t) => t.temaId);
     const info = temasIds.length ? await this.temas.find({ where: { id: In(temasIds) } }) : [];
-    return { ...r, temasDetalle: info };
+    return {
+      id: r.id,
+      periodoId: r.periodoId,
+      temas: r.temas.map((t) => ({ temaId: t.temaId, puntaje: t.puntaje })),
+      temasDetalle: info.map((t) => ({ id: t.id, nombre: t.nombre, descripcion: t.descripcion })),
+    };
   }
 
   async responder(userId: string, dto: CrearEncuestaDto) {

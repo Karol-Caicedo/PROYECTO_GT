@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
 
 const COOKIE = 'sigice_oauth_state';
+const COOKIE_PATH = '/api/auth';
 const MAX_AGE_MS = 10 * 60 * 1000;
 
 function hmac(secret: string, value: string) {
@@ -47,7 +48,7 @@ export class OAuthStateStore {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       maxAge: MAX_AGE_MS,
-      path: '/',
+      path: COOKIE_PATH,
     });
     cb(null, handle);
   }
@@ -58,7 +59,7 @@ export class OAuthStateStore {
     cb: (err: Error | null, ok?: boolean, info?: unknown) => void,
   ) {
     const res = req.res as Response | undefined;
-    res?.clearCookie(COOKIE, { path: '/' });
+    res?.clearCookie(COOKIE, { path: COOKIE_PATH });
 
     const cookie = leerCookie(req, COOKIE);
     if (!cookie || !providedState || !iguales(cookie, providedState)) {

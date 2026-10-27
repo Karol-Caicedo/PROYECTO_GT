@@ -14,7 +14,10 @@ export class EncuestasController {
   async aleatorios(@Req() req: { user: { id: string } }) {
     const p = await this.svc.periodoActivoOrFail();
     const temas = await this.svc.temasAleatorios(req.user.id, p.id);
-    return { periodo: p, temas };
+    return {
+      periodo: { id: p.id, nombre: p.nombre, activo: p.activo, modoEncuesta: p.modoEncuesta },
+      temas: temas.map(({ id, nombre, descripcion }) => ({ id, nombre, descripcion })),
+    };
   }
 
   @Get('encuestas/mi-respuesta')

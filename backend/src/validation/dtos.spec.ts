@@ -1,7 +1,7 @@
 /** Validación de entrada (frontend + backend): reglas de DTOs con class-validator. */
 import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { RegisterDto, LoginDto, CompleteSsoDto, CompletarSsoDto, SolicitarRecuperacionDto, RestablecerClaveDto } from '../modules/auth/auth.dto';
+import { RegisterDto, LoginDto, LoginEnvelopeDto, CompleteSsoDto, CompletarSsoDto, SolicitarRecuperacionDto, RestablecerClaveDto } from '../modules/auth/auth.dto';
 import { CrearUsuarioDto } from '../modules/users/user.dto';
 import { CrearEncuestaDto } from '../modules/encuestas/encuesta.dto';
 import { ActualizarCapacitacionDto, CapacitacionDto, FiltroCapDto } from '../modules/capacitaciones/capacitacion.dto';
@@ -50,6 +50,22 @@ describe('DTOs: LoginDto y CompleteSsoDto', () => {
     await expect(errores(ok)).resolves.toEqual([]);
     const mal = Object.assign(new LoginDto(), { correo: 'zzz', password: '' });
     expect(await errores(mal)).not.toHaveLength(0);
+  });
+
+  test('el sobre cifrado no acepta campos originales de credenciales', async () => {
+    const sobre = plainToInstance(LoginEnvelopeDto, {
+      version: 1,
+      keyId: 'rsa-test',
+      challenge: 'A'.repeat(43),
+      wrappedKey: 'A'.repeat(512),
+      iv: 'A'.repeat(16),
+      ciphertext: 'A'.repeat(32),
+      correo: 'persona@unipacifico.edu.co',
+      password: 'Clave-de-prueba-984',
+    });
+    const errors = await validate(sobre, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errors.map((error) => error.property)).toContain('correo');
+    expect(errors.map((error) => error.property)).toContain('password');
   });
 
   test('SSO exige semestre 1-9 y consentimiento', async () => {

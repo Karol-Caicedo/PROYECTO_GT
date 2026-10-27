@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import type { Request, Response } from 'express';
 import { AccessPolicyService } from './access-policy.service';
 import { cuerpoError } from './http-error';
+import { detalleErrorParaLog } from './log-seguro';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -18,13 +19,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const path = String(req.originalUrl || req.url || '').split('?')[0];
 
     if (status >= 500) {
+      const detalle = detalleErrorParaLog(exception);
       this.logger.error(JSON.stringify({
         event: 'http_error',
         status,
         method: req.method,
         path,
         correlationId,
-      }), exception instanceof Error ? exception.stack : undefined);
+        error: detalle.message,
+      }), detalle.stack);
     }
 
     if (status === HttpStatus.FORBIDDEN && !req.accessDeniedLogged) {

@@ -16,7 +16,7 @@ import { UiService } from '../../shared/ui/ui.service';
 interface Asignatura {
   id: string;
   nombre: string;
-  codigo?: string;
+  codigo?: string | null;
   semestre: number;
   activo?: boolean;
 }
@@ -44,8 +44,6 @@ interface EstadoEncuestaAsignatura {
   yaRespondio: boolean;
   miRespuesta: {
     id: string;
-    createdAt: string;
-    semestreAlResponder: number;
     items: MiRespuestaItem[];
   } | null;
 }

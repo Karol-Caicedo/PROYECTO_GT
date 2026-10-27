@@ -41,10 +41,16 @@ export class EncuestasAsignaturasService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     // Todas las materias activas del pensum académico (sin sesgo de semestre)
-    const todasAsignaturas = await this.asignaturasRepo.find({
+    const todasAsignaturasEntidades = await this.asignaturasRepo.find({
       where: { activo: true },
       order: { semestre: 'ASC', nombre: 'ASC' },
     });
+    const todasAsignaturas = todasAsignaturasEntidades.map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      codigo: a.codigo ?? null,
+      semestre: a.semestre,
+    }));
 
     const miRespuesta = await this.miRespuesta(userId, periodo.id);
     const yaRespondio = !!miRespuesta;
@@ -57,7 +63,12 @@ export class EncuestasAsignaturasService {
     });
 
     const inscripcionIds = inscripciones.map((i) => i.asignaturaId);
-    let asignaturasInscritas = inscripciones.map((i) => i.asignatura).filter(Boolean);
+    let asignaturasInscritas = inscripciones.map((i) => i.asignatura).filter(Boolean).map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      codigo: a.codigo ?? null,
+      semestre: a.semestre,
+    }));
 
     // Si ya respondió, sus materias evaluadas son las de su respuesta
     if (yaRespondio && miRespuesta?.items?.length) {
@@ -67,7 +78,7 @@ export class EncuestasAsignaturasService {
 
     return {
       activa,
-      periodo,
+      periodo: { id: periodo.id, nombre: periodo.nombre, activo: periodo.activo },
       todasAsignaturas,
       inscripcionIds,
       asignaturasInscritas,
@@ -134,13 +145,19 @@ export class EncuestasAsignaturasService {
     const asignaturas = asigIds.length ? await this.asignaturasRepo.find({ where: { id: In(asigIds) } }) : [];
     const mapaAsig = new Map(asignaturas.map((a) => [a.id, a]));
 
-    const itemsConDetalle = r.items.map((i) => ({
-      ...i,
-      asignatura: mapaAsig.get(i.asignaturaId) || null,
-    }));
+    const itemsConDetalle = r.items.map((i) => {
+      const a = mapaAsig.get(i.asignaturaId);
+      return {
+        id: i.id,
+        asignaturaId: i.asignaturaId,
+        tieneDificultad: i.tieneDificultad,
+        nivelSatisfaccion: i.nivelSatisfaccion,
+        asignatura: a ? { id: a.id, nombre: a.nombre, codigo: a.codigo ?? null, semestre: a.semestre } : null,
+      };
+    });
 
     return {
-      ...r,
+      id: r.id,
       items: itemsConDetalle,
     };
   }

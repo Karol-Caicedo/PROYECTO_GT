@@ -93,6 +93,17 @@ Reglas de dominio relevantes:
   hashes por la API.
 - JWT en `Authorization: Bearer`; roles `ADMIN` y `ESTUDIANTE`.
 - `JWT_SECRET` es obligatorio, con al menos 32 caracteres y sin fallback.
+- Login local: Angular solicita una clave pública RSA y un desafío de un solo uso.
+  Cifra `{correo,password}` con AES-256-GCM y envuelve la clave AES con
+  RSA-OAEP/SHA-256 (RSA de al menos 3072 bits). Nest valida y consume el desafío
+  atómicamente en PostgreSQL antes de descifrar; los sobres vencen a los 2 minutos
+  y no se acepta el contrato legado en claro. HTTPS sigue siendo obligatorio.
+  Las claves privadas PKCS#8 DER codificadas en Base64 se configuran solo en
+  backend mediante `LOGIN_CRYPTO_KEYS_JSON`; `LOGIN_CRYPTO_ACTIVE_KEY_ID`
+  selecciona la clave pública actual. Para rotar, publicar la nueva clave como
+  activa y conservar las anteriores al menos 2 minutos antes de retirarlas.
+- El cifrado del login no oculta credenciales al propietario del navegador ni a
+  JavaScript/XSS; SSO y recuperación mantienen sus flujos separados.
 - `token_version` permite invalidar JWT al cambiar la contraseña o al aplicar la
   migración de revocación.
 - Uploads restringidos a imágenes jpg/png/webp de máximo 2 MB; el contenido se
@@ -107,8 +118,10 @@ Reglas de dominio relevantes:
   el detalle, el registro de clics y la imagen aplican autorización por recurso.
 - SSO: rutas ocultas si `AUTH_SSO_ENABLED=false`, `state` OAuth firmado en cookie
   HttpOnly y código de un solo uso entregado en cookie `HttpOnly` para canjear en
-  `POST /api/auth/sso/exchange`; nunca se ponen tokens en la URL. Google exige
-  correo no marcado como no verificado.
+  `POST /api/auth/sso/exchange`; los códigos se eliminan al consumirse y los
+  vencidos se purgan cada hora. El alta pendiente usa un código opaco de 15
+  minutos; nunca se ponen tokens en la URL. Google exige correo no marcado como
+  no verificado.
 - Pendientes conocidos: PKCE en OAuth, MFA y rotación de secretos.
 
 ## Frontend
@@ -146,6 +159,8 @@ src/app/
   `backend/src/data-source.ts`.
 - Las entidades nuevas se registran en `app.module.ts`, `data-source.ts` y
   `backend/src/test/test-db.ts`.
+- El desafío de un solo uso del login usa `login_crypto_challenges`; aplicar su
+  migración antes de habilitar el login cifrado en un entorno existente.
 
 ## Riesgos arquitectónicos actuales
 

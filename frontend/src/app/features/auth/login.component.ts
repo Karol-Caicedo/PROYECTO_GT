@@ -151,22 +151,8 @@ export class LoginComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const guardado = sessionStorage.getItem('sigice_login_draft');
-      if (guardado) {
-        const datos = JSON.parse(guardado);
-        if (datos.correo) {
-          this.form.patchValue({ correo: datos.correo || '' });
-        }
-        // Limpia contraseñas guardadas por versiones anteriores.
-        sessionStorage.setItem('sigice_login_draft', JSON.stringify({ correo: datos.correo || '' }));
-      }
-    } catch { /* ignorar error de parseo */ }
-
-    this.form.valueChanges.subscribe((val) => {
-      try {
-        sessionStorage.setItem('sigice_login_draft', JSON.stringify({ correo: val.correo || '' }));
-      } catch { /* almacenamiento no disponible */ }
-    });
+      sessionStorage.removeItem('sigice_login_draft');
+    } catch { /* almacenamiento no disponible */ }
 
     try {
       const s = await this.auth.ssoStatus();
@@ -179,7 +165,6 @@ export class LoginComponent implements OnInit {
     this.cargando.set(true);
     try {
       await this.auth.ingresar(this.form.value.correo!, this.form.value.password!);
-      try { sessionStorage.removeItem('sigice_login_draft'); } catch { /* noop */ }
       const u = this.auth.usuario();
       this.router.navigate([u?.rol === 'ADMIN' ? '/admin/dashboard' : '/encuesta']);
     } catch (e: unknown) {

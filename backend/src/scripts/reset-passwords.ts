@@ -15,7 +15,6 @@ type Cuenta = {
 
 type Resultado = {
   cuenta: string;
-  correo: string;
   accion: string;
   rol: string;
   sesionesInvalidadas: boolean;
@@ -86,14 +85,13 @@ async function main() {
 
         if (!existente && !crearFaltantes) {
           throw new CuentaFaltante(
-            `No existe ${cuenta.correo}. Usa --create-missing si quieres crearla.`,
+            `No existe la cuenta etiquetada como ${cuenta.etiqueta}. Usa --create-missing si quieres crearla.`,
           );
         }
 
         if (dryRun) {
           salida.push({
             cuenta: cuenta.etiqueta,
-            correo: cuenta.correo,
             accion: existente ? 'actualizaría' : 'crearía',
             rol: existente?.rol ?? cuenta.rol,
             sesionesInvalidadas: !!existente,
@@ -108,7 +106,6 @@ async function main() {
           await repo.save(existente);
           salida.push({
             cuenta: cuenta.etiqueta,
-            correo: existente.correo,
             accion: 'actualizada',
             rol: existente.rol,
             sesionesInvalidadas: true,
@@ -129,7 +126,6 @@ async function main() {
         await repo.save(creado);
         salida.push({
           cuenta: cuenta.etiqueta,
-          correo: creado.correo,
           accion: 'creada',
           rol: creado.rol,
           sesionesInvalidadas: false,

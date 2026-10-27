@@ -182,13 +182,29 @@ describe('EncuestasService', () => {
       await expect(await svc.miRespuesta('u-1')).toBeNull();
     });
 
-    test('incluye temasDetalle', async () => {
+    test('devuelve los temas necesarios sin los identificadores internos del usuario', async () => {
       const { svc, periodos, resp, temas } = buildService();
       periodos.findOne.mockResolvedValue(PERIODO_SEL);
-      resp.findOne.mockResolvedValue({ id: 'r-1', temas: [{ temaId: 't-1' }] });
-      temas.find.mockResolvedValue([{ id: 't-1', nombre: 'IA' }]);
+      resp.findOne.mockResolvedValue({
+        id: 'r-1',
+        usuarioId: 'u-1',
+        periodoId: 'p-1',
+        semestreAlResponder: 4,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        temas: [{ temaId: 't-1', puntaje: null, respuestaId: 'r-1' }],
+      });
+      temas.find.mockResolvedValue([{ id: 't-1', nombre: 'IA', descripcion: 'Descripción', activo: true, createdAt: new Date() }]);
       const r = await svc.miRespuesta('u-1');
-      expect(r).toMatchObject({ temasDetalle: [{ id: 't-1' }] });
+      expect(r).toEqual({
+        id: 'r-1',
+        periodoId: 'p-1',
+        temas: [{ temaId: 't-1', puntaje: null }],
+        temasDetalle: [{ id: 't-1', nombre: 'IA', descripcion: 'Descripción' }],
+      });
+      expect(r).not.toHaveProperty('usuarioId');
+      expect(r).not.toHaveProperty('semestreAlResponder');
+      expect(r).not.toHaveProperty('createdAt');
     });
 
     test('sin temas → arreglo vacío', async () => {

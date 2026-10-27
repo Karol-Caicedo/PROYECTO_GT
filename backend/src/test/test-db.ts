@@ -10,6 +10,7 @@ import { ClicCapacitacion } from '../modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from '../modules/recordatorios/recordatorio.entity';
 import { PasswordReset } from '../modules/auth/password-reset.entity';
 import { SsoCode } from '../modules/auth/sso-code.entity';
+import { LoginChallenge } from '../modules/auth/login-challenge.entity';
 import { Asignatura } from '../modules/asignaturas/asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from '../modules/encuestas-asignaturas/respuesta-asignatura.entity';
 import { InscripcionAsignatura } from '../modules/encuestas-asignaturas/inscripcion-asignatura.entity';
@@ -26,6 +27,7 @@ export const ENTIDADES_TEST = [
   RecordatorioEnviado,
   PasswordReset,
   SsoCode,
+  LoginChallenge,
   Asignatura,
   RespuestaAsignatura,
   RespuestaAsignaturaItem,
@@ -84,6 +86,7 @@ export async function assertTestDatabase(ds: DataSource): Promise<void> {
 
 const TABLAS = [
   'sso_codes',
+  'login_crypto_challenges',
   'recuperacion_claves',
   'recordatorios_enviados',
   'clics_capacitacion',

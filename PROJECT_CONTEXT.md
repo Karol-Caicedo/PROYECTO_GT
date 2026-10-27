@@ -53,9 +53,11 @@ Sin periodo activo, la encuesta no está disponible.
   registran en `respuesta_temas`.
 - Las capacitaciones se filtran por semestre y vigencia.
 - Los recordatorios son idempotentes por usuario/periodo/día.
-- Los enlaces de recuperación son de un solo uso y vencen en 1 hora.
+- Los códigos de recuperación se ingresan en el formulario (no van en la URL),
+  son de un solo uso y vencen en 1 hora.
 - Los correos de recuperación no revelan si la cuenta existe.
-- Los códigos SSO son de un solo uso, vencen en 60 segundos y se guardan hasheados.
+- Los códigos SSO se guardan hasheados, se eliminan al consumirse y los vencidos
+  se purgan cada hora; el código temporal de alta vence en 15 minutos.
 
 ## Glosario
 
@@ -85,6 +87,10 @@ Sin periodo activo, la encuesta no está disponible.
   bcrypt existentes se verifican y solo se rehashean si
   `PASSWORD_REHASH_ON_LOGIN=true`.
 - El JWT de sesión vive en `sessionStorage`, nunca en `localStorage`.
+- El login local cifra las credenciales en Angular con Web Crypto y un sobre
+  RSA-OAEP/AES-GCM; Nest consume un desafío de un solo uso guardado en PostgreSQL.
+  Requiere `LOGIN_CRYPTO_ACTIVE_KEY_ID`, `LOGIN_CRYPTO_KEYS_JSON` y la migración
+  `1700000000011-login-crypto-challenges`; la clave privada solo vive en backend.
 - El callback SSO entrega un código aleatorio en cookie `HttpOnly` y el frontend
   lo canjea en `POST /api/auth/sso/exchange`; no se aceptan tokens ni temporales
   en fragment/query.

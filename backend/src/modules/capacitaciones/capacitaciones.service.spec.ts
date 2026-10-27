@@ -121,9 +121,20 @@ describe('CapacitacionesService', () => {
 
     test('estudiante del semestre destino ve una capacitación publicada', async () => {
       const { svc, cap, clic } = buildService();
-      cap.findOne.mockResolvedValue(publicada);
-      clic.count.mockResolvedValue(2);
-      await expect(svc.detallePara('c-1', ALUMNO)).resolves.toMatchObject({ id: 'c-1', clics: 2 });
+      cap.findOne.mockResolvedValue({
+        ...publicada,
+        titulo: 'Taller',
+        descripcion: 'Descripción',
+        enlace: 'https://ejemplo.com',
+        createdBy: 'admin-1',
+        createdAt: new Date(),
+      });
+      const respuesta = await svc.detallePara('c-1', ALUMNO);
+      expect(respuesta).toMatchObject({ id: 'c-1', titulo: 'Taller', enlace: 'https://ejemplo.com' });
+      expect(respuesta).not.toHaveProperty('clics');
+      expect(respuesta).not.toHaveProperty('createdBy');
+      expect(respuesta).not.toHaveProperty('createdAt');
+      expect(clic.count).not.toHaveBeenCalled();
     });
 
     test.each([

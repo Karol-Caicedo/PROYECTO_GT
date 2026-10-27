@@ -39,7 +39,10 @@ export class RecordatoriosService {
       return { enviados: 0 };
     }
     const dias = Math.floor((Date.now() - new Date(periodo.fechaInicio).getTime()) / 86400000);
-    const estudiantes = await this.users.find({ where: { rol: 'ESTUDIANTE' } });
+    const estudiantes = await this.users.find({
+      where: { rol: 'ESTUDIANTE' },
+      select: { id: true, correo: true, nombre: true },
+    });
     let enviados = 0;
     for (const est of estudiantes) {
       const yaRespondio = await this.resp.findOne({ where: { usuarioId: est.id, periodoId: periodo.id } });

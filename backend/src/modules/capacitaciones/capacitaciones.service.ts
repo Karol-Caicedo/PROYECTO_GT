@@ -11,6 +11,40 @@ export interface CapacitacionViewer {
   semestre: number;
 }
 
+function asignacionesSemestre(c: Capacitacion) {
+  return (c.semestres ?? []).map(({ semestre }) => ({ semestre }));
+}
+
+function capacitacionEstudiante(c: Capacitacion) {
+  return {
+    id: c.id,
+    titulo: c.titulo,
+    descripcion: c.descripcion,
+    enlace: c.enlace,
+    imagenUrl: c.imagenUrl,
+    fechaEvento: c.fechaEvento,
+    modalidad: c.modalidad,
+  };
+}
+
+function capacitacionAdmin(c: Capacitacion, clics?: number) {
+  return {
+    id: c.id,
+    titulo: c.titulo,
+    descripcion: c.descripcion,
+    enlace: c.enlace,
+    imagenUrl: c.imagenUrl,
+    temaId: c.temaId,
+    fechaEvento: c.fechaEvento,
+    modalidad: c.modalidad,
+    visibleDesde: c.visibleDesde,
+    visibleHasta: c.visibleHasta,
+    estado: c.estado,
+    semestres: asignacionesSemestre(c),
+    ...(clics === undefined ? {} : { clics }),
+  };
+}
+
 @Injectable()
 export class CapacitacionesService {
   constructor(
@@ -38,7 +72,7 @@ export class CapacitacionesService {
     const ids = lista.map((c) => c.id);
     const conteos = await this.conteoClics(ids) as { capacitacionId: string; total: string }[];
     const mapa = new Map(conteos.map((x) => [x.capacitacionId, Number(x.total)]));
-    return lista.map((c) => ({ ...c, clics: mapa.get(c.id) ?? 0 }));
+    return lista.map((c) => capacitacionAdmin(c, mapa.get(c.id) ?? 0));
   }
 
   async mias(semestre: number) {
@@ -52,7 +86,7 @@ export class CapacitacionesService {
       .orderBy('c.fechaEvento', 'ASC', 'NULLS LAST')
       .addOrderBy('c.createdAt', 'DESC')
       .getMany();
-    return todas;
+    return todas.map(capacitacionEstudiante);
   }
 
   async crear(dto: CapacitacionDto, imagenUrl: string | null, createdBy: string) {
@@ -90,7 +124,7 @@ export class CapacitacionesService {
 
   private async conClics(c: Capacitacion) {
     const clics = await this.clic.count({ where: { capacitacionId: c.id } });
-    return { ...c, clics };
+    return capacitacionAdmin(c, clics);
   }
 
   async detalle(id: string) {
@@ -104,7 +138,8 @@ export class CapacitacionesService {
     if (!c || !(await this.puedeVer(c, viewer))) {
       throw new NotFoundException('Capacitación no encontrada');
     }
-    return this.conClics(c);
+    if (viewer.rol === 'ADMIN') return this.conClics(c);
+    return capacitacionEstudiante(c);
   }
 
   async actualizar(id: string, dto: ActualizarCapacitacionDto, imagenUrl?: string | null) {

@@ -10,22 +10,47 @@ function respuestaFalsa() {
   };
 }
 
-describe('H-01 SSO sin credenciales en la URL', () => {
+describe('respuestas de autenticación y SSO', () => {
   const auth = {
+    login: jest.fn(),
     loginSso: jest.fn(),
     crearCodigoSso: jest.fn(),
     intercambiarCodigoSso: jest.fn(),
   };
+  const loginCrypto = {
+    crearParametros: jest.fn(),
+    descifrar: jest.fn(),
+  };
   const config = new ConfigService({ FRONTEND_URL: 'https://app.example', AUTH_SSO_ENABLED: 'true' });
-  const controller = new AuthController(auth as never, config);
+  const controller = new AuthController(auth as never, config, loginCrypto as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    auth.loginSso.mockResolvedValue({ necesitaCompletar: false, access_token: 'jwt-no-debe-ir-en-url' });
-    auth.crearCodigoSso.mockResolvedValue('codigo-aleatorio');
+    auth.login.mockResolvedValue({ access_token: 'jwt-de-prueba' });
+    auth.crearCodigoSso.mockResolvedValue('codigo-de-un-solo-uso');
   });
 
-  test('el callback redirige sin token ni temp y entrega el código en cookie HttpOnly', async () => {
+  test('el login conserva el contrato Bearer sin incluir campos internos de usuario', async () => {
+    const sobre = {
+      version: 1,
+      keyId: 'rsa-test',
+      challenge: 'A'.repeat(43),
+      wrappedKey: 'ciphertext',
+      iv: 'A'.repeat(16),
+      ciphertext: 'encrypted',
+    };
+    loginCrypto.descifrar.mockResolvedValue({ correo: 'a@unipacifico.edu.co', password: 'clave-de-prueba' });
+    const resultado = await controller.login(sobre);
+
+    expect(resultado).toEqual({ access_token: 'jwt-de-prueba' });
+    expect(loginCrypto.descifrar).toHaveBeenCalledWith(sobre);
+    expect(auth.login).toHaveBeenCalledWith('a@unipacifico.edu.co', 'clave-de-prueba');
+    expect(JSON.stringify(resultado)).not.toContain('passwordHash');
+    expect(JSON.stringify(resultado)).not.toContain('tokenVersion');
+    expect(JSON.stringify(resultado)).not.toContain('correo');
+  });
+
+  test('el callback redirige sin credenciales en la URL y entrega código en cookie HttpOnly', async () => {
     const res = respuestaFalsa();
     await controller.googleCb(
       { user: { correo: 'a@unipacifico.edu.co', nombre: 'A', proveedorId: 'g-1' } },
@@ -38,26 +63,29 @@ describe('H-01 SSO sin credenciales en la URL', () => {
     expect(destino).not.toContain('temp');
     expect(res.cookie).toHaveBeenCalledWith(
       'sigice_sso_code',
-      'codigo-aleatorio',
+      'codigo-de-un-solo-uso',
       expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/api/auth/sso', maxAge: 60000 }),
     );
     expect(auth.crearCodigoSso).toHaveBeenCalledWith(expect.objectContaining({ correo: 'a@unipacifico.edu.co' }), 'google');
   });
 
   test('el exchange exige la cookie del código', () => {
-    const conExchange = controller as unknown as { exchange: (req: unknown, res: unknown) => unknown };
-    expect(conExchange.exchange).toBeDefined();
-    expect(() => conExchange.exchange({ headers: {} }, respuestaFalsa())).toThrow(/código/i);
+    expect(() => controller.exchange({ headers: {} }, respuestaFalsa() as never)).toThrow(/código/i);
   });
 
-  test('el exchange consume el código, limpia la cookie y devuelve JSON', async () => {
-    auth.intercambiarCodigoSso.mockResolvedValue({ access_token: 'jwt', necesitaCompletar: false });
-    const conExchange = controller as unknown as { exchange: (req: unknown, res: unknown) => Promise<unknown> };
+  test('el exchange consume el código y mantiene el token en el cuerpo para el cliente Bearer', () => {
     const res = respuestaFalsa();
-    const r = await conExchange.exchange({ headers: { cookie: 'sigice_sso_code=codigo-aleatorio' } }, res);
+    auth.intercambiarCodigoSso.mockReturnValue({
+      access_token: 'jwt-de-prueba',
+      necesitaCompletar: false,
+    });
+    const resultado = controller.exchange(
+      { headers: { cookie: 'sigice_sso_code=codigo-de-un-solo-uso' } },
+      res as never,
+    );
 
-    expect(auth.intercambiarCodigoSso).toHaveBeenCalledWith('codigo-aleatorio');
-    expect(res.clearCookie).toHaveBeenCalledWith('sigice_sso_code', expect.any(Object));
-    expect(r).toEqual({ access_token: 'jwt', necesitaCompletar: false });
+    expect(auth.intercambiarCodigoSso).toHaveBeenCalledWith('codigo-de-un-solo-uso');
+    expect(resultado).toEqual({ access_token: 'jwt-de-prueba', necesitaCompletar: false });
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
   });
 });

@@ -3,9 +3,11 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, MoreThan, Repository } from 'typeorm';
+import { IsNull, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import { hashPassword, verifyPassword } from '../../common/password.util';
 import { UsersService } from '../users/users.service';
+import { toUsuarioSesion } from '../users/user-publico';
 import { RegisterDto, CompleteSsoDto } from './auth.dto';
 import { PasswordReset } from './password-reset.entity';
 import { SsoCode } from './sso-code.entity';
@@ -44,18 +46,37 @@ export class AuthService {
     }
   }
 
-  private firmar(user: { id: string; correo: string; rol: string; semestre: number; tokenVersion?: number }) {
-    const { tokenVersion: _tv, ...usuarioPublico } = user;
+  private firmar(user: { id: string; tokenVersion?: number }) {
     return {
       access_token: this.jwt.sign({
         sub: user.id,
-        correo: user.correo,
-        rol: user.rol,
-        semestre: user.semestre,
         tokenVersion: user.tokenVersion ?? 0,
       }),
-      user: usuarioPublico,
     };
+  }
+
+  @Cron('0 * * * *')
+  async limpiarCodigosSsoVencidos() {
+    await this.ssoCodes.delete({ expiraAt: LessThanOrEqual(new Date()) });
+  }
+
+  private async crearTokenTemporalSso(datos: {
+    correo: string;
+    nombre: string;
+    proveedorId: string;
+    proveedor: string;
+  }) {
+    const temp = randomBytes(32).toString('base64url');
+    await this.ssoCodes.save(
+      this.ssoCodes.create({
+        codigoHash: hashSsoCode(temp),
+        usuarioId: null,
+        datos: { tipo: 'registro_pendiente', ...datos },
+        expiraAt: new Date(Date.now() + 15 * 60 * 1000),
+        usadoAt: null,
+      }),
+    );
+    return temp;
   }
 
   async register(dto: RegisterDto) {
@@ -75,9 +96,6 @@ export class AuthService {
     });
     return this.firmar({
       id: user.id,
-      correo: user.correo,
-      rol: user.rol,
-      semestre: user.semestre,
       tokenVersion: user.tokenVersion,
     });
   }
@@ -96,9 +114,6 @@ export class AuthService {
 
     return this.firmar({
       id: user.id,
-      correo: user.correo,
-      rol: user.rol,
-      semestre: user.semestre,
       tokenVersion: user.tokenVersion,
     });
   }
@@ -106,8 +121,7 @@ export class AuthService {
   async me(userId: string) {
     const u = await this.users.findById(userId);
     if (!u) throw new UnauthorizedException('No autenticado');
-    const { passwordHash: _p, tokenVersion: _tv, ...resto } = u;
-    return resto;
+    return toUsuarioSesion(u);
   }
 
   async actualizarMiSemestre(userId: string, semestre: number) {
@@ -128,11 +142,8 @@ export class AuthService {
     let user = await this.users.findByCorreo(perfil.correo);
     if (!user) {
       // No se puede crear sin semestre + consentimiento: se emite token temporal
-      const temp = this.jwt.sign(
-        { correo: perfil.correo, nombre: perfil.nombre, proveedorId: perfil.proveedorId, proveedor, ssoPending: true },
-        { expiresIn: '15m' },
-      );
-      return { necesitaCompletar: true, temp, correo: perfil.correo, nombre: perfil.nombre };
+      const temp = await this.crearTokenTemporalSso({ ...perfil, proveedor });
+      return { necesitaCompletar: true, temp };
     }
     if (!user.proveedorId) {
       user.proveedorId = perfil.proveedorId;
@@ -142,9 +153,6 @@ export class AuthService {
     return {
       ...this.firmar({
         id: user.id,
-        correo: user.correo,
-        rol: user.rol,
-        semestre: user.semestre,
         tokenVersion: user.tokenVersion,
       }),
       necesitaCompletar: false,
@@ -183,7 +191,7 @@ export class AuthService {
       this.ssoCodes.create({
         codigoHash: hashSsoCode(codigo),
         usuarioId,
-        datos,
+        datos: datos ? { tipo: 'intercambio', ...datos } : null,
         expiraAt: new Date(Date.now() + SSO_CODE_TTL_MS),
         usadoAt: null,
       }),
@@ -196,8 +204,8 @@ export class AuthService {
     if (!codigo) throw new BadRequestException('Código SSO ausente, inválido o vencido');
     const resultado = await this.ssoCodes
       .createQueryBuilder()
-      .update(SsoCode)
-      .set({ usadoAt: new Date() })
+      .delete()
+      .from(SsoCode)
       .where('"codigo_hash" = :hash AND "usado_at" IS NULL AND "expira_at" > now()', {
         hash: hashSsoCode(codigo),
       })
@@ -215,9 +223,6 @@ export class AuthService {
       return {
         ...this.firmar({
           id: user.id,
-          correo: user.correo,
-          rol: user.rol,
-          semestre: user.semestre,
           tokenVersion: user.tokenVersion,
         }),
         necesitaCompletar: false,
@@ -225,17 +230,18 @@ export class AuthService {
     }
 
     const datos = fila.datos || {};
-    const temp = this.jwt.sign(
-      {
-        correo: datos.correo,
-        nombre: datos.nombre,
-        proveedorId: datos.proveedorId,
-        proveedor: datos.proveedor,
-        ssoPending: true,
-      },
-      { expiresIn: '15m' },
-    );
-    return { necesitaCompletar: true, temp, correo: datos.correo, nombre: datos.nombre };
+    if (datos.tipo !== 'intercambio' || typeof datos.correo !== 'string' ||
+      typeof datos.nombre !== 'string' || typeof datos.proveedorId !== 'string' ||
+      typeof datos.proveedor !== 'string') {
+      throw new BadRequestException('El código SSO es inválido, ya fue usado o venció');
+    }
+    const temp = await this.crearTokenTemporalSso({
+      correo: datos.correo,
+      nombre: datos.nombre,
+      proveedorId: datos.proveedorId,
+      proveedor: datos.proveedor,
+    });
+    return { necesitaCompletar: true, temp };
   }
 
   /**
@@ -256,9 +262,9 @@ export class AuthService {
         }),
       );
       const frontend = this.config.get('FRONTEND_URL', 'http://localhost:4200');
-      const url = `${frontend}/auth/restablecer?token=${token}`;
+      const url = `${frontend.replace(/\/+$/, '')}/auth/restablecer`;
       try {
-        await this.resend.enviarRecuperacion(user.correo, user.nombre, url);
+        await this.resend.enviarRecuperacion(user.correo, user.nombre, token, url);
       } catch (error) {
         // No se propaga: la respuesta debe ser idéntica exista o no el correo
         // (si fallara solo aquí, un atacante distinguiría cuentas registradas).
@@ -268,7 +274,7 @@ export class AuthService {
         logger.error('No se pudo enviar el correo de recuperación; revisa el proveedor de correo.');
       }
     }
-    return { mensaje: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };
+    return { mensaje: 'Si el correo está registrado, recibirás un correo con instrucciones para restablecer tu contraseña.' };
   }
 
   /** Consume un token válido (una sola vez, 1h) y fija la nueva clave. */
@@ -278,10 +284,10 @@ export class AuthService {
     }
     const registro = await this.resets.findOne({ where: { tokenHash: AuthService.hashToken(token || '') } });
     if (!registro || registro.usadoAt || registro.expiraAt.getTime() < Date.now()) {
-      throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
+      throw new BadRequestException('El código es inválido o ya venció. Solicita uno nuevo.');
     }
     const user = await this.users.findById(registro.usuarioId);
-    if (!user) throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
+    if (!user) throw new BadRequestException('El código es inválido o ya venció. Solicita uno nuevo.');
 
     const consumido = await this.resets.update(
       {
@@ -292,7 +298,7 @@ export class AuthService {
       { usadoAt: new Date() },
     );
     if (consumido.affected !== 1) {
-      throw new BadRequestException('El enlace es inválido o ya venció. Solicita uno nuevo.');
+      throw new BadRequestException('El código es inválido o ya venció. Solicita uno nuevo.');
     }
 
     user.passwordHash = await hashPassword(password);
@@ -303,31 +309,46 @@ export class AuthService {
   }
 
   async completarSso(tempToken: string, dto: CompleteSsoDto) {
-    let payload: { correo: string; nombre: string; proveedorId: string; proveedor: string; ssoPending?: boolean };
-    try {
-      payload = this.jwt.verify(tempToken);
-    } catch {
+    if (!tempToken) throw new BadRequestException('Token temporal inválido o vencido');
+    const resultado = await this.ssoCodes
+      .createQueryBuilder()
+      .delete()
+      .from(SsoCode)
+      .where(`"codigo_hash" = :hash AND "usado_at" IS NULL AND "expira_at" > now() AND "datos"->>'tipo' = :tipo`, {
+        hash: hashSsoCode(tempToken),
+        tipo: 'registro_pendiente',
+      })
+      .returning('*')
+      .execute();
+    if (!resultado.affected || !resultado.raw?.length) {
       throw new BadRequestException('Token temporal inválido o vencido');
     }
-    if (!payload?.ssoPending) throw new BadRequestException('Token temporal inválido');
-    this.validarDominio(payload.correo);
-    const existe = await this.users.findByCorreo(payload.correo);
+    const datos = resultado.raw[0].datos as Record<string, unknown> | null;
+    if (!datos || typeof datos.correo !== 'string' || typeof datos.nombre !== 'string' ||
+      typeof datos.proveedorId !== 'string' || !['google', 'microsoft'].includes(String(datos.proveedor))) {
+      throw new BadRequestException('Token temporal inválido o vencido');
+    }
+    const { correo, nombre, proveedorId, proveedor } = datos as {
+      correo: string;
+      nombre: string;
+      proveedorId: string;
+      proveedor: string;
+    };
+    this.validarDominio(correo);
+    const existe = await this.users.findByCorreo(correo);
     if (existe) throw new BadRequestException('Este correo ya está registrado');
     const user = await this.users.create({
-      correo: payload.correo,
-      nombre: payload.nombre,
+      correo,
+      nombre,
       passwordHash: null,
-      proveedorAuth: payload.proveedor,
-      proveedorId: payload.proveedorId,
+      proveedorAuth: proveedor,
+      proveedorId,
       semestre: dto.semestre,
       rol: 'ESTUDIANTE',
       aceptoDatosAt: new Date(),
     });
     return this.firmar({
       id: user.id,
-      correo: user.correo,
-      rol: user.rol,
-      semestre: user.semestre,
       tokenVersion: user.tokenVersion,
     });
   }

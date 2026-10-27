@@ -33,7 +33,7 @@ import { AuthService } from '../../core/auth.service';
         <mat-card-content>
           <img class="logo" src="assets/logo.jpg" alt="Escudo de la Universidad del Pacífico" />
           <h1>Recuperar contraseña</h1>
-          <p class="sub">Te enviaremos un enlace válido por 1 hora</p>
+          <p class="sub">Te enviaremos un código válido por 1 hora</p>
           @if (enviado()) {
             <p class="exito" role="status">
               <span class="material-symbols-outlined" aria-hidden="true">mark_email_read</span>
@@ -48,7 +48,7 @@ import { AuthService } from '../../core/auth.service';
               </mat-form-field>
               @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
               <button mat-raised-button color="primary" class="full-width" [disabled]="form.invalid || cargando()">
-                {{ cargando() ? 'Enviando…' : 'Enviar enlace' }}
+                {{ cargando() ? 'Enviando…' : 'Enviar código' }}
               </button>
             </form>
             <p class="pie"><a routerLink="/auth/login">Volver al ingreso</a></p>

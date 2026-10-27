@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsInt, Min, Max, IsBoolean, Equals } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Equals, IsBoolean, IsEmail, IsInt, IsString, Length, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'estudiante@unipacifico.edu.co' })
@@ -35,6 +35,41 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password: string;
+}
+
+export class LoginEnvelopeDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @Equals(1)
+  version: number;
+
+  @ApiProperty({ example: 'rsa-2026-01' })
+  @IsString()
+  @Matches(/^[A-Za-z0-9._-]{1,64}$/)
+  keyId: string;
+
+  @ApiProperty({ example: 'A'.repeat(43) })
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{43}$/)
+  challenge: string;
+
+  @ApiProperty({ example: 'A'.repeat(512) })
+  @IsString()
+  @MaxLength(1024)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  wrappedKey: string;
+
+  @ApiProperty({ example: 'A'.repeat(16) })
+  @IsString()
+  @Length(16, 16)
+  @Matches(/^[A-Za-z0-9_-]{16}$/)
+  iv: string;
+
+  @ApiProperty({ example: 'A'.repeat(256) })
+  @IsString()
+  @MaxLength(16_384)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  ciphertext: string;
 }
 
 export class SolicitarRecuperacionDto {

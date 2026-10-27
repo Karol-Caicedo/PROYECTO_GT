@@ -93,10 +93,10 @@ async function main() {
       }),
     );
     // eslint-disable-next-line no-console
-    console.log(`Admin creado: ${adminEmail}`);
+    console.log('Admin creado.');
   } else {
     // eslint-disable-next-line no-console
-    console.log(`Admin ya existe: ${adminEmail}`);
+    console.log('Admin ya existe.');
   }
 
   const crearDemo = debeCrearEstudianteDemo(produccion, process.env.SEED_DEMO_STUDENT);
@@ -120,10 +120,10 @@ async function main() {
         }),
       );
       // eslint-disable-next-line no-console
-      console.log(`Estudiante demo creado: ${estEmail} (semestre ${estSemestre})`);
+      console.log(`Estudiante demo creado (semestre ${estSemestre}).`);
     } else {
       // eslint-disable-next-line no-console
-      console.log(`Estudiante demo ya existe: ${estEmail}`);
+      console.log('Estudiante demo ya existe.');
     }
   } else {
     // eslint-disable-next-line no-console

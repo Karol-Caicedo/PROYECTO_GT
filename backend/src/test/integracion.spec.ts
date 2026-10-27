@@ -164,9 +164,18 @@ describe('Auth E2E', () => {
     const { token, user } = await registrar('flujo@unipacifico.edu.co', 4);
     expect(token).toBeTruthy();
     const login = await auth.login('flujo@unipacifico.edu.co', 'Clave1234');
-    expect(login.user.id).toBe(user.id);
+    expect(login).toEqual({ access_token: expect.any(String) });
     const me = await auth.me(user.id);
     expect(me).not.toHaveProperty('passwordHash');
+    expect(me).not.toHaveProperty('tokenVersion');
+    expect(me).not.toHaveProperty('proveedorId');
+    expect(me).toEqual({
+      id: user.id,
+      correo: user.correo,
+      nombre: user.nombre,
+      semestre: user.semestre,
+      rol: user.rol,
+    });
     await expect(auth.login('flujo@unipacifico.edu.co', 'mala-clave')).rejects.toThrow('Credenciales inválidas');
     await expect(auth.actualizarMiSemestre(user.id, 10)).rejects.toThrow('Semestre inválido');
     const actualizado = await auth.actualizarMiSemestre(user.id, 6);
@@ -206,7 +215,7 @@ describe('Auth E2E', () => {
     const sesion = await auth.intercambiarCodigoSso(codigoExistente);
     expect(sesion.necesitaCompletar).toBe(false);
     expect((sesion as { access_token: string }).access_token).toBeTruthy();
-    expect((sesion as { user: { correo: string } }).user.correo).toBe(perfil.correo);
+    expect(sesion).not.toHaveProperty('user');
 
     const vencido = await auth.crearCodigoSso({ ...perfil, correo: 'sso-vencido@unipacifico.edu.co' }, 'google');
     const filaVencida = await R.sso.findOneByOrFail({ codigoHash: hashSsoCode(vencido) });
@@ -624,7 +633,7 @@ describe('Recuperación de contraseña E2E', () => {
     await R.resets.save(vigente);
 
     await expect(auth.restablecerClave('mi-token-secreto-123456789', 'NuevaClave99')).resolves.toHaveProperty('mensaje');
-    await expect(auth.login('recup@unipacifico.edu.co', 'NuevaClave99')).resolves.toHaveProperty('user');
+    await expect(auth.login('recup@unipacifico.edu.co', 'NuevaClave99')).resolves.toHaveProperty('access_token');
     await expect(auth.login('recup@unipacifico.edu.co', 'Clave1234')).rejects.toThrow('Credenciales inválidas');
     await expect(auth.restablecerClave('mi-token-secreto-123456789', 'OtraClave99')).rejects.toThrow(/inválido o ya venció/);
   });

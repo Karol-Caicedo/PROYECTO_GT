@@ -146,6 +146,7 @@ cp -n .env.example .env
 | ----------------------------------------------- | -------------------------------------------------------- |
 | `DB_*`                                          | Conexión Postgres                                        |
 | `JWT_SECRET`, `JWT_EXPIRES_IN`                  | Firma y vigencia del JWT                                 |
+| `LOGIN_CRYPTO_ACTIVE_KEY_ID`, `LOGIN_CRYPTO_KEYS_JSON` | Clave(s) privada(s) RSA PKCS#8 DER (Base64) para login cifrado |
 | `ALLOWED_EMAIL_DOMAIN`                          | Dominio del correo permitido (`@gmail.com`) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOMBRE` | Admin creado por el seed                                 |
 | `FRONTEND_URL`, `UPLOADS_DIR`                   | CORS, origen permitido y carpeta de imágenes             |
@@ -156,12 +157,47 @@ cp -n .env.example .env
 | `SMTP_*`, `MAIL_FROM`                           | Correo opcional; sin esto hay modo simulación (log)      |
 | `RESEND_API_KEY`, `RESEND_FROM`                 | Recuperación de clave por Resend (ver abajo)             |
 
+El login local usa un sobre cifrado; el endpoint legado en claro ya no se acepta.
+`npm run setup` crea una clave RSA local y la guarda en el `.env` ignorado por
+Git. Si copias `.env.example` manualmente, ejecuta el setup para que complete la
+configuración de login. En Railway, genera una clave RSA de 3072 bits en un
+entorno seguro, conviértela a PKCS#8 DER/Base64 y configura el resultado en el
+gestor de secretos (no en el repositorio ni en logs):
+
+```text
+LOGIN_CRYPTO_ACTIVE_KEY_ID=login-2026-01
+LOGIN_CRYPTO_KEYS_JSON={"login-2026-01":"<PKCS8-DER-BASE64>"}
+```
+
+La clave privada nunca se distribuye al navegador. Para rotar, añade la nueva
+clave al mapa, cambia `LOGIN_CRYPTO_ACTIVE_KEY_ID`, reinicia el backend y
+conserva la anterior al menos 2 minutos para completar los desafíos vigentes.
+Antes del despliegue aplica manualmente la migración
+`1700000000011-login-crypto-challenges`; no se ejecuta en producción durante el
+arranque. HTTPS sigue siendo obligatorio en producción. El cuerpo cifrado no
+oculta las credenciales al propietario del navegador ni protege contra XSS.
+
+Para generar manualmente una clave de al menos 3072 bits, usa un entorno seguro
+y guarda los archivos temporales con permisos restringidos:
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out login-private.pem
+openssl pkcs8 -topk8 -nocrypt -in login-private.pem -outform DER -out login-private.der
+base64 -w0 login-private.der
+```
+
+Configura el resultado Base64 en el mapa JSON de `LOGIN_CRYPTO_KEYS_JSON` y
+elimina los archivos temporales después de almacenarlo en el gestor de secretos.
+No compartas la clave ni el resultado de Base64 en chats, issues o registros.
+
 SSO (opcional): crea las credenciales OAuth en Google Cloud / Azure AD con
 las callback del `.env`, pon `AUTH_SSO_ENABLED=true` y reinicia el backend.
 Con el SSO apagado las rutas OAuth responden 404. El `state` OAuth se valida
-con una cookie HttpOnly firmada y los tokens de sesión viajan en el fragmento
-de la URL (`#token=`), no en el query string. Los usuarios nuevos de SSO
-completan semestre + Ley 1581 en `/auth/sso-completar`.
+con una cookie HttpOnly firmada y el código de un solo uso se entrega en cookie
+HttpOnly para canjearlo en `POST /api/auth/sso/exchange`. El token de sesión
+se devuelve en JSON y Angular lo conserva en `sessionStorage`; no se incluye
+en la URL. Los usuarios nuevos de SSO completan semestre + Ley 1581 en
+`/auth/sso-completar`.
 
 SMTP (opcional): sin `SMTP_HOST`, notificaciones y recordatorios solo se
 escriben en el log. El cron corre a diario 08:00 (día 7 y día 14 del periodo,
@@ -170,10 +206,10 @@ máx. 2 por estudiante). Forzado manual (admin):
 
 Recuperación de contraseña (Resend): define `RESEND_API_KEY` y `RESEND_FROM`
 en el `.env`. El flujo es: `POST /api/auth/recuperar` (respuesta siempre
-genérica, con límite de 5 intentos/min) → correo con enlace a
-`/auth/restablecer?token=…` → `POST /api/auth/restablecer`. El token es de un
-solo uso, se consume de forma atómica y vence en 1 hora (solo se guarda su hash
-en `recuperacion_claves`).
+genérica, con límite de 5 intentos/min) → correo con un código y enlace limpio
+a `/auth/restablecer` → ingreso del código y `POST /api/auth/restablecer`.
+El código no va en la URL; es de un solo uso, se consume de forma atómica y
+vence en 1 hora (solo se guarda su hash en `recuperacion_claves`).
 Sin `RESEND_API_KEY` el envío se simula y el token **no** se escribe en el log;
 configura Resend o SMTP para probar el flujo completo.
 Importante: el remitente debe ser un dominio verificado en

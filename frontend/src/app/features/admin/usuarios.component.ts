@@ -22,7 +22,6 @@ interface Usuario {
   numeroIdentificacion?: string | null;
   semestre: number;
   rol: 'ESTUDIANTE' | 'ADMIN';
-  proveedorAuth: string;
 }
 
 @Component({

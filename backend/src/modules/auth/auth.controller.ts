@@ -5,8 +5,9 @@ import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { ActualizarSemestreDto, CompletarSsoDto, LoginDto, SolicitarRecuperacionDto, RestablecerClaveDto } from './auth.dto';
+import { ActualizarSemestreDto, CompletarSsoDto, LoginEnvelopeDto, SolicitarRecuperacionDto, RestablecerClaveDto } from './auth.dto';
 import { SsoEnabledGuard } from './sso-enabled.guard';
+import { LoginCryptoService } from './login-crypto.service';
 import { leerCookie, opcionesCookieSso, SSO_CODE_COOKIE, SSO_CODE_PATH } from './sso-code.util';
 import { Auth } from '../../common/auth.decorator';
 import { Public } from '../../common/public.decorator';
@@ -14,12 +15,12 @@ import { Public } from '../../common/public.decorator';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService, private config: ConfigService) {}
+  constructor(private auth: AuthService, private config: ConfigService, private loginCrypto: LoginCryptoService) {}
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('recuperar')
   @Public()
-  @ApiOperation({ summary: 'Solicitar enlace de recuperación de contraseña' })
+  @ApiOperation({ summary: 'Solicitar código de recuperación de contraseña' })
   recuperar(@Body() dto: SolicitarRecuperacionDto) {
     return this.auth.solicitarRecuperacion(dto.correo);
   }
@@ -33,10 +34,19 @@ export class AuthController {
   }
 
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Get('login-crypto')
+  @Public()
+  @ApiOperation({ summary: 'Obtener parámetros efímeros para cifrar credenciales de login' })
+  loginCryptoParameters() {
+    return this.loginCrypto.crearParametros();
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   @Public()
-  @ApiOperation({ summary: 'Inicio de sesión con correo y contraseña' })
-  login(@Body() dto: LoginDto) {
+  @ApiOperation({ summary: 'Inicio de sesión con credenciales cifradas' })
+  async login(@Body() envelope: LoginEnvelopeDto) {
+    const dto = await this.loginCrypto.descifrar(envelope);
     return this.auth.login(dto.correo, dto.password);
   }
 

@@ -8,27 +8,40 @@ import { AsignaturaDto, ActualizarAsignaturaDto } from './asignatura.dto';
 export class AsignaturasService {
   constructor(@InjectRepository(Asignatura) private repo: Repository<Asignatura>) {}
 
-  activos(semestre?: number) {
+  private respuesta(a: Asignatura) {
+    return {
+      id: a.id,
+      nombre: a.nombre,
+      codigo: a.codigo ?? null,
+      semestre: a.semestre,
+      activo: a.activo,
+    };
+  }
+
+  async activos(semestre?: number) {
     const where: { activo: boolean; semestre?: number } = { activo: true };
     if (semestre) where.semestre = semestre;
-    return this.repo.find({ where, order: { semestre: 'ASC', nombre: 'ASC' } });
+    const asignaturas = await this.repo.find({ where, order: { semestre: 'ASC', nombre: 'ASC' } });
+    return asignaturas.map((a) => this.respuesta(a));
   }
 
-  todos(semestre?: number) {
+  async todos(semestre?: number) {
     const where: { semestre?: number } = {};
     if (semestre) where.semestre = semestre;
-    return this.repo.find({ where, order: { semestre: 'ASC', nombre: 'ASC' } });
+    const asignaturas = await this.repo.find({ where, order: { semestre: 'ASC', nombre: 'ASC' } });
+    return asignaturas.map((a) => this.respuesta(a));
   }
 
-  crear(dto: AsignaturaDto) {
-    return this.repo.save(this.repo.create({ ...dto, activo: dto.activo ?? true }));
+  async crear(dto: AsignaturaDto) {
+    const asignatura = await this.repo.save(this.repo.create({ ...dto, activo: dto.activo ?? true }));
+    return this.respuesta(asignatura);
   }
 
   async actualizar(id: string, dto: ActualizarAsignaturaDto) {
     const a = await this.repo.findOne({ where: { id } });
     if (!a) throw new NotFoundException('Asignatura no encontrada');
     Object.assign(a, dto);
-    return this.repo.save(a);
+    return this.respuesta(await this.repo.save(a));
   }
 
   async eliminar(id: string) {

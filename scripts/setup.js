@@ -10,7 +10,7 @@
  * Uso: npm run setup
  */
 const { execSync } = require('child_process');
-const { randomBytes } = require('crypto');
+const { generateKeyPairSync, randomBytes } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -31,13 +31,23 @@ try {
   const env = path.join(ROOT, '.env');
   if (!fs.existsSync(env)) {
     fs.copyFileSync(path.join(ROOT, '.env.example'), env);
-    const contenido = fs
+    let contenido = fs
       .readFileSync(env, 'utf8')
       .replace(/^JWT_SECRET=.*$/m, `JWT_SECRET=${randomBytes(32).toString('hex')}`);
-    fs.writeFileSync(env, contenido);
-    console.log('Creado .env desde .env.example con un JWT_SECRET aleatorio.');
+    contenido = asegurarClaveLoginLocal(contenido);
+    fs.writeFileSync(env, contenido, { mode: 0o600 });
+    console.log('Creado .env con JWT_SECRET y clave privada RSA de login locales aleatorios.');
   } else {
-    console.log('.env ya existe, no se toca.');
+    let contenido = fs.readFileSync(env, 'utf8');
+    const configuracionAntes = contenido;
+    contenido = asegurarClaveLoginLocal(contenido);
+    if (contenido !== configuracionAntes) {
+      fs.writeFileSync(env, contenido);
+      fs.chmodSync(env, 0o600);
+      console.log('Se generó una clave RSA local para login en el .env que no tenía configuración.');
+    } else {
+      console.log('.env ya tiene configuración de login, no se modifica.');
+    }
   }
 
   step(3, 'Instalando dependencias (backend + frontend)');
@@ -65,4 +75,31 @@ Listo. Ahora ejecuta desde la raíz:
 } catch (err) {
   console.error('\nSetup falló:', err.message);
   process.exit(1);
+}
+
+function asegurarClaveLoginLocal(contenido) {
+  const active = contenido.match(/^LOGIN_CRYPTO_ACTIVE_KEY_ID=(.*)$/m)?.[1]?.trim();
+  const keys = contenido.match(/^LOGIN_CRYPTO_KEYS_JSON=(.*)$/m)?.[1]?.trim();
+  if (active && keys) return contenido;
+
+  const { privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 3072,
+    publicExponent: 0x10001,
+  });
+  const keyId = `local-${randomBytes(8).toString('hex')}`;
+  const privateKeyBase64 = privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64');
+  const activeSetting = `LOGIN_CRYPTO_ACTIVE_KEY_ID=${keyId}`;
+  const keysSetting = `LOGIN_CRYPTO_KEYS_JSON={"${keyId}":"${privateKeyBase64}"}`;
+  let updated = contenido;
+  if (/^LOGIN_CRYPTO_ACTIVE_KEY_ID=.*$/m.test(updated)) {
+    updated = updated.replace(/^LOGIN_CRYPTO_ACTIVE_KEY_ID=.*$/m, activeSetting);
+  } else {
+    updated += `\n${activeSetting}\n`;
+  }
+  if (/^LOGIN_CRYPTO_KEYS_JSON=.*$/m.test(updated)) {
+    updated = updated.replace(/^LOGIN_CRYPTO_KEYS_JSON=.*$/m, keysSetting);
+  } else {
+    updated += `${keysSetting}\n`;
+  }
+  return updated;
 }

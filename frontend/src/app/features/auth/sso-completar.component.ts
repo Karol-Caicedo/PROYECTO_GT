@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -43,7 +43,7 @@ import { AuthService } from '../../core/auth.service';
     </div>
   `,
 })
-export class SsoCompletarComponent {
+export class SsoCompletarComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
@@ -53,6 +53,10 @@ export class SsoCompletarComponent {
 
   constructor() {
     if (!this.temp) this.router.navigate(['/auth/login']);
+  }
+
+  ngOnDestroy() {
+    this.auth.limpiarTempSso();
   }
 
   async completar() {

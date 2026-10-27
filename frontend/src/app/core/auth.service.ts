@@ -3,14 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { guardarToken, leerToken, limpiarToken, limpiarTokenLegado } from './token-storage';
+import { cifrarLogin, LoginCryptoParameters } from './login-crypto';
 
 export interface SsoExchange {
   necesitaCompletar: boolean;
   access_token?: string;
-  user?: Usuario;
   temp?: string;
-  correo?: string;
-  nombre?: string;
 }
 
 export interface Usuario {
@@ -33,7 +31,6 @@ export class AuthService {
   esAdmin = computed(() => this.usuario()?.rol === 'ADMIN');
 
   private perfilEnCurso: Promise<void> | null = null;
-  private tempSso: string | null = null;
 
   constructor() {
     limpiarTokenLegado();
@@ -61,7 +58,12 @@ export class AuthService {
   }
 
   async ingresar(correo: string, password: string) {
-    const r = await this.http.post<{ access_token: string }>(`${this.base}/login`, { correo, password }).toPromise();
+    const parameters = await this.http
+      .get<LoginCryptoParameters>(`${this.base}/login-crypto`)
+      .toPromise();
+    if (!parameters) throw new Error('No se pudieron obtener los parámetros de cifrado');
+    const envelope = await cifrarLogin({ correo, password }, parameters);
+    const r = await this.http.post<{ access_token: string }>(`${this.base}/login`, envelope).toPromise();
     this.guardarSesion(r!.access_token);
     await this.cargarPerfil();
   }
@@ -76,9 +78,9 @@ export class AuthService {
 
   salir(redirigir = true) {
     limpiarToken();
+    this.limpiarTempSso();
     this.token.set(null);
     this.usuario.set(null);
-    this.tempSso = null;
     if (redirigir) this.router.navigate(['/auth/login']);
   }
 
@@ -122,4 +124,6 @@ export class AuthService {
         return this.cargarPerfil();
       });
   }
+
+  private tempSso: string | null = null;
 }

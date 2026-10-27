@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -15,6 +14,8 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { correlationIdMiddleware } from './common/correlation-id.middleware';
 import { corsOriginGuard } from './common/cors-origin.middleware';
 import { cuerpoError } from './common/http-error';
+import { tuberíaValidacionHttp } from './common/validacion-http';
+import { apiNoStoreMiddleware } from './common/api-no-store.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -25,10 +26,9 @@ async function bootstrap() {
   app.set('trust proxy', Number(config.get('TRUST_PROXY', 1)));
   app.use(correlationIdMiddleware);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(apiNoStoreMiddleware);
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  app.useGlobalPipes(tuberíaValidacionHttp());
   app.useGlobalFilters(new AllExceptionsFilter(app.get(AccessPolicyService)));
 
   const frontendUrl = String(config.get('FRONTEND_URL', 'http://localhost:4200')).replace(/\/+$/, '');

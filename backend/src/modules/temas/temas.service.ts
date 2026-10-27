@@ -44,20 +44,30 @@ export class CambiarEstadoTodosDto {
 export class TemasService {
   constructor(@InjectRepository(Tema) private repo: Repository<Tema>) {}
 
-  activos() {
-    return this.repo.find({ where: { activo: true }, order: { nombre: 'ASC' } });
+  private respuesta(t: Tema) {
+    return { id: t.id, nombre: t.nombre, descripcion: t.descripcion, activo: t.activo };
   }
-  todos() {
-    return this.repo.find({ order: { nombre: 'ASC' } });
+
+  async activos() {
+    const temas = await this.repo.find({ where: { activo: true }, order: { nombre: 'ASC' } });
+    return temas.map((t) => this.respuesta(t));
   }
-  crear(dto: TemaDto) {
-    return this.repo.save(this.repo.create({ ...dto, activo: dto.activo ?? true }));
+
+  async todos() {
+    const temas = await this.repo.find({ order: { nombre: 'ASC' } });
+    return temas.map((t) => this.respuesta(t));
   }
+
+  async crear(dto: TemaDto) {
+    const tema = await this.repo.save(this.repo.create({ ...dto, activo: dto.activo ?? true }));
+    return this.respuesta(tema);
+  }
+
   async actualizar(id: string, dto: ActualizarTemaDto) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Tema no encontrado');
     Object.assign(t, dto);
-    return this.repo.save(t);
+    return this.respuesta(await this.repo.save(t));
   }
   async eliminar(id: string) {
     const t = await this.repo.findOne({ where: { id } });
@@ -70,4 +80,3 @@ export class TemasService {
     return { ok: true, activo };
   }
 }
-

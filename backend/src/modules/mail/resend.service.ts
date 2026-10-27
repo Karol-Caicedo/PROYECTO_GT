@@ -21,13 +21,15 @@ export function escaparHtml(texto: string): string {
  * (azul #1976B9 / #0B3A5E + verde #39864A). Tablas y estilos en línea
  * para compatibilidad con clientes de correo (Gmail, Outlook, etc.).
  */
-export function plantillaRecuperacion(nombre: string, url: string): { asunto: string; html: string; texto: string } {
+export function plantillaRecuperacion(nombre: string, codigo: string, url: string): { asunto: string; html: string; texto: string } {
   const asunto = 'Recupera tu contraseña · SIGICE';
   const nombreSeguro = escaparHtml(nombre);
+  const codigoSeguro = escaparHtml(codigo);
+  const urlSegura = escaparHtml(url);
   const html = `<!doctype html>
 <html lang="es">
 <body style="margin:0;padding:0;background-color:#F0F7FC;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Restablece tu contraseña de SIGICE con este enlace válido por 1 hora.</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Usa el código para restablecer tu contraseña de SIGICE. Vence en 1 hora.</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F0F7FC;padding:24px 12px;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #DCEBF6;">
@@ -44,14 +46,14 @@ export function plantillaRecuperacion(nombre: string, url: string): { asunto: st
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
             <tr><td align="center" style="background-color:#1976B9;border-radius:8px;">
-              <a href="${url}" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;">Restablecer mi contraseña</a>
+              <a href="${urlSegura}" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;">Abrir restablecimiento</a>
             </td></tr>
           </table>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F0F7FC;border:1px solid #DCEBF6;border-radius:8px;">
             <tr><td style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#52606D;">
-              ⏱ Este enlace <strong>vence en 1 hora</strong> y solo puede usarse <strong>una vez</strong>.<br />
-              Si el botón no funciona, copia esta dirección en tu navegador:<br />
-              <a href="${url}" style="color:#125A8D;word-break:break-all;">${url}</a>
+              ⏱ Este código <strong>vence en 1 hora</strong> y solo puede usarse <strong>una vez</strong>.<br />
+              Ingresa este código en la pantalla de restablecimiento:<br />
+              <strong style="display:block;margin-top:12px;font-size:18px;letter-spacing:2px;color:#0B3A5E;word-break:break-all;">${codigoSeguro}</strong>
             </td></tr>
           </table>
         </td></tr>
@@ -63,7 +65,7 @@ export function plantillaRecuperacion(nombre: string, url: string): { asunto: st
   </table>
 </body>
 </html>`;
-  const texto = `Hola ${nombre},\n\nRecibimos una solicitud para restablecer tu contraseña de SIGICE. Si no fuiste tú, ignora este mensaje.\n\nRestablece tu clave aquí (vence en 1 hora, un solo uso):\n${url}\n\nUniversidad del Pacífico · Proyección Social`;
+  const texto = `Hola ${nombre},\n\nRecibimos una solicitud para restablecer tu contraseña de SIGICE. Si no fuiste tú, ignora este mensaje.\n\nAbre ${url} e ingresa este código (vence en 1 hora, un solo uso):\n${codigo}\n\nUniversidad del Pacífico · Proyección Social`;
   return { asunto, html, texto };
 }
 
@@ -90,8 +92,8 @@ export class ResendService {
     return !this.apiKey;
   }
 
-  async enviarRecuperacion(para: string, nombre: string, url: string): Promise<ResendResultado> {
-    const { asunto, html, texto } = plantillaRecuperacion(nombre, url);
+  async enviarRecuperacion(para: string, nombre: string, codigo: string, url: string): Promise<ResendResultado> {
+    const { asunto, html, texto } = plantillaRecuperacion(nombre, codigo, url);
     if (!this.apiKey) {
       this.log.log('[Resend simulación] Correo de recuperación omitido del log (sin RESEND_API_KEY)');
       return { simulado: true };

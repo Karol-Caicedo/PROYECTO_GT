@@ -20,6 +20,7 @@ import { ClicCapacitacion } from './modules/capacitaciones/clic.entity';
 import { RecordatorioEnviado } from './modules/recordatorios/recordatorio.entity';
 import { PasswordReset } from './modules/auth/password-reset.entity';
 import { SsoCode } from './modules/auth/sso-code.entity';
+import { LoginChallenge } from './modules/auth/login-challenge.entity';
 import { Asignatura } from './modules/asignaturas/asignatura.entity';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './modules/encuestas-asignaturas/respuesta-asignatura.entity';
 import { InscripcionAsignatura } from './modules/encuestas-asignaturas/inscripcion-asignatura.entity';
@@ -53,7 +54,7 @@ import { UnknownRouteModule } from './common/unknown-route.module';
         database: c.get('DB_NAME', 'intereses_db'),
         entities: [
           User, Periodo, Tema, Respuesta, RespuestaTema, Capacitacion,
-          CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, SsoCode,
+          CapacitacionSemestre, ClicCapacitacion, RecordatorioEnviado, PasswordReset, SsoCode, LoginChallenge,
           Asignatura, RespuestaAsignatura, RespuestaAsignaturaItem, InscripcionAsignatura,
         ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],

@@ -29,7 +29,7 @@ describe('OAuthStateStore', () => {
     const { req, res } = buildReq();
     store.store(req, undefined, {}, () => undefined);
     const opciones = (res.cookie as jest.Mock).mock.calls[0][2];
-    expect(opciones).toMatchObject({ httpOnly: true, sameSite: 'lax', path: '/' });
+    expect(opciones).toMatchObject({ httpOnly: true, sameSite: 'lax', path: '/api/auth' });
     expect(handle).toContain('.');
   });
 
@@ -42,7 +42,7 @@ describe('OAuthStateStore', () => {
       ok = value === true;
     });
     expect(ok).toBe(true);
-    expect(res.clearCookie).toHaveBeenCalledWith('sigice_oauth_state', { path: '/' });
+    expect(res.clearCookie).toHaveBeenCalledWith('sigice_oauth_state', { path: '/api/auth' });
   });
 
   test.each([

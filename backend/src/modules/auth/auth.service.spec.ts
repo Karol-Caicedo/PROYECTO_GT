@@ -27,6 +27,19 @@ function buildService(env: Record<string, string> = {}) {
   return { svc, users, jwt, resets, ssoCodes, resend };
 }
 
+function updateBuilder(resultado: { affected: number; raw?: unknown[] }) {
+  const builder = {
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    from: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    returning: jest.fn().mockReturnThis(),
+    execute: jest.fn().mockResolvedValue(resultado),
+  };
+  return builder;
+}
+
 const baseUser = {
   id: 'u-1',
   correo: 'est@unipacifico.edu.co',
@@ -41,6 +54,14 @@ const baseUser = {
 };
 
 describe('AuthService', () => {
+  test('elimina periódicamente los códigos SSO vencidos y sus datos asociados', async () => {
+    const { svc, ssoCodes } = buildService();
+    await svc.limpiarCodigosSsoVencidos();
+    expect(ssoCodes.delete).toHaveBeenCalledWith({
+      expiraAt: expect.objectContaining({ _type: 'lessThanOrEqual' }),
+    });
+  });
+
   describe('ssoEnabled', () => {
     test.each([
       ['true', true],
@@ -77,7 +98,7 @@ describe('AuthService', () => {
       expect(users.create).not.toHaveBeenCalled();
     });
 
-    test('crea ESTUDIANTE con hash, rol y fecha de consentimiento', async () => {
+    test('crea ESTUDIANTE con hash, rol y fecha de consentimiento; devuelve solo el token', async () => {
       const { svc, users, jwt } = buildService();
       users.findByCorreo.mockResolvedValue(null);
       const r = await svc.register({
@@ -97,14 +118,12 @@ describe('AuthService', () => {
       expect(await argon2.verify(creado.passwordHash, 'Clave1234')).toBe(true);
       expect(creado).not.toHaveProperty('passwordPlano');
       expect(r.access_token).toBeTruthy();
-      expect(jwt.verify(r.access_token)).toMatchObject({
-        correo: 'nuevo@unipacifico.edu.co',
-        rol: 'ESTUDIANTE',
-        semestre: 3,
-        tokenVersion: 0,
-      });
-      expect(r.user).not.toHaveProperty('passwordHash');
-      expect(r.user).not.toHaveProperty('tokenVersion');
+      expect(r).toEqual({ access_token: expect.any(String) });
+      const payload = jwt.verify(r.access_token) as Record<string, unknown>;
+      expect(payload).toMatchObject({ sub: 'uuid-user', tokenVersion: 0 });
+      expect(payload).not.toHaveProperty('correo');
+      expect(payload).not.toHaveProperty('rol');
+      expect(payload).not.toHaveProperty('semestre');
     });
 
     test('acepta mayúsculas en el dominio institucional', async () => {
@@ -116,13 +135,21 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    test('credenciales válidas devuelven JWT con sub/rol/semestre', async () => {
+    test('credenciales válidas devuelven JWT mínimo sin duplicar el perfil', async () => {
       const { svc, users, jwt } = buildService();
       users.findByCorreo.mockResolvedValue(baseUser);
       const r = await svc.login(baseUser.correo, 'Clave1234');
-      expect(jwt.verify(r.access_token)).toMatchObject({ sub: 'u-1', tokenVersion: 0 });
-      expect(r.user.rol).toBe('ESTUDIANTE');
-      expect(r.user).not.toHaveProperty('tokenVersion');
+      const payload = jwt.verify(r.access_token) as Record<string, unknown>;
+      expect(payload).toMatchObject({ sub: 'u-1', tokenVersion: 0 });
+      expect(payload).not.toHaveProperty('correo');
+      expect(payload).not.toHaveProperty('nombre');
+      expect(payload).not.toHaveProperty('rol');
+      expect(payload).not.toHaveProperty('semestre');
+      expect(payload).not.toHaveProperty('numeroIdentificacion');
+      expect(payload).not.toHaveProperty('proveedorId');
+      expect(payload).not.toHaveProperty('password');
+      expect(payload).not.toHaveProperty('passwordHash');
+      expect(r).toEqual({ access_token: expect.any(String) });
     });
 
     test.each([
@@ -143,7 +170,15 @@ describe('AuthService', () => {
       const me = await svc.me('u-1');
       expect(me).not.toHaveProperty('passwordHash');
       expect(me).not.toHaveProperty('tokenVersion');
-      expect(me).toHaveProperty('correo', baseUser.correo);
+      expect(me).not.toHaveProperty('proveedorId');
+      expect(me).not.toHaveProperty('proveedorAuth');
+      expect(me).toEqual({
+        id: baseUser.id,
+        correo: baseUser.correo,
+        nombre: baseUser.nombre,
+        semestre: baseUser.semestre,
+        rol: baseUser.rol,
+      });
     });
 
     test('me con id desconocido → 401', async () => {
@@ -181,14 +216,17 @@ describe('AuthService', () => {
       await expect(svc.loginSso({ ...perfil, correo: 'x@gmail.com' }, 'google')).rejects.toThrow(BadRequestException);
     });
 
-    test('usuario nuevo → token temporal con ssoPending (no crea usuario aún)', async () => {
-      const { svc, users, jwt } = buildService();
+    test('usuario nuevo → código temporal opaco (no crea usuario ni expone su perfil)', async () => {
+      const { svc, users, ssoCodes } = buildService();
       users.findByCorreo.mockResolvedValue(null);
       const r = await svc.loginSso(perfil, 'google');
       expect(r.necesitaCompletar).toBe(true);
       expect(users.create).not.toHaveBeenCalled();
-      const payload = jwt.verify((r as { temp: string }).temp);
-      expect(payload).toMatchObject({ correo: perfil.correo, proveedor: 'google', ssoPending: true });
+      expect(r).toEqual({ necesitaCompletar: true, temp: expect.any(String) });
+      expect((r as { temp: string }).temp).not.toContain('.');
+      expect(ssoCodes.save).toHaveBeenCalledWith(expect.objectContaining({
+        datos: { tipo: 'registro_pendiente', ...perfil, proveedor: 'google' },
+      }));
     });
 
     test('usuario existente sin proveedor → lo vincula y firma JWT', async () => {
@@ -212,49 +250,113 @@ describe('AuthService', () => {
   });
 
   describe('completarSso', () => {
-    const payload = { correo: 'nuevo@unipacifico.edu.co', nombre: 'Nuevo', proveedorId: 'g-2', proveedor: 'google', ssoPending: true };
+    const datos = {
+      tipo: 'registro_pendiente',
+      correo: 'nuevo@unipacifico.edu.co',
+      nombre: 'Nuevo',
+      proveedorId: 'g-2',
+      proveedor: 'google',
+    };
 
-    test('token basura → 400', async () => {
-      const { svc } = buildService();
+    test('token desconocido o ya usado → 400', async () => {
+      const { svc, ssoCodes } = buildService();
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({ affected: 0, raw: [] }));
       await expect(svc.completarSso('no-es-un-jwt', { semestre: 2, aceptoDatos: true })).rejects.toThrow(/inválido o vencido/);
     });
 
-    test('JWT sin marca ssoPending → 400 (no se puede forjar con un access token)', async () => {
-      const { svc, jwt } = buildService();
-      const falso = jwt.sign({ sub: 'u-1', correo: payload.correo });
-      await expect(svc.completarSso(falso, { semestre: 2, aceptoDatos: true })).rejects.toThrow(/inválido/);
-    });
-
-    test('flujo válido crea usuario sin password y con consentimiento', async () => {
-      const { svc, users, jwt } = buildService();
+    test('token opaco válido crea usuario sin password y con consentimiento', async () => {
+      const { svc, users, ssoCodes } = buildService();
       users.findByCorreo.mockResolvedValue(null);
-      const temp = jwt.sign(payload, { expiresIn: '15m' });
+      const builder = updateBuilder({ affected: 1, raw: [{ datos }] });
+      ssoCodes.createQueryBuilder.mockReturnValue(builder);
+      const temp = 'opaque-pending-token';
       const r = await svc.completarSso(temp, { semestre: 5, aceptoDatos: true });
+      expect(builder.delete).toHaveBeenCalled();
+      expect(builder.from).toHaveBeenCalled();
       const creado = users.create.mock.calls[0][0] as Record<string, any>;
       expect(creado).toMatchObject({
-        correo: payload.correo,
+        correo: datos.correo,
         passwordHash: null,
-        proveedorAuth: 'google',
-        proveedorId: 'g-2',
+        proveedorAuth: datos.proveedor,
+        proveedorId: datos.proveedorId,
         semestre: 5,
         rol: 'ESTUDIANTE',
       });
       expect(creado.aceptoDatosAt).toBeInstanceOf(Date);
       expect(r.access_token).toBeTruthy();
+      expect(builder.where.mock.calls[0][0]).toContain('"expira_at" > now()');
+      expect(builder.where.mock.calls[0][0]).toContain('"datos"->>\'tipo\'');
     });
 
     test('si el correo se registró entretanto → 400', async () => {
-      const { svc, users, jwt } = buildService();
+      const { svc, users, ssoCodes } = buildService();
       users.findByCorreo.mockResolvedValue(baseUser);
-      const temp = jwt.sign(payload, { expiresIn: '15m' });
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({ affected: 1, raw: [{ datos }] }));
+      const temp = 'opaque-pending-token';
       await expect(svc.completarSso(temp, { semestre: 5, aceptoDatos: true })).rejects.toThrow(/ya está registrado/);
       expect(users.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('SSO exchange', () => {
+    const perfil = { correo: 'nuevo@unipacifico.edu.co', nombre: 'Nuevo', proveedorId: 'g-2' };
+
+    test('usuario existente intercambia código por sesión sin duplicar el perfil', async () => {
+      const { svc, users, ssoCodes } = buildService();
+      const user = { ...baseUser, correo: perfil.correo, proveedorId: perfil.proveedorId, proveedorAuth: 'google' };
+      users.findByCorreo.mockResolvedValue(user);
+      users.findById.mockResolvedValue(user);
+      const codigo = await svc.crearCodigoSso(perfil, 'google');
+      expect(ssoCodes.save).toHaveBeenCalledWith(expect.objectContaining({
+        usuarioId: user.id,
+        datos: null,
+      }));
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({
+        affected: 1,
+        raw: [{ usuario_id: user.id, datos: null }],
+      }));
+
+      const resultado = await svc.intercambiarCodigoSso(codigo);
+      expect(resultado).toEqual({ access_token: expect.any(String), necesitaCompletar: false });
+      expect(ssoCodes.createQueryBuilder().delete).toHaveBeenCalled();
+    });
+
+    test('usuario nuevo recibe código opaco y el alta consume una sola vez los datos guardados', async () => {
+      const { svc, users, ssoCodes } = buildService();
+      users.findByCorreo.mockResolvedValue(null);
+      const codigo = await svc.crearCodigoSso(perfil, 'google');
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({
+        affected: 1,
+        raw: [{ usuario_id: null, datos: { tipo: 'intercambio', ...perfil, proveedor: 'google' } }],
+      }));
+
+      const intercambio = await svc.intercambiarCodigoSso(codigo);
+      expect(intercambio).toEqual({ necesitaCompletar: true, temp: expect.any(String) });
+      const temp = (intercambio as { temp: string }).temp;
+      expect(temp).not.toContain('.');
+      expect(JSON.stringify(intercambio)).not.toContain(perfil.correo);
+
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({
+        affected: 1,
+        raw: [{ datos: { tipo: 'registro_pendiente', ...perfil, proveedor: 'google' } }],
+      }));
+      const sesion = await svc.completarSso(temp, { semestre: 4, aceptoDatos: true });
+      expect(sesion).toEqual({ access_token: expect.any(String) });
+      expect(users.create).toHaveBeenCalledWith(expect.objectContaining({
+        correo: perfil.correo,
+        proveedorAuth: 'google',
+        proveedorId: perfil.proveedorId,
+        semestre: 4,
+      }));
+
+      ssoCodes.createQueryBuilder.mockReturnValue(updateBuilder({ affected: 0, raw: [] }));
+      await expect(svc.completarSso(temp, { semestre: 4, aceptoDatos: true })).rejects.toThrow(/inválido o vencido/);
     });
   });
 });
 
 describe('AuthService recuperación de contraseña', () => {
-  const MENSAJE = 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.';
+  const MENSAJE = 'Si el correo está registrado, recibirás un correo con instrucciones para restablecer tu contraseña.';
 
   test('correo inexistente responde genérico sin crear token ni enviar correo', async () => {
     const { svc, users, resets, resend } = buildService();
@@ -278,10 +380,12 @@ describe('AuthService recuperación de contraseña', () => {
     expect(creado.usadoAt).toBeNull();
     expect(creado.expiraAt.getTime()).toBeGreaterThan(Date.now());
     expect(resend.enviarRecuperacion).toHaveBeenCalledTimes(1);
-    const [para, nombre, url] = resend.enviarRecuperacion.mock.calls[0];
+    const [para, nombre, codigo, url] = resend.enviarRecuperacion.mock.calls[0];
     expect(para).toBe(baseUser.correo);
     expect(nombre).toBe(baseUser.nombre);
-    expect(url).toContain('/auth/restablecer?token=');
+    expect(codigo).toEqual(expect.any(String));
+    expect(url).toContain('/auth/restablecer');
+    expect(url).not.toContain('token');
   });
 
   test('restablecer con token válido fija la clave y marca uso único', async () => {
@@ -340,7 +444,7 @@ describe('AuthService recuperación ante fallo de envío', () => {
     resend.enviarRecuperacion.mockRejectedValue(new Error('No se pudo enviar (Resend 403)'));
     const loggerError = jest.spyOn(require('@nestjs/common').Logger.prototype, 'error').mockImplementation(() => undefined);
     await expect(svc.solicitarRecuperacion('est@universidad.edu.co')).resolves.toEqual({
-      mensaje: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+      mensaje: 'Si el correo está registrado, recibirás un correo con instrucciones para restablecer tu contraseña.',
     });
     expect(resets.save).toHaveBeenCalledTimes(1);
     expect(loggerError).toHaveBeenCalled();

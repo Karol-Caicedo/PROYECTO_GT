@@ -34,13 +34,13 @@ export class UploadsService {
     const archivo = join(dir, nombre);
     if (!existsSync(archivo)) throw new NotFoundException('Imagen no encontrada');
 
-    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Disposition', `inline; filename="${nombre}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.type(nombre);
 
     await new Promise<void>((resolve, reject) => {
-      res.sendFile(archivo, { dotfiles: 'deny' }, (err) => {
+      res.sendFile(archivo, { dotfiles: 'deny', cacheControl: false }, (err) => {
         if (!err) return resolve();
         if (res.headersSent) {
           res.end();

@@ -59,7 +59,7 @@ describe('UploadsService', () => {
       .rejects.toThrow(NotFoundException);
   });
 
-  test('sirve la imagen con cabeceras privadas cuando el recurso es visible', async () => {
+  test('sirve la imagen sin almacenarla en caché cuando el recurso es visible', async () => {
     const archivo = join(dir, NOMBRE);
     await writeFile(archivo, Buffer.from('png'));
     repo.findOne.mockResolvedValue({ id: 'cap-1' });
@@ -68,8 +68,9 @@ describe('UploadsService', () => {
 
     await expect(svc.enviar(NOMBRE, { id: 'u', rol: 'ESTUDIANTE', semestre: 5 }, res)).resolves.toBeUndefined();
 
-    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, max-age=3600');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
     expect(res.sendFile).toHaveBeenCalled();
+    expect((res.sendFile as jest.Mock).mock.calls[0][1]).toMatchObject({ cacheControl: false });
   });
 });
