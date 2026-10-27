@@ -40,7 +40,7 @@ export interface DesgloseAsignatura {
 
 type TipoDashboard = 'temas' | 'materias';
 type GraficoTemas = 'top' | 'tasa' | 'calor' | 'comparativo';
-type GraficoMaterias = 'top' | 'desglose' | 'satisfaccion' | 'tasa' | 'calor' | 'comparativo';
+type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
 
 @Component({
   selector: 'app-dashboard',
@@ -477,9 +477,11 @@ type GraficoMaterias = 'top' | 'desglose' | 'satisfaccion' | 'tasa' | 'calor' | 
                     </div>
 
                     <div class="tarjeta-resumen-asig">
-                      <span class="etiqueta-resumen">Satisfacción promedio</span>
-                      <span class="valor-resumen">{{ desgloseMateria()?.promedioSatisfaccion }} / 5.0</span>
-                      <small class="texto-secundario">Nivel general reportado</small>
+                      <span class="etiqueta-resumen">Índice de dificultad</span>
+                      <span class="valor-resumen">
+                        {{ desgloseMateria()?.totalEvaluaciones ? (((desgloseMateria()!.totalDificultad / desgloseMateria()!.totalEvaluaciones) * 100).toFixed(0) + '%') : '0%' }}
+                      </span>
+                      <small class="texto-secundario">de alumnos evaluados</small>
                     </div>
 
                     <div class="tarjeta-resumen-asig">
@@ -518,14 +520,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'satisfaccion' | 'tasa' | 'calor' | 
                               <div>
                                 <span class="label-fila">Horario de clase:</span>
                                 <strong class="valor-horario">{{ g.horario }}</strong>
-                              </div>
-                            </div>
-
-                            <div class="info-fila">
-                              <span class="material-symbols-outlined icono-info">star</span>
-                              <div>
-                                <span class="label-fila">Satisfacción del grupo:</span>
-                                <strong>{{ g.promedioSatisfaccion > 0 ? (g.promedioSatisfaccion + ' / 5.0') : 'Sin evaluar' }}</strong>
                               </div>
                             </div>
 
@@ -571,19 +565,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'satisfaccion' | 'tasa' | 'calor' | 
                   }
                 } @else {
                   <p class="texto-secundario">Selecciona una asignatura para inspeccionar el reporte por profesor y grupo.</p>
-                }
-              </mat-card-content></mat-card>
-            }
-
-            @case ('satisfaccion') {
-
-              <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">star</span>Satisfacción académica promedio por asignatura</h2>
-                <p class="desc-grafico">Promedio de satisfacción reportado por los estudiantes (escala de 1 a 5).</p>
-                @if (satisfaccionMaterias().length) {
-                  <div class="grafico alto"><canvas baseChart [data]="satisfaccionMateriasData()" [options]="hbar" [type]="'bar'"></canvas></div>
-                } @else {
-                  <p class="texto-secundario">Aún no hay evaluaciones de satisfacción para este filtro.</p>
                 }
               </mat-card-content></mat-card>
             }
@@ -690,7 +671,6 @@ export class DashboardComponent implements OnInit {
   opcionesGraficoMaterias: { id: GraficoMaterias; texto: string }[] = [
     { id: 'top', texto: 'Top 5 dificultad reportada' },
     { id: 'desglose', texto: 'Desglose por Docente, Grupo y Horario' },
-    { id: 'satisfaccion', texto: 'Satisfacción promedio por asignatura' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'calor', texto: 'Mapa de calor Asignatura × Semestre' },
     { id: 'comparativo', texto: 'Comparativo entre periodos' },

@@ -16,11 +16,12 @@ export class ItemEncuestaAsignaturaDto {
   @IsBoolean()
   tieneDificultad: boolean;
 
-  @ApiProperty({ example: 4, minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({ example: 4, minimum: 1, maximum: 5 })
+  @IsOptional()
   @IsInt({ message: 'El nivel de satisfacción debe ser un entero de 1 a 5' })
   @Min(1, { message: 'El nivel mínimo de satisfacción es 1' })
   @Max(5, { message: 'El nivel máximo de satisfacción es 5' })
-  nivelSatisfaccion: number;
+  nivelSatisfaccion?: number;
 }
 
 export class ResponderEncuestaAsignaturaDto {

@@ -225,18 +225,13 @@ const NIVELES = [
     .badge-cg { font-size: 13px; font-weight: 700; color: var(--azul-900); }
     .nombre-prof { font-size: 12px; font-weight: 600; color: var(--texto-primario); }
     .horario-prof { font-size: 11px; color: var(--texto-secundario); }
-    .seccion-satisfaccion { margin-top: var(--esp-3); padding-top: var(--esp-3); border-top: 1px dashed var(--borde); }
-    .titulo-satisfaccion { font-size: 13px; font-weight: 600; color: var(--texto-secundario); margin-bottom: var(--esp-2); }
-    .escala-satisfaccion { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
-    .btn-escala {
-      flex: 1 1 80px; min-width: 60px; height: 42px; border-radius: var(--radio-s);
-      border: 1px solid var(--borde); background: var(--superficie);
-      font-weight: 700; font-size: var(--t-secundario); color: var(--texto);
-      cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transition: all var(--transicion-rapida);
+    .alerta-grupo-pendiente {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: #dc2626; font-size: 12px; font-weight: 600;
+      margin-bottom: var(--esp-2); background: #fef2f2;
+      border: 1px solid #fecaca; border-radius: var(--radio-s);
+      padding: 4px 8px; width: fit-content;
     }
-    .btn-escala:hover { border-color: var(--azul-500); }
-    .btn-escala.seleccionado { background: var(--azul-500); color: var(--superficie); border-color: var(--azul-500); }
     .barra-envio { margin-top: var(--esp-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--esp-3); }
 
 
@@ -295,7 +290,6 @@ const NIVELES = [
                     <th>Asignatura</th>
                     <th>Docente y Grupo</th>
                     <th>¿Dificultad?</th>
-                    <th>Nivel de satisfacción</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,11 +324,6 @@ const NIVELES = [
                           <span style="color:var(--texto-secundario)">No</span>
                         }
                       </td>
-                      <td>
-                        <span style="font-weight:700; color:var(--azul-700)">
-                          {{ item.nivelSatisfaccion }} / 5 ({{ etiquetaNivel(item.nivelSatisfaccion) }})
-                        </span>
-                      </td>
                     </tr>
                   }
                 </tbody>
@@ -368,7 +357,7 @@ const NIVELES = [
             [disabled]="inscripcionesSeleccionadas().size === 0"
           >
             <span class="circulo-num">2</span>
-            <span>Evaluar dificultad y satisfacción</span>
+            <span>Docente, horario y dificultad</span>
           </button>
         </div>
 
@@ -471,11 +460,10 @@ const NIVELES = [
           <div class="banner-instrucciones">
             <span class="material-symbols-outlined" aria-hidden="true">info</span>
             <div>
-              <h3>Paso 2: Evalúa tus asignaturas en curso</h3>
+              <h3>Paso 2: Asigna tu docente y marca materias con dificultad</h3>
               <p>
-                Evalúa cada una de tus <b>{{ materiasParaEvaluar().length }} asignaturas</b> seleccionadas.
-                Marca hasta un máximo de <b>4 materias</b> en las que sientas que tienes dificultad.
-                Califica también tu satisfacción académica con la materia del 1 al 5.
+                Es <b>obligatorio</b> seleccionar el <b>docente, grupo y horario</b> con el que cursas cada una de tus asignaturas inscritas.
+                Si presentas dificultad o solicitas capacitación de refuerzo en alguna de ellas, márcala con el botón correspondiente (hasta un máximo de <b>4 materias</b>).
               </p>
             </div>
           </div>
@@ -521,9 +509,15 @@ const NIVELES = [
                 @if (asig.grupos && asig.grupos.length > 0) {
                   <div class="seccion-grupos-estudiante">
                     <span class="label-docente-grupo">
-                      <span class="material-symbols-outlined" style="font-size:16px">school</span>
-                      Profesor y grupo con el que ves la materia (opcional):
+                      <span class="material-symbols-outlined" style="font-size:18px; color:var(--azul-700)">school</span>
+                      Docente, grupo y horario con el que ves la materia: <strong style="color:#dc2626">* (Obligatorio)</strong>
                     </span>
+                    @if (!evaluacion()[asig.id]?.grupoId) {
+                      <div class="alerta-grupo-pendiente">
+                        <span class="material-symbols-outlined" style="font-size:16px">error</span>
+                        Selecciona el docente y horario con el que cursas esta materia
+                      </div>
+                    }
                     <div class="chips-grupos-container">
                       @for (g of asig.grupos; track g.id) {
                         <button
@@ -539,25 +533,6 @@ const NIVELES = [
                     </div>
                   </div>
                 }
-
-                <div class="seccion-satisfaccion">
-                  <div class="titulo-satisfaccion">¿Cómo evalúas tu satisfacción con esta asignatura?</div>
-
-                  <div class="escala-satisfaccion">
-                    @for (n of niveles; track n.valor) {
-                      <button
-                        type="button"
-                        class="btn-escala"
-                        [class.seleccionado]="evaluacion()[asig.id]?.nivelSatisfaccion === n.valor"
-                        (click)="setSatisfaccion(asig.id, n.valor)"
-                        [title]="n.label + ' - ' + n.descripcion"
-                      >
-                        <span>{{ n.valor }}</span>
-                        <small style="font-size:10px; font-weight:500">{{ n.label.split(' - ')[1] }}</small>
-                      </button>
-                    }
-                  </div>
-                </div>
               </div>
             }
           </div>
@@ -627,10 +602,16 @@ export class EncuestaAsignaturasComponent implements OnInit {
   });
 
   formularioCompleto = computed(() => {
-    const ids = Array.from(this.inscripcionesSeleccionadas());
-    if (ids.length === 0) return false;
+    const materias = this.materiasParaEvaluar();
+    if (materias.length === 0) return false;
     const mapa = this.evaluacion();
-    return ids.every((id) => !!mapa[id]?.nivelSatisfaccion);
+    // Es obligatorio seleccionar el grupo y docente para cada materia que tenga grupos configurados
+    return materias.every((asig) => {
+      if (asig.grupos && asig.grupos.length > 0) {
+        return !!mapa[asig.id]?.grupoId;
+      }
+      return true;
+    });
   });
 
   private readonly STORAGE_KEY = 'sigice_borrador_encuesta_asig';
@@ -700,7 +681,7 @@ export class EncuestaAsignaturasComponent implements OnInit {
     const actual = mapa[asigId] || { asignaturaId: asigId, tieneDificultad: false, nivelSatisfaccion: 3 };
     mapa[asigId] = {
       ...actual,
-      grupoId: actual.grupoId === grupoId ? null : grupoId,
+      grupoId: grupoId,
     };
     this.evaluacion.set(mapa);
     this.guardarBorrador();
@@ -793,16 +774,16 @@ export class EncuestaAsignaturasComponent implements OnInit {
 
   async enviar() {
     if (!this.formularioCompleto()) {
-      this.ui.error('Por favor califica el nivel de satisfacción de todas las materias inscritas.');
+      this.ui.error('Es obligatorio seleccionar el docente y horario con el que cursas cada una de tus asignaturas.');
       return;
     }
 
     const totalDif = this.dificultadesSeleccionadas();
     const idsInscritos = Array.from(this.inscripcionesSeleccionadas());
     const ok = await this.ui.confirmar({
-      titulo: 'Enviar evaluación de asignaturas',
-      mensaje: `Estás enviando la evaluación de ${idsInscritos.length} materia(s) inscrita(s), con ${totalDif} reporte(s) de dificultad. Una vez enviada la encuesta no podrá ser modificada. ¿Deseas continuar?`,
-      textoConfirmar: 'Enviar evaluación',
+      titulo: 'Enviar reporte de asignaturas',
+      mensaje: `Estás enviando la información de ${idsInscritos.length} materia(s) en curso con sus docentes y horarios, reportando ${totalDif} materia(s) con dificultad. Una vez enviado el reporte no podrá ser modificado. ¿Deseas continuar?`,
+      textoConfirmar: 'Enviar reporte',
     });
     if (!ok) return;
 
@@ -813,10 +794,10 @@ export class EncuestaAsignaturasComponent implements OnInit {
 
       await this.http.post(`${this.api}/encuestas-asignaturas`, { items }).toPromise();
       this.limpiarBorrador();
-      this.ui.exito('Evaluación enviada con éxito.');
+      this.ui.exito('Reporte de asignaturas enviado con éxito.');
       await this.cargarEstado();
     } catch (err: any) {
-      const msg = err?.error?.message || 'Error al enviar la evaluación.';
+      const msg = err?.error?.message || 'Error al enviar el reporte.';
       this.ui.error(msg);
     } finally {
       this.enviando.set(false);

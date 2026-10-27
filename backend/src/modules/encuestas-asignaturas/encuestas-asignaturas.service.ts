@@ -4,6 +4,7 @@ import { DataSource, Repository, In } from 'typeorm';
 import { RespuestaAsignatura, RespuestaAsignaturaItem } from './respuesta-asignatura.entity';
 import { InscripcionAsignatura } from './inscripcion-asignatura.entity';
 import { Asignatura } from '../asignaturas/asignatura.entity';
+import { GrupoAsignatura } from '../asignaturas/grupo-asignatura.entity';
 import { Periodo } from '../periodos/periodo.entity';
 import { PeriodosService } from '../periodos/periodos.service';
 import { User } from '../users/user.entity';
@@ -238,7 +239,7 @@ export class EncuestasAsignaturasService {
       }
 
       for (const item of dto.items) {
-        if (item.nivelSatisfaccion < 1 || item.nivelSatisfaccion > 5) {
+        if (item.nivelSatisfaccion != null && (item.nivelSatisfaccion < 1 || item.nivelSatisfaccion > 5)) {
           throw new BadRequestException('El nivel de satisfacción debe ser entre 1 y 5');
         }
       }
@@ -253,6 +254,33 @@ export class EncuestasAsignaturasService {
       });
       if (asigsValidas.length !== ids.length) {
         throw new BadRequestException('Algunas asignaturas seleccionadas no están activas en el periodo');
+      }
+
+      // Validar que si la asignatura tiene grupos activos configurados, el docente y grupo sea obligatorio
+      const gruposRepo = manager.getRepository(GrupoAsignatura);
+      const gruposDisponibles = await gruposRepo.find({
+        where: { asignaturaId: In(ids), activo: true },
+      });
+      const gruposPorAsig = new Map<string, string[]>();
+      for (const g of gruposDisponibles) {
+        const arr = gruposPorAsig.get(g.asignaturaId) || [];
+        arr.push(g.id);
+        gruposPorAsig.set(g.asignaturaId, arr);
+      }
+
+      for (const item of dto.items) {
+        const gruposDeEstaAsig = gruposPorAsig.get(item.asignaturaId);
+        if (gruposDeEstaAsig && gruposDeEstaAsig.length > 0) {
+          if (!item.grupoId) {
+            const asigObj = asigsValidas.find((a) => a.id === item.asignaturaId);
+            throw new BadRequestException(
+              `Debes seleccionar obligatoriamente el docente y horario para la materia "${asigObj?.nombre || 'seleccionada'}"`,
+            );
+          }
+          if (!gruposDeEstaAsig.includes(item.grupoId)) {
+            throw new BadRequestException('El grupo y docente seleccionado no es válido para esta asignatura');
+          }
+        }
       }
 
       const inscripcionesActuales = await inscripciones.find({
@@ -299,7 +327,7 @@ export class EncuestasAsignaturasService {
             asignaturaId: i.asignaturaId,
             grupoId: i.grupoId ?? null,
             tieneDificultad: !!i.tieneDificultad,
-            nivelSatisfaccion: i.nivelSatisfaccion,
+            nivelSatisfaccion: i.nivelSatisfaccion ?? 3,
           }),
         ),
       );
