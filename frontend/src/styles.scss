@@ -45,4 +45,16 @@ mat-form-field.full-width .mat-mdc-form-field-infix,
   min-width: 0 !important;
 }
 
+/* Evitar sombreado azul automático de Google Chrome / Edge en campos guardados (autofill) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: var(--texto, #1e293b) !important;
+  caret-color: var(--texto, #1e293b) !important;
+  transition: background-color 600000s ease-in-out 0s, color 600000s ease-in-out 0s !important;
+}
+
 

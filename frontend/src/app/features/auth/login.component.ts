@@ -36,7 +36,7 @@ import { environment } from '../../../environments/environment';
     .campo-contenedor {
       display: flex; align-items: center; gap: var(--esp-2); width: 100%;
       background: var(--superficie); border: 1.5px solid var(--borde); border-radius: 14px;
-      padding: 0 var(--esp-3); height: 48px; box-sizing: border-box;
+      padding: 0 var(--esp-3); height: 48px; box-sizing: border-box; overflow: hidden;
       transition: border-color var(--transicion-rapida), box-shadow var(--transicion-rapida);
     }
     .campo-contenedor:focus-within {
@@ -49,6 +49,16 @@ import { environment } from '../../../environments/environment';
     .input-campo {
       flex: 1; width: 100%; height: 100%; border: none; outline: none; background: transparent;
       color: var(--texto); font-family: inherit; font-size: 14px;
+    }
+    .input-campo:-webkit-autofill,
+    .input-campo:-webkit-autofill:hover,
+    .input-campo:-webkit-autofill:focus,
+    .input-campo:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--superficie) inset !important;
+      box-shadow: 0 0 0 1000px var(--superficie) inset !important;
+      -webkit-text-fill-color: var(--texto) !important;
+      caret-color: var(--texto) !important;
+      transition: background-color 600000s ease-in-out 0s, color 600000s ease-in-out 0s !important;
     }
     .input-campo::placeholder { color: var(--texto-secundario); opacity: 0.65; }
     .error-texto { color: var(--error); font-size: 12px; margin-top: 4px; font-weight: 500; }

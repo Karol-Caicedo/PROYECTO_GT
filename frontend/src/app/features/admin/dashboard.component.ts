@@ -180,18 +180,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
     .label-fila { color: var(--texto-secundario); display: block; font-size: 11px; }
     .valor-horario { color: var(--azul-900); font-weight: 700; font-size: 13px; }
 
-    .recomendacion-capacitacion {
-      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radio-s);
-      padding: var(--esp-3); margin-top: var(--esp-2);
-    }
-    .rec-header {
-      display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--azul-900);
-      margin-bottom: 4px;
-    }
-    .rec-header .material-symbols-outlined { font-size: 16px; color: #d97706; }
-    .rec-texto { margin: 0 0 var(--esp-2); font-size: 12px; color: var(--texto-primario); line-height: 1.4; }
-    .btn-programar-rec { font-size: 12px; height: 32px; padding: 0 10px; }
-
     .empty-grupos {
       text-align: center; padding: var(--esp-6); background: var(--superficie);
       border: 1px dashed var(--borde); border-radius: var(--radio-m);
@@ -440,9 +428,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
                       <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
                       Desglose de dificultad por Profesor, Grupo y Horario
                     </h2>
-                    <p class="desc-grafico">
-                      Identifica qué docente y horarios concentran las dificultades para programar capacitaciones oportunas sin choques de clases.
-                    </p>
                   </div>
                 </div>
 
@@ -529,26 +514,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
                                 <span class="label-fila">Concentración en la materia:</span>
                                 <strong>{{ g.porcentajeDeDificultad }}% del total</strong>
                               </div>
-                            </div>
-
-                            <!-- Caja de recomendación para la capacitación -->
-                            <div class="recomendacion-capacitacion">
-                              <div class="rec-header">
-                                <span class="material-symbols-outlined">lightbulb</span>
-                                <span>Recomendación para capacitación</span>
-                              </div>
-                              <p class="rec-texto">
-                                Para evitar cruce de clases con este grupo ({{ g.horario }}), se sugiere programar la capacitación de refuerzo en horarios contraturno o fines de semana.
-                              </p>
-                              <a
-                                mat-stroked-button
-                                color="primary"
-                                class="btn-programar-rec"
-                                routerLink="/admin/capacitaciones"
-                              >
-                                <span class="material-symbols-outlined" style="font-size:16px; margin-right:4px">add_task</span>
-                                Programar capacitación
-                              </a>
                             </div>
                           </div>
                         </div>
