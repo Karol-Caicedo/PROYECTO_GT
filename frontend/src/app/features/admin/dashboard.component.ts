@@ -40,7 +40,7 @@ export interface DesgloseAsignatura {
 
 type TipoDashboard = 'temas' | 'materias';
 type GraficoTemas = 'top' | 'tasa' | 'calor' | 'comparativo';
-type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
+type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'comparativo';
 
 @Component({
   selector: 'app-dashboard',
@@ -546,27 +546,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'calor' | 'comparativo';
               </mat-card-content></mat-card>
             }
 
-            @case ('calor') {
-              <mat-card class="mt grafico-entrada"><mat-card-content>
-                <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span>Mapa de calor de dificultades: Asignatura × Semestre</h2>
-                <p class="desc-grafico">Concentración de dificultades académicas por materia a través de los semestres.</p>
-                @if (heatFilasMaterias().length) {
-                  <div style="overflow:auto"><table class="tabla-calor">
-                    <tr><th scope="col">Asignatura</th>@for (s of [1,2,3,4,5,6,7,8,9]; track s) { <th scope="col">S{{s}}</th> }</tr>
-                    @for (asig of heatFilasMaterias(); track asig) {
-                      <tr><td>{{ asig }}</td>
-                        @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-                          <td><div class="celda-calor" [style.background]="celdaMaterias(asig, s).fondo" [style.color]="celdaMaterias(asig, s).texto">{{ heatMaterias()[asig]?.[s] ?? 0 }}</div></td>
-                        }</tr>
-                    }
-                  </table></div>
-                  <div class="leyenda-calor" aria-hidden="true"><span>Menos dificultad</span><span class="barra"></span><span>Mayor dificultad</span></div>
-                } @else {
-                  <p class="texto-secundario">Aún no hay datos de dificultad registrados para la matriz.</p>
-                }
-              </mat-card-content></mat-card>
-            }
-
             @case ('comparativo') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
                 <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">show_chart</span>Comparativo de asignatura entre periodos</h2>
@@ -630,14 +609,12 @@ export class DashboardComponent implements OnInit {
   topMaterias = signal<{ asignaturaId: string; nombre: string; semestre: number; valor: number; promedioSatisfaccion: number }[]>([]);
   satisfaccionMaterias = signal<{ asignaturaId: string; nombre: string; semestre: number; promedio: number }[]>([]);
   tasaMaterias = signal<{ semestre: number; respondieron: number; total: number; tasa: number }[]>([]);
-  heatMaterias = signal<Record<string, Record<number, number>>>({});
   compMaterias = signal<{ periodo: string; promedio: number; dificultadCount: number }[]>([]);
   graficoMaterias = signal<GraficoMaterias>('top');
   opcionesGraficoMaterias: { id: GraficoMaterias; texto: string }[] = [
     { id: 'top', texto: 'Top 5 dificultad reportada' },
     { id: 'desglose', texto: 'Desglose por Docente, Grupo y Horario' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
-    { id: 'calor', texto: 'Mapa de calor Asignatura × Semestre' },
     { id: 'comparativo', texto: 'Comparativo entre periodos' },
   ];
 
@@ -712,20 +689,11 @@ export class DashboardComponent implements OnInit {
     };
   };
 
-  heatFilasMaterias = () => Object.keys(this.heatMaterias());
-
   maxCalor(): number {
     return Math.max(1, ...Object.values(this.heat()).flatMap((r) => Object.values(r)));
   }
   celda(tema: string, s: number) {
     return colorMapaCalor(this.heat()[tema]?.[s], this.maxCalor());
-  }
-
-  maxCalorMaterias(): number {
-    return Math.max(1, ...Object.values(this.heatMaterias()).flatMap((r) => Object.values(r)));
-  }
-  celdaMaterias(asig: string, s: number) {
-    return colorMapaCalor(this.heatMaterias()[asig]?.[s], this.maxCalorMaterias());
   }
 
   async ngOnInit() {
@@ -805,18 +773,16 @@ export class DashboardComponent implements OnInit {
     this.fallo.set(false);
     try {
       const q = this.qs();
-      const [top, tasa, heat, satisfaccion, resumen] = await Promise.all([
+      const [top, tasa, satisfaccion, resumen] = await Promise.all([
         this.http.get<{ items: { asignaturaId: string; nombre: string; semestre: number; valor: number; promedioSatisfaccion: number }[] }>(`${this.api}/dashboard-materias/top-asignaturas${q}`).toPromise().catch(() => null),
         this.http.get<{ porSemestre: { semestre: number; respondieron: number; total: number; tasa: number }[] }>(`${this.api}/dashboard-materias/tasa-respuesta${q}`).toPromise().catch(() => null),
-        this.http.get<{ matriz: Record<string, Record<number, number>> }>(`${this.api}/dashboard-materias/heatmap${q}`).toPromise().catch(() => null),
         this.http.get<{ items: { asignaturaId: string; nombre: string; semestre: number; promedio: number }[] }>(`${this.api}/dashboard-materias/satisfaccion${q}`).toPromise().catch(() => null),
         this.http.get<{ totalRespuestas: number; totalEstudiantes: number; tasaGlobal: number; top1: { nombre: string; valor: number } | null }>(`${this.api}/dashboard-materias/resumen${q}`).toPromise().catch(() => null),
       ]);
 
-      if (!top || !tasa || !heat || !satisfaccion || !resumen) { this.fallo.set(true); return; }
+      if (!top || !tasa || !satisfaccion || !resumen) { this.fallo.set(true); return; }
       this.topMaterias.set(top.items || []);
       this.tasaMaterias.set(tasa.porSemestre || []);
-      this.heatMaterias.set(heat.matriz || {});
       this.satisfaccionMaterias.set(satisfaccion.items || []);
       this.resumenMaterias.set(resumen);
 

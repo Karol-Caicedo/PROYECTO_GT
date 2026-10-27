@@ -63,11 +63,18 @@ export interface Asignatura {
       display: flex; justify-content: space-between; align-items: center;
       padding: var(--esp-2) var(--esp-3); background: var(--superficie);
       border-radius: var(--radio-s); border: 1px solid var(--borde); margin-bottom: var(--esp-2);
+      transition: all var(--transicion-rapida);
+    }
+    .grupo-item.grupo-item-editando {
+      border-color: var(--azul-500);
+      background: var(--azul-50);
     }
     .grupo-item-info { display: flex; flex-direction: column; gap: 2px; }
     .grupo-badge { font-weight: 700; color: var(--azul-900); font-size: 13px; }
     .grupo-profesor { font-size: 13px; color: var(--texto-primario); font-weight: 600; }
     .grupo-horario { font-size: 12px; color: var(--texto-secundario); }
+    .grupo-item-acciones { display: flex; align-items: center; gap: 2px; }
+    .btn-editar-grupo { color: var(--azul-700); }
   `],
   template: `
     <div class="pagina">
@@ -134,8 +141,20 @@ export interface Asignatura {
                   </button>
                 </div>
 
-                <!-- Formulario agregar nuevo grupo -->
+                <!-- Formulario agregar o editar grupo -->
                 <form [formGroup]="formGrupo" (ngSubmit)="guardarGrupo()" style="margin-bottom:var(--esp-4)">
+                  @if (editandoGrupoId()) {
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--esp-2); padding:var(--esp-1) var(--esp-2); background:var(--azul-100); border-radius:var(--radio-s)">
+                      <small style="color:var(--azul-900); font-weight:600; display:flex; align-items:center; gap:4px">
+                        <span class="material-symbols-outlined" style="font-size:16px">edit</span>
+                        Editando grupo
+                      </small>
+                      <button mat-button type="button" (click)="cancelarEdicionGrupo()" style="font-size:12px; min-height:28px; line-height:28px; padding:0 8px">
+                        Cancelar
+                      </button>
+                    </div>
+                  }
+
                   <mat-form-field class="full-width" subscriptSizing="dynamic" style="margin-bottom:var(--esp-2)">
                     <mat-label>Profesor / Docente</mat-label>
                     <input matInput formControlName="profesor" placeholder="Ej. Prof. Lucio Pérez" />
@@ -148,7 +167,7 @@ export interface Asignatura {
                     </mat-form-field>
 
                     <button mat-flat-button color="primary" [disabled]="formGrupo.invalid || guardandoGrupo()" style="height:56px">
-                      {{ guardandoGrupo() ? 'Guardando...' : '+ Añadir grupo' }}
+                      {{ guardandoGrupo() ? 'Guardando...' : (editandoGrupoId() ? 'Actualizar' : '+ Añadir grupo') }}
                     </button>
                   </div>
 
@@ -167,14 +186,19 @@ export interface Asignatura {
                   <p class="texto-secundario" style="font-size:13px">Aún no hay grupos creados para esta materia.</p>
                 } @else {
                   @for (g of listaGrupos(); track g.id) {
-                    <div class="grupo-item">
+                    <div class="grupo-item" [class.grupo-item-editando]="editandoGrupoId() === g.id">
                       <div class="grupo-item-info">
                         <span class="grupo-badge">{{ g.codigoGrupo }} — <span class="grupo-profesor">{{ g.profesor }}</span></span>
                         <span class="grupo-horario">⏰ {{ g.horario }}</span>
                       </div>
-                      <button mat-icon-button color="warn" (click)="eliminarGrupo(g.id)" title="Eliminar grupo">
-                        <span class="material-symbols-outlined" style="font-size:18px">delete</span>
-                      </button>
+                      <div class="grupo-item-acciones">
+                        <button mat-icon-button (click)="editarGrupo(g)" title="Editar grupo" type="button" class="btn-editar-grupo">
+                          <span class="material-symbols-outlined" style="font-size:18px">edit</span>
+                        </button>
+                        <button mat-icon-button color="warn" (click)="eliminarGrupo(g.id)" title="Eliminar grupo" type="button">
+                          <span class="material-symbols-outlined" style="font-size:18px">delete</span>
+                        </button>
+                      </div>
                     </div>
                   }
                 }
@@ -422,6 +446,7 @@ export class AsignaturasAdminComponent implements OnInit {
   asignaturaParaGrupos = signal<Asignatura | null>(null);
   listaGrupos = signal<Grupo[]>([]);
   guardandoGrupo = signal<boolean>(false);
+  editandoGrupoId = signal<string | null>(null);
 
   formGrupo = this.fb.group({
     profesor: ['', [Validators.required, Validators.maxLength(150)]],
@@ -429,11 +454,26 @@ export class AsignaturasAdminComponent implements OnInit {
     horario: ['', [Validators.required, Validators.maxLength(150)]],
   });
 
+  editarGrupo(g: Grupo) {
+    this.editandoGrupoId.set(g.id);
+    this.formGrupo.patchValue({
+      profesor: g.profesor,
+      codigoGrupo: g.codigoGrupo,
+      horario: g.horario,
+    });
+  }
+
+  cancelarEdicionGrupo() {
+    this.editandoGrupoId.set(null);
+    this.formGrupo.reset({ profesor: '', codigoGrupo: '', horario: '' });
+  }
+
   async seleccionarParaGrupos(a: Asignatura) {
     if (this.asignaturaParaGrupos()?.id === a.id) {
       this.cerrarPanelGrupos();
       return;
     }
+    this.cancelarEdicionGrupo();
     this.asignaturaParaGrupos.set(a);
     await this.cargarGrupos(a.id);
   }
@@ -441,7 +481,7 @@ export class AsignaturasAdminComponent implements OnInit {
   cerrarPanelGrupos() {
     this.asignaturaParaGrupos.set(null);
     this.listaGrupos.set([]);
-    this.formGrupo.reset({ profesor: '', codigoGrupo: '', horario: '' });
+    this.cancelarEdicionGrupo();
   }
 
   async cargarGrupos(asigId: string) {
@@ -460,17 +500,29 @@ export class AsignaturasAdminComponent implements OnInit {
     this.guardandoGrupo.set(true);
     try {
       const { profesor, codigoGrupo, horario } = this.formGrupo.value;
-      await this.http.post(`${this.api}/asignaturas/${asig.id}/grupos`, {
-        profesor,
-        codigoGrupo,
-        horario,
-      }).toPromise();
-      this.ui.exito('Grupo agregado exitosamente.');
-      this.formGrupo.reset({ profesor: '', codigoGrupo: '', horario: '' });
+      const gid = this.editandoGrupoId();
+
+      if (gid) {
+        await this.http.patch(`${this.api}/asignaturas/grupos/${gid}`, {
+          profesor,
+          codigoGrupo,
+          horario,
+        }).toPromise();
+        this.ui.exito('Grupo actualizado exitosamente.');
+      } else {
+        await this.http.post(`${this.api}/asignaturas/${asig.id}/grupos`, {
+          profesor,
+          codigoGrupo,
+          horario,
+        }).toPromise();
+        this.ui.exito('Grupo agregado exitosamente.');
+      }
+
+      this.cancelarEdicionGrupo();
       await this.cargarGrupos(asig.id);
       await this.cargar();
     } catch {
-      this.ui.error('No se pudo guardar el grupo.');
+      this.ui.error(this.editandoGrupoId() ? 'No se pudo actualizar el grupo.' : 'No se pudo guardar el grupo.');
     } finally {
       this.guardandoGrupo.set(false);
     }
@@ -489,6 +541,9 @@ export class AsignaturasAdminComponent implements OnInit {
     try {
       await this.http.delete(`${this.api}/asignaturas/grupos/${grupoId}`).toPromise();
       this.ui.exito('Grupo eliminado.');
+      if (this.editandoGrupoId() === grupoId) {
+        this.cancelarEdicionGrupo();
+      }
       if (asig) {
         await this.cargarGrupos(asig.id);
         await this.cargar();
