@@ -277,7 +277,7 @@ export class EncuestaComponent implements OnInit {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (modo === 'seleccion' && Array.isArray(data.elegidos) && data.elegidos.length) {
+      if (modo === 'seleccion' && Array.isArray(data.elegidos)) {
         this.elegidos.set(data.elegidos);
       } else if (modo === 'calificacion' && data.calif && Object.keys(data.calif).length) {
         this.calif.set(data.calif);

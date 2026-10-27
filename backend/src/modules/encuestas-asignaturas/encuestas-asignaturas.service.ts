@@ -146,7 +146,8 @@ export class EncuestasAsignaturasService {
       }
 
       if (itemsDeseados.length === 0) {
-        throw new BadRequestException('Debes seleccionar al menos una materia que estés cursando');
+        await inscripciones.delete({ usuarioId: userId, periodoId: periodo.id });
+        return periodo.id;
       }
 
       const uniqueIds = itemsDeseados.map((i) => i.asignaturaId);

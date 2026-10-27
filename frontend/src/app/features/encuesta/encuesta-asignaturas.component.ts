@@ -616,6 +616,11 @@ export class EncuestaAsignaturasComponent implements OnInit {
 
   private readonly STORAGE_KEY = 'sigice_borrador_encuesta_asig';
 
+  private borradorKey(): string {
+    const pid = this.estado()?.periodo?.id || 'activo';
+    return `sigice_borrador_asig_${pid}`;
+  }
+
   async ngOnInit() {
     await this.cargarEstado();
   }
@@ -627,7 +632,25 @@ export class EncuestaAsignaturasComponent implements OnInit {
       this.estado.set(res || null);
 
       if (res) {
-        const setInscritos = new Set(res.inscripcionIds || []);
+        let idsParaSeleccion: string[] = res.inscripcionIds || [];
+        let borradorEvaluacion: Record<string, ItemEvaluacion> | null = null;
+
+        // Cargar borrador local si el estudiante no ha enviado la encuesta
+        if (!res.yaRespondio) {
+          const raw = localStorage.getItem(this.borradorKey()) || localStorage.getItem(this.STORAGE_KEY);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.inscripcionIds && Array.isArray(parsed.inscripcionIds)) {
+                // Si el usuario modificó localmente sus materias, respetar esa selección
+                idsParaSeleccion = parsed.inscripcionIds;
+              }
+              borradorEvaluacion = parsed.evaluacion || parsed;
+            } catch { /* noop */ }
+          }
+        }
+
+        const setInscritos = new Set(idsParaSeleccion);
         this.inscripcionesSeleccionadas.set(setInscritos);
 
         // Si ya tiene materias inscritas y no ha respondido, pasar a evaluación directamente
@@ -649,23 +672,17 @@ export class EncuestaAsignaturasComponent implements OnInit {
           };
         }
 
-        // Cargar borrador si existe
-        if (!res.yaRespondio) {
-          const guardado = localStorage.getItem(this.STORAGE_KEY);
-          if (guardado) {
-            try {
-              const p = JSON.parse(guardado);
-              for (const a of res.todasAsignaturas || []) {
-                if (p[a.id]) {
-                  inicial[a.id] = {
-                    ...inicial[a.id],
-                    grupoId: p[a.id].grupoId !== undefined ? p[a.id].grupoId : inicial[a.id].grupoId,
-                    tieneDificultad: !!p[a.id].tieneDificultad,
-                    nivelSatisfaccion: Number(p[a.id].nivelSatisfaccion) || 3,
-                  };
-                }
-              }
-            } catch { /* noop */ }
+        // Cargar estado de borrador sobre evaluaciones
+        if (!res.yaRespondio && borradorEvaluacion) {
+          for (const a of res.todasAsignaturas || []) {
+            if (borradorEvaluacion[a.id]) {
+              inicial[a.id] = {
+                ...inicial[a.id],
+                grupoId: borradorEvaluacion[a.id].grupoId !== undefined ? borradorEvaluacion[a.id].grupoId : inicial[a.id].grupoId,
+                tieneDificultad: !!borradorEvaluacion[a.id].tieneDificultad,
+                nivelSatisfaccion: 3,
+              };
+            }
           }
         }
 
@@ -688,14 +705,40 @@ export class EncuestaAsignaturasComponent implements OnInit {
   }
 
 
-  toggleSeleccionMateria(asigId: string) {
+  async toggleSeleccionMateria(asigId: string) {
     const s = new Set(this.inscripcionesSeleccionadas());
+    const mapa = { ...this.evaluacion() };
+
     if (s.has(asigId)) {
       s.delete(asigId);
+      // Al deseleccionar la materia, limpiar también su estado de dificultad y grupo asignado
+      if (mapa[asigId]) {
+        mapa[asigId] = {
+          ...mapa[asigId],
+          tieneDificultad: false,
+          grupoId: null,
+        };
+      }
     } else {
       s.add(asigId);
     }
+
     this.inscripcionesSeleccionadas.set(s);
+    this.evaluacion.set(mapa);
+    this.guardarBorrador();
+
+    // Sincronizar inmediatamente con la base de datos para que al refrescar o salir persista la deselección
+    await this.sincronizarInscripcionesBackend();
+  }
+
+  private async sincronizarInscripcionesBackend() {
+    if (this.estado()?.yaRespondio) return;
+    const ids = Array.from(this.inscripcionesSeleccionadas());
+    try {
+      await this.http.post(`${this.api}/encuestas-asignaturas/inscripciones`, { asignaturaIds: ids }).toPromise();
+    } catch {
+      // Ignorar fallos de sincronización silenciosa
+    }
   }
 
   irAEvaluacion() {
@@ -729,12 +772,18 @@ export class EncuestaAsignaturasComponent implements OnInit {
   private guardarBorrador() {
     if (this.estado()?.yaRespondio) return;
     try {
+      const data = {
+        inscripcionIds: Array.from(this.inscripcionesSeleccionadas()),
+        evaluacion: this.evaluacion(),
+      };
+      localStorage.setItem(this.borradorKey(), JSON.stringify(data));
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.evaluacion()));
     } catch { /* noop */ }
   }
 
   private limpiarBorrador() {
     try {
+      localStorage.removeItem(this.borradorKey());
       localStorage.removeItem(this.STORAGE_KEY);
     } catch { /* noop */ }
   }
