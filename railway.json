@@ -5,6 +5,9 @@
     "buildCommand": "npm run install:all && npm run build"
   },
   "deploy": {
+    "preDeployCommand": [
+      "MIGRATE_CONFIRM=YES npm run migrate:prod"
+    ],
     "startCommand": "npm --prefix backend run start:prod",
     "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE",

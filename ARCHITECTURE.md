@@ -152,9 +152,10 @@ src/app/
 - Pruebas backend: unitarias con mocks y una suite de integración contra
   PostgreSQL real.
 - No hay lint/formateo configurado ni pruebas frontend.
-- Las migraciones se aplican al arrancar solo fuera de producción. En producción
-  se ejecutan manualmente con `MIGRATE_CONFIRM=YES`; el seed es aprovisionamiento
-  manual y nunca corre en cada despliegue.
+- `migrationsRun` se aplica al arrancar solo fuera de producción. Railway ejecuta
+  el runner protegido con `MIGRATE_CONFIRM=YES` en el pre-deploy, antes de iniciar
+  la nueva versión; se aplican todas las pendientes. El seed sigue siendo
+  aprovisionamiento manual y nunca corre en cada despliegue.
 - Los cambios de esquema se crean en `backend/src/migrations/` y se registran en
   `backend/src/data-source.ts`.
 - Las entidades nuevas se registran en `app.module.ts`, `data-source.ts` y

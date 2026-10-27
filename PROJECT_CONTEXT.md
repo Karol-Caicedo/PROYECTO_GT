@@ -98,9 +98,10 @@ Sin periodo activo, la encuesta no está disponible.
 - Las operaciones multitabla usan transacciones; la activación de periodos usa
   bloqueo `NOWAIT` y devuelve 409 ante contención. Si falla la BD tras guardar una
   imagen de capacitación, el archivo recién escrito se elimina.
-- Las migraciones y el seed no se ejecutan automáticamente en producción; el
-  arranque fuerza `NODE_ENV=production` y la migración exige
-  `MIGRATE_CONFIRM=YES`.
+- En producción `migrationsRun` está desactivado durante el arranque. Railway
+  ejecuta las migraciones pendientes en el pre-deploy mediante el runner
+  protegido con `MIGRATE_CONFIRM=YES`; el seed es manual y nunca corre en cada
+  despliegue.
 - Los logs no incluyen contraseñas, tokens, códigos SSO, correos ni HTML de
   correos; las auditorías de dependencias de producción deben quedar en cero.
 

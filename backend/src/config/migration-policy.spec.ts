@@ -21,7 +21,7 @@ describe('C-04 política de migraciones', () => {
     expect(migracionesAutomaticasHabilitadas(new ConfigService(env))).toBe(esperado);
   });
 
-  test('el runner manual exige MIGRATE_CONFIRM=YES', () => {
+  test('el runner protegido exige MIGRATE_CONFIRM=YES', () => {
     expect(() => confirmarMigracion(undefined)).toThrow(/MIGRATE_CONFIRM=YES/);
     expect(() => confirmarMigracion('yes')).not.toThrow();
     expect(() => confirmarMigracion('YES')).not.toThrow();
@@ -44,11 +44,14 @@ describe('C-04 política de migraciones', () => {
     expect(seed).not.toContain('runMigrations');
   });
 
-  test('el runner manual está separado del arranque normal', () => {
+  test('Railway ejecuta el runner protegido antes de iniciar la app', () => {
     const packageJson = JSON.parse(readFileSync(join(BACKEND_SRC, '..', 'package.json'), 'utf8'));
+    const railway = JSON.parse(readFileSync(join(BACKEND_SRC, '..', '..', 'railway.json'), 'utf8'));
     expect(packageJson.scripts['migration:run:guarded']).toContain('migrate-guarded');
     expect(packageJson.scripts.start).not.toContain('migrate');
     expect(packageJson.scripts['start:prod']).toContain('NODE_ENV=production');
     expect(packageJson.scripts['start:prod']).not.toContain('migrate');
+    expect(railway.deploy.preDeployCommand).toContain('MIGRATE_CONFIRM=YES npm run migrate:prod');
+    expect(railway.deploy.startCommand).toBe('npm --prefix backend run start:prod');
   });
 });
