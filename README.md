@@ -46,8 +46,11 @@ Usuarios de prueba (los crea el seed, configurables en `.env`):
 | Admin (Proyección Social) | `admin@unipacifico.edu.co`      | `C0{ABX3Yk4qxs`      | Gestiona periodos, temas, capacitaciones y ve el dashboard |
 | Estudiante demo           | `estudiante@unipacifico.edu.co` | `55W922^+nlXS` | Semestre 5; responde la encuesta y ve sus capacitaciones   |
 
-> Cambia las claves en producción con `ADMIN_PASSWORD` y
-> `ESTUDIANTE_PASSWORD` en el `.env` antes del primer `npm run seed`.
+> Estas credenciales son solo para desarrollo local y se usan al crear las
+> cuentas por primera vez. Para producción, configura `ADMIN_PASSWORD` como un
+> secreto fuerte y único en Railway antes de ejecutar `seed:prod`; no reutilices
+> la clave de demostración del README. El seed no cambia la contraseña de un
+> administrador que ya existe.
 
 > El primer arranque tarda unos minutos (instalación de dependencias).
 > Para detener todo: `Ctrl+C` en la terminal del `npm run dev`.
@@ -128,7 +131,7 @@ configuración; `Root Directory` en la raíz del repo):
   esperado detrás del proxy de Railway.
 - En producción el seed exige `ADMIN_PASSWORD` si aún no existe el admin, omite
   el estudiante demo por defecto (`SEED_DEMO_STUDENT=false`) y rechaza claves de
-  demostración.
+  demostración, incluida la publicada para desarrollo local en este README.
 - Para que los logos/imágenes de capacitaciones sobrevivan a despliegues,
   agrega un **Volume** montado en `/app/uploads` y define
   `UPLOADS_DIR=/app/uploads`.

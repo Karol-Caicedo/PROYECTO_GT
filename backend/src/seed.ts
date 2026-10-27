@@ -80,7 +80,7 @@ async function main() {
   if (!admin) {
     const adminPass = produccion
       ? validarClaveProduccion('ADMIN_PASSWORD', process.env.ADMIN_PASSWORD)
-      : process.env.ADMIN_PASSWORD || 'Admin123*';
+      : process.env.ADMIN_PASSWORD || 'C0{ABX3Yk4qxs';
     admin = await users.save(
       users.create({
         correo: adminEmail,

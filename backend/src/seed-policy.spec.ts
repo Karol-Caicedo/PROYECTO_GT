@@ -11,7 +11,7 @@ describe('C-03 política de seed en producción', () => {
     expect(esProduccion(argv, nodeEnv)).toBe(esperado);
   });
 
-  test.each([undefined, '', 'corta', 'Admin123*', 'Estudiante123*'])(
+  test.each([undefined, '', 'corta', 'Admin123*', 'Estudiante123*', 'C0{ABX3Yk4qxs'])(
     'rechaza la clave de administrador %p en producción',
     (clave) => {
       expect(() => validarClaveProduccion('ADMIN_PASSWORD', clave)).toThrow(/ADMIN_PASSWORD/);
