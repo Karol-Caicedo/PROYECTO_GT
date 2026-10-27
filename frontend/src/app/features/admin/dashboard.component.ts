@@ -40,7 +40,7 @@ export interface DesgloseAsignatura {
 
 type TipoDashboard = 'temas' | 'materias';
 type GraficoTemas = 'top' | 'tasa' | 'calor' | 'comparativo';
-type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'comparativo';
+type GraficoMaterias = 'desglose' | 'tasa' | 'comparativo';
 
 @Component({
   selector: 'app-dashboard',
@@ -377,49 +377,6 @@ type GraficoMaterias = 'top' | 'desglose' | 'tasa' | 'comparativo';
           </div>
 
           @switch (graficoMaterias()) {
-            @case ('top') {
-              <mat-card class="mt grafico-entrada"><mat-card-content>
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:var(--esp-2)">
-                  <div>
-                    <h2 class="titulo-grafico"><span class="material-symbols-outlined" aria-hidden="true">warning</span>Top 5 de asignaturas con dificultad reportada</h2>
-                    <p class="desc-grafico">Materias donde los estudiantes han solicitado mayor apoyo y refuerzo académico.</p>
-                  </div>
-                  @if (topMaterias().length) {
-                    <span class="chip-info-docente">
-                      <span class="material-symbols-outlined" style="font-size:16px">info</span>
-                      Haz clic en una materia para ver qué profesor y horario la dictan
-                    </span>
-                  }
-                </div>
-
-                @if (topMaterias().length) {
-                  <div class="grafico alto"><canvas baseChart [data]="topMateriasData()" [options]="hbar" [type]="'bar'"></canvas></div>
-
-                  <!-- Accesos directos para desglose de cada asignatura del Top -->
-                  <div class="seccion-drilldown-top">
-                    <span class="titulo-drilldown">Profundizar por docente y horarios:</span>
-                    <div class="pills-top-materias">
-                      @for (t of topMaterias(); track t.asignaturaId) {
-                        <button
-                          type="button"
-                          class="pill-materia"
-                          [class.activa]="asigDesgloseSeleccionada() === t.asignaturaId"
-                          (click)="seleccionarMateriaParaDesglose(t.asignaturaId)"
-                          title="Inspeccionar qué docentes y horarios imparten esta materia"
-                        >
-                          <span class="pill-nombre">{{ t.nombre }}</span>
-                          <span class="pill-badge">{{ t.valor }} reportes</span>
-                          <span class="material-symbols-outlined icono-flecha">arrow_forward</span>
-                        </button>
-                      }
-                    </div>
-                  </div>
-                } @else {
-                  <p class="texto-secundario">Aún no hay reportes de dificultad registrados en las asignaturas para este filtro.</p>
-                }
-              </mat-card-content></mat-card>
-            }
-
             @case ('desglose') {
               <mat-card class="mt grafico-entrada"><mat-card-content>
                 <div class="header-desglose-seccion">
@@ -610,9 +567,8 @@ export class DashboardComponent implements OnInit {
   satisfaccionMaterias = signal<{ asignaturaId: string; nombre: string; semestre: number; promedio: number }[]>([]);
   tasaMaterias = signal<{ semestre: number; respondieron: number; total: number; tasa: number }[]>([]);
   compMaterias = signal<{ periodo: string; promedio: number; dificultadCount: number }[]>([]);
-  graficoMaterias = signal<GraficoMaterias>('top');
+  graficoMaterias = signal<GraficoMaterias>('desglose');
   opcionesGraficoMaterias: { id: GraficoMaterias; texto: string }[] = [
-    { id: 'top', texto: 'Top 5 dificultad reportada' },
     { id: 'desglose', texto: 'Desglose por Docente, Grupo y Horario' },
     { id: 'tasa', texto: 'Tasa de respuesta por semestre' },
     { id: 'comparativo', texto: 'Comparativo entre periodos' },
@@ -650,10 +606,6 @@ export class DashboardComponent implements OnInit {
   tasaGlobal = () => this.resumen()?.tasaGlobal ?? 0;
 
   // Data bindings Materias
-  topMateriasData = () => ({
-    labels: this.topMaterias().map((t) => t.nombre),
-    datasets: [{ label: 'Reportes de dificultad', data: this.topMaterias().map((t) => t.valor), backgroundColor: '#f59e0b', borderRadius: 6 }],
-  });
   satisfaccionMateriasData = () => ({
     labels: this.satisfaccionMaterias().map((s) => s.nombre),
     datasets: [{ label: 'Promedio de satisfacción (1 a 5)', data: this.satisfaccionMaterias().map((s) => s.promedio), backgroundColor: GRAFICOS.azul, borderRadius: 6 }],
