@@ -1,0 +1,1 @@
+var o=typeof window<"u"&&window.location.hostname==="localhost"&&window.location.port==="4200",t={production:!o,apiUrl:o?"http://localhost:3000/api":"https://proyectogtbackend-production.up.railway.app/api"};export{t as a};
